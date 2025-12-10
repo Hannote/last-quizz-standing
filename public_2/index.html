@@ -1,0 +1,2083 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>Last Quizz Standing - Lobby</title>
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        /* Retour à 'contain' : Image entière, ratio respecté, bandes noires possibles */
+        background: url("page_daccueil.jpeg") center center / contain no-repeat fixed;
+        background-color: #000; /* Fond noir pour combler les vides */
+        color: #f5f5f5;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 620px;
+        padding: 16px;
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: 8px;
+        font-size: 1.8rem;
+      }
+
+      .subtitle {
+        text-align: center;
+        font-size: 0.9rem;
+        margin-bottom: 24px;
+        color: #ccc;
+      }
+
+      .card {
+        background: rgba(0, 0, 0, 0.8);
+        border-radius: 16px;
+        padding: 16px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+      }
+
+      label {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 0.9rem;
+      }
+
+      input {
+        width: 100%;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        border-radius: 10px;
+        border: none;
+        outline: none;
+        font-size: 1rem;
+        background: #222;
+        color: #f5f5f5;
+      }
+
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .row > div {
+        flex: 1;
+        min-width: 120px;
+      }
+
+      button {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 999px;
+        border: none;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 8px;
+      }
+
+      .btn-primary {
+        background: #ffcc00;
+        color: #222;
+      }
+
+      .btn-secondary {
+        background: #444;
+        color: #f5f5f5;
+      }
+
+      .btn-danger {
+        background: #ff4b4b;
+        color: #fff;
+      }
+
+      .btn-outline {
+        background: transparent;
+        border: 1px solid #ffcc00;
+        color: #ffcc00;
+      }
+
+      .error {
+        margin-top: 8px;
+        color: #ff8a8a;
+        font-size: 0.9rem;
+        min-height: 1.2em;
+      }
+
+      /* Écrans */
+      .screen {
+        display: none;
+      }
+
+      .screen.active {
+        display: block;
+      }
+
+      .room-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        background: #333;
+      }
+
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      li {
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.04);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+      }
+
+      .player-name {
+        font-weight: 500;
+      }
+
+      .player-status {
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }
+
+      .tag-host {
+        background: #ffcc00;
+        color: #222;
+        border-radius: 999px;
+        padding: 2px 6px;
+        font-size: 0.7rem;
+        margin-left: 4px;
+      }
+
+      .main-zone {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.7); /* plus d'image ici */
+        min-height: 170px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+
+      .main-zone-overlay {
+        background: rgba(0, 0, 0, 0.78);
+        padding: 16px;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 960px; /* largeur max du panneau */
+        margin: 0 auto; /* centré */
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      /* Bloc règles mini-jeu */
+
+      .rules-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 10px;
+      }
+
+      .rules-logo {
+        width: 130px;
+        height: 130px;
+        border-radius: 16px;
+        background: #ffffff;
+        padding: 8px;
+        object-fit: contain;
+        box-shadow: 0 0 16px rgba(0, 0, 0, 0.8);
+      }
+
+      .rules-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+      }
+
+      .rules-text {
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+        text-align: left;
+      }
+
+      .rules-ready-section {
+        margin-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        padding-top: 8px;
+      }
+
+      .ready-list {
+        font-size: 0.85rem;
+        text-align: left;
+      }
+
+      .ready-pill {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        margin-left: 4px;
+      }
+
+      .ready-pill.ok {
+        background: #2ecc71;
+        color: #111;
+      }
+
+      .ready-pill.wait {
+        background: #e67e22;
+        color: #111;
+      }
+
+      /* Bloc tirage au sort */
+
+      .draw-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+
+      .draw-subtitle {
+        font-size: 0.85rem;
+        opacity: 0.85;
+        margin-top: 4px;
+      }
+
+      .draw-game-label {
+        margin-top: 8px;
+        font-size: 0.95rem;
+        font-weight: 600;
+      }
+
+      /* Bloc mini-jeu "Qui veut gagner des leugtas" */
+
+      .playing-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+        text-align: center;
+      }
+
+      .playing-question {
+        font-size: 0.95rem;
+        margin-top: 4px;
+        text-align: left;
+      }
+
+      .playing-choices {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .playing-choice-btn {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 999px;
+        border: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        background: #333;
+        color: #f5f5f5;
+      }
+
+      .choice-hidden {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      .choice-visible {
+        opacity: 1;
+        transform: translateY(0);
+        transition: opacity 0.75s ease-out, transform 0.75s ease-out;
+      }
+
+      .playing-choice-btn:hover {
+        filter: brightness(1.1);
+      }
+
+      .playing-choice-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+
+      .playing-feedback {
+        margin-top: 8px;
+        font-size: 0.9rem;
+        min-height: 1.2rem;
+      }
+
+      .playing-feedback.good {
+        color: #2ecc71;
+      }
+
+      .playing-feedback.bad {
+        color: #ff8a8a;
+      }
+
+      /* Bac à sable */
+
+      .sandbox {
+        margin-top: 8px;
+        padding: 8px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        font-size: 0.85rem;
+      }
+
+      .sandbox-title {
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+
+      .sandbox-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 4px 0;
+      }
+
+      .sandbox-select {
+        width: 100%;
+        padding: 6px 8px;
+        border-radius: 8px;
+        border: none;
+        background: #222;
+        color: #f5f5f5;
+        font-size: 0.85rem;
+      }
+
+      .sandbox-hint {
+        margin-top: 4px;
+        font-size: 0.75rem;
+        opacity: 0.8;
+      }
+
+      @media (max-width: 480px) {
+        h1 {
+          font-size: 1.4rem;
+        }
+        .card {
+          padding: 12px;
+        }
+        .rules-header {
+          gap: 10px;
+        }
+        .rules-logo {
+          width: 115px;
+          height: 115px;
+        }
+      }
+      /* Mode plateau de jeu plein écran */
+      body.playing-mode {
+        background: url("last_quizz_standing.jpeg") center center / cover
+          no-repeat fixed;
+      }
+
+      body.playing-mode .container {
+        max-width: 1100px;
+      }
+
+      body.playing-mode #screen-room {
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+        border-radius: 0;
+      }
+
+      body.playing-mode #room-upper {
+        display: none;
+      }
+
+      body.playing-mode .main-zone {
+        padding: 40px 16px;
+        min-height: 75vh;
+      }
+
+      body.playing-mode .main-zone-overlay {
+        background: rgba(0, 0, 0, 0.82);
+        max-width: 1400px;
+        padding: 40px;
+        border-radius: 20px;
+      }
+
+      body.playing-mode .rules-title,
+      body.playing-mode .playing-title {
+        font-size: 2rem;
+      }
+
+      body.playing-mode .rules-text,
+      body.playing-mode .playing-question {
+        font-size: 1.3rem;
+        line-height: 1.6;
+      }
+
+      body.playing-mode .playing-choice-btn,
+  body.playing-mode #readyBtn {
+        font-size: 1.2rem;
+        padding: 16px 20px;
+      }
+
+      body.playing-mode h1,
+      body.playing-mode .subtitle {
+        display: none !important;
+      }
+
+      .fauxvrai-feedback {
+        order: 10;
+        margin-top: 20px;
+        margin-bottom: 10px;
+      }
+
+      .global-quit-btn {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 9999;
+        padding: 8px 16px;
+        border-radius: 999px;
+        display: none; /* caché par défaut, le JS l'affichera seulement en room */
+        width: auto; /* ne plus prendre 100% de la largeur */
+        min-width: 0; /* pas de largeur minimum forcée */
+      }
+      .fade-in {
+        animation: fadeIn 0.9s ease-out forwards;
+      }
+
+      .reveal-pulse {
+        animation: revealPulse 0.4s ease-out forwards;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes revealPulse {
+        0% {
+          transform: scale(1);
+        }
+        30% {
+          transform: scale(1.03);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      /* --- AJOUTS POUR LEADERBOARD ET FIX UI --- */
+
+      /* 1. Espace sous le score */
+      #scoreboard {
+        margin-bottom: 3rem !important;
+      }
+
+      /* 2. Fix Glitch Timer */
+      .no-transition {
+        transition: none !important;
+      }
+
+      /* 3. Overlay Classement (Glassmorphism) */
+      #leaderboard-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(10, 10, 10, 0.9);
+        backdrop-filter: blur(10px);
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        color: white;
+        font-family: sans-serif;
+      }
+
+      #leaderboard-overlay.active {
+        display: flex;
+        animation: fadeIn 0.4s ease-out;
+      }
+
+      .leaderboard-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 90%;
+        max-width: 500px;
+      }
+
+      .player-row {
+        display: flex;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 12px 20px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .rank-1 {
+        border-color: #ffd700;
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+      }
+
+      .rank-num {
+        font-weight: bold;
+        font-size: 1.4em;
+        width: 40px;
+      }
+
+      .p-name {
+        flex-grow: 1;
+        font-weight: 500;
+      }
+
+      .p-score {
+        font-weight: bold;
+        color: #4cd137;
+      }
+
+      .p-time {
+        font-weight: normal;
+        color: #33ccff;
+        font-size: 0.9em;
+        margin-left: 10px;
+        width: 60px;
+        text-align: right;
+      }
+
+      /* SÉCURITÉ INTRO : Base */
+      .btn-locked-intro,
+      .fv-intro-lock {
+        pointer-events: none !important;
+        cursor: not-allowed !important;
+        box-shadow: none !important;
+        /* On applique le grisé par défaut, MAIS... */
+        opacity: 0.5 !important;
+        filter: grayscale(100%) !important;
+      }
+
+      /* EXCEPTION LEUGTAS : Si le bouton est marqué "caché", il doit rester INVISIBLE (0%) */
+      .playing-choice-btn.choice-hidden.btn-locked-intro {
+        opacity: 0 !important;
+      }
+
+      /* EXCEPTION FAUX DU VRAI : Si le bouton est verrouillé en intro, il est INVISIBLE (0%) */
+      .fauxvrai-answer-btn.fv-intro-lock {
+        opacity: 0 !important;
+      }
+
+      .p-meta {
+        width: 40px;
+      }
+
+      .playing-timer {
+        font-size: 2rem;
+        text-align: center;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+
+      .playing-timer-bar {
+        width: 100%;
+        height: 14px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 0 auto 12px auto;
+      }
+
+      .playing-timer-bar-fill {
+        height: 100%;
+        width: 100%;
+        background: #ffcc00;
+        transition: width 0.25s linear;
+      }
+
+      /* Timer du mini-jeu "Le faux du vrai"
+         (identique à celui de Qui veut gagner des leugtas) */
+
+      .timer-number {
+        font-size: 2rem;
+        text-align: center;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+
+      .timer-bar {
+        width: 100%;
+        height: 14px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 0 auto 12px auto;
+      }
+
+      .timer-bar-fill {
+        height: 100%;
+        width: 100%;
+        background: #ffcc00;
+        transition: width 0.25s linear;
+      }
+
+      .palier-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 99999;
+      }
+
+      .palier-overlay.hidden {
+        display: none;
+      }
+
+      .palier-overlay-text {
+        font-size: 4rem;
+        font-weight: 900;
+        color: #ffcc00;
+        text-shadow: 0 0 16px rgba(255, 255, 0, 0.8);
+        animation: palierZoomFade 1.5s ease-out forwards;
+      }
+
+      @keyframes palierZoomFade {
+        /* Arrivée : 0 → 0.375s */
+        0% {
+          opacity: 0;
+          transform: scale(0.5);
+        }
+        25% {
+          opacity: 1;
+          transform: scale(1);
+        }
+
+        /* Statique : 0.375s → 1.625s (augmentation de 0.5s) */
+        83% {
+          opacity: 1;
+          transform: scale(1);
+        }
+
+        /* Départ : 1.625s → 1.5s */
+        100% {
+          opacity: 0;
+          transform: scale(1.3);
+        }
+      }
+
+        .leugtas-end-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.95);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 999999;
+        }
+
+      .leugtas-end-overlay.hidden {
+        display: none;
+      }
+
+      .leugtas-end-logo {
+        width: 240px;
+        animation: spinAndShoot 3.5s ease-out forwards;
+      }
+
+      .fauxvrai-end-logo {
+        width: 240px; /* Taille ajustée pour matcher Leugtas */
+        animation: spinAndShoot 3.5s ease-out forwards; /* Même animation que Leugtas */
+      }
+
+      @keyframes pop {
+        0% {
+          transform: scale(0.8);
+          opacity: 0;
+        }
+        70% {
+          transform: scale(1.05);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+        @keyframes spinAndShoot {
+          0% {
+            opacity: 1;
+            transform: scale(1) rotate(0deg) translate(0, 0);
+          }
+          30% {
+            transform: scale(1.1) rotate(360deg);
+          }
+
+          75% {
+            transform: scale(1.1) rotate(360deg);
+            opacity: 1;
+          }
+
+          100% {
+            opacity: 0;
+            transform: scale(0) rotate(720deg) translate(500px, -300px);
+          }
+        }
+
+      .fauxvrai-theme {
+        text-align: center;
+        font-size: 1.3rem;
+        margin-bottom: 10px;
+        text-decoration: underline;
+      }
+
+      .fauxvrai-question {
+        text-align: center;
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+        font-weight: 600;
+      }
+
+      .fauxvrai-answers {
+        width: 80%;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .fauxvrai-answer-btn {
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 999px;
+        border: none;
+        background: #333;
+        color: #f5f5f5;
+        font-size: 1.2rem;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: center;
+        user-select: none;
+        transition: all 0.25s ease;
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      .fauxvrai-answer-btn.choice-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .fauxvrai-answer-btn:hover:not(.locked) {
+        filter: brightness(1.1);
+      }
+
+      .fauxvrai-answer-btn.correct {
+        background: #2ecc71 !important;
+        animation: revealPulse 0.4s ease-out;
+      }
+
+  .fauxvrai-answer-btn.incorrect {
+        background: #e74c3c !important;
+        animation: revealPulse 0.4s ease-out;
+      }
+
+      /* --- STYLE LE BON ORDRE --- */
+      .lbo-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin: 16px 0;
+      }
+
+      .lbo-item {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 10px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 120px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .lbo-number {
+        position: absolute;
+        top: -8px;
+        left: -8px;
+        background: #ffcc00;
+        color: #222;
+        font-weight: 800;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        z-index: 2;
+      }
+
+      .lbo-img {
+        max-width: 100%;
+        max-height: 100px;
+        border-radius: 8px;
+        object-fit: cover;
+      }
+
+      .lbo-text {
+        margin-top: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-align: center;
+      }
+
+      .lbo-input {
+        width: 100%;
+        max-width: 300px;
+        padding: 12px;
+        font-size: 1.1rem;
+        text-align: center;
+        border-radius: 8px;
+        border: 2px solid #0f4c75;
+        background: #1b262c;
+        color: white;
+
+        /* --- CORRECTIF CENTRAGE --- */
+        display: block;
+        margin: 0 auto 20px auto;
+        /* -------------------------- */
+
+        outline: none;
+        transition: border-color 0.3s;
+      }
+
+      .lbo-input:focus {
+        border-color: #3282b8;
+      }
+
+      .btn-validate {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        font-weight: bold;
+      }
+
+      .btn-pass {
+        background-color: #f44336;
+        color: white;
+        border: none;
+        font-weight: bold;
+      }
+
+      .lbo-buttons-row {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 10px;
+      }
+
+      .lbo-buttons-row button {
+        width: 140px;
+        padding: 12px;
+      }
+
+      .lbo-container-flex {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+      }
+
+      #lboMainImage {
+        max-width: 100%;
+        max-height: 50vh;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+        object-fit: contain;
+      }
+
+      .correction-card img {
+        width: auto;
+        max-width: 100%;
+        height: auto;
+        max-height: 50vh;
+        min-height: 300px;
+        object-fit: contain;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+      }
+
+      .btn-grade.selected {
+        transform: scale(1.1);
+        box-shadow: 0 0 15px white;
+        border: 2px solid white;
+      }
+
+      /* --- MODE CORRECTION --- */
+      .correction-container {
+        text-align: center;
+        width: 100%;
+      }
+
+      .correction-images-row {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        gap: 20px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+
+      .correction-card {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 10px;
+        border-radius: 12px;
+        max-width: 90%;
+        width: auto;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .correction-card img {
+        width: auto;
+        max-width: 100%;
+        height: auto;
+        max-height: 50vh;
+        min-height: 300px;
+        object-fit: contain;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+      }
+
+      .correction-label {
+        font-size: 0.9rem;
+        opacity: 0.8;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .correction-answer-text {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 4px;
+      }
+
+      .player-grading-zone {
+        background: #1e1e1e;
+        border: 1px solid #333;
+        border-radius: 16px;
+        padding: 16px;
+        margin-top: 20px;
+        position: relative;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .grading-player-name {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: #ffcc00;
+      }
+
+      .grading-player-answer {
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin-bottom: 20px;
+        color: white;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 10px;
+        border-radius: 8px;
+        display: inline-block;
+        min-width: 200px;
+      }
+
+      .grading-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 10px;
+      }
+
+      .btn-grade {
+        padding: 12px 24px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+      .btn-grade:hover {
+        transform: scale(1.05);
+      }
+
+      .grade-1 {
+        background: #4caf50;
+        color: white;
+      }
+      .grade-05 {
+        background: #ffc107;
+        color: black;
+      }
+      .grade-0 {
+        background: #f44336;
+        color: white;
+      }
+
+      .grading-nav-btn {
+        background: #0f4c75;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+      .grading-nav-btn:hover {
+        background: #3282b8;
+      }
+      .nav-left {
+        left: -20px;
+      }
+      .nav-right {
+        right: -20px;
+      }
+
+      .host-only-controls.hidden-controls {
+        display: none !important;
+      }
+
+      .spectator-msg {
+        margin-top: 15px;
+        font-style: italic;
+        opacity: 0.7;
+        font-size: 0.9rem;
+      }
+
+      @keyframes revealPulse {
+        0% {
+          transform: scale(1);
+        }
+        30% {
+          transform: scale(1.05);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      /* --- NOUVEAUX STYLES FEEDBACK RÉPONSE --- */
+
+      /* Bouton sélectionné en attente (JAUNE) */
+      .btn-waiting-selected {
+        background-color: #ffcc00 !important; /* Jaune Leugtas */
+        color: #000 !important;
+        opacity: 1 !important;
+        border: 2px solid #fff !important;
+        transform: scale(1.02);
+        box-shadow: 0 0 15px rgba(255, 204, 0, 0.4);
+      }
+
+      /* Autres boutons non sélectionnés (GRISÉS) */
+      .btn-waiting-other {
+        opacity: 0.3 !important;
+        filter: grayscale(100%);
+        transform: scale(0.95);
+        pointer-events: none;
+      }
+
+      /* Texte de feedback Faux du Vrai */
+      .fauxvrai-feedback {
+        text-align: center;
+        font-size: 1rem;
+        min-height: 1.5rem;
+        margin-top: 10px;
+        font-weight: 600;
+        color: #ccc;
+      }
+    </style>
+  </head>
+
+  <body>
+    <button id="leaveRoomBtn" class="btn-danger global-quit-btn">Quitter</button>
+    <div class="container">
+      <h1>Last Quizz Standing</h1>
+      <div class="subtitle">
+        Tirage au sort du mini-jeu &amp; règles
+      </div>
+
+      <!-- Écran LOBBY -->
+      <div id="screen-lobby" class="card screen active">
+        <label for="pseudoInput">Ton pseudo</label>
+        <input
+          type="text"
+          id="pseudoInput"
+          placeholder="Ex : Toto"
+          maxlength="20"
+        />
+
+        <div class="row">
+          <div>
+            <label for="roomCodeInput">Code de salle</label>
+            <input
+              type="text"
+              id="roomCodeInput"
+              placeholder="Ex : ABCD"
+              maxlength="4"
+            />
+          </div>
+        </div>
+
+        <button id="createRoomBtn" class="btn-primary">
+          Créer une nouvelle salle
+        </button>
+        <button id="joinRoomBtn" class="btn-secondary">
+          Rejoindre une salle
+        </button>
+
+        <div id="errorLobby" class="error"></div>
+      </div>
+
+      <!-- Écran ROOM -->
+      <div id="screen-room" class="card screen">
+        <div id="room-upper">
+      <div class="room-header">
+        <div>
+          <div>Code de la salle :</div>
+          <div id="roomCodeDisplay" class="badge">----</div>
+        </div>
+      </div>
+
+        <div>
+          <div style="margin-bottom: 4px; font-size: 0.9rem">
+            Joueurs dans la salle :
+          </div>
+          <ul id="playersList"></ul>
+        </div>
+
+        <!-- État de la partie -->
+        <div style="margin-top: 12px">
+          <div style="font-size: 0.95rem; margin-bottom: 4px">
+            État de la partie :
+          </div>
+          <div
+            id="gamePhaseText"
+            style="font-size: 0.9rem; margin-bottom: 4px"
+          >
+            En attente que l'hôte lance la partie.
+          </div>
+          <div
+            id="currentMiniGameText"
+            style="font-size: 0.9rem; opacity: 0.9"
+          >
+            Aucun mini-jeu en cours.
+          </div>
+          <button
+            id="startGameBtn"
+            class="btn-primary"
+            style="margin-top: 10px"
+          >
+            Lancer la partie (hôte)
+          </button>
+
+          <!-- 🧪 Mode bac à sable (seulement visible pour l'hôte côté JS) -->
+          <div id="sandboxControls" class="sandbox" style="display: none">
+            <div class="sandbox-title">Mode bac à sable (tests)</div>
+            <label class="sandbox-label">
+              <input type="checkbox" id="sandboxToggle" />
+              Activer le bac à sable (forcer un mini-jeu)
+            </label>
+            <select
+              id="sandboxMiniGameSelect"
+              class="sandbox-select"
+            >
+              <option value="">-- Choisir un mini-jeu --</option>
+              <option value="qui_suis_je">Qui suis-je ?</option>
+              <option value="blind_test">Blind test</option>
+              <option value="le_tour_du_monde">Le tour du monde</option>
+              <option value="le_bon_ordre">Le bon ordre</option>
+              <option value="petit_bac">Le petit bac</option>
+              <option value="qui_veut_gagner_des_leugtas">
+                Qui veut gagner des leugtas ?
+              </option>
+              <option value="le_faux_du_vrai">Le faux du vrai</option>
+              <option value="les_encheres">Les enchères</option>
+            </select>
+            <div class="sandbox-hint">
+              Seul·e l'hôte voit ce bloc. En mode bac à sable, tu peux lancer un
+              mini-jeu précis, même tout·e seul·e.
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <!-- Zone principale -->
+        <div class="main-zone">
+          <div class="main-zone-overlay">
+            <!-- Contenu par défaut -->
+            <div id="main-default">
+              <div
+                style="font-size: 1rem; font-weight: 600; margin-bottom: 4px"
+              >
+                Zone de jeu
+              </div>
+              <div style="font-size: 0.9rem">
+                Ici, plus tard, on affichera les mini-jeux, les questions, les
+                éliminations...
+              </div>
+            </div>
+
+            <!-- Contenu tirage -->
+            <div id="main-drawing" class="hidden">
+              <div class="draw-title">Tirage du mini-jeu...</div>
+              <img
+                id="drawLogo"
+                class="rules-logo"
+                src=""
+                alt="Logo tirage"
+              />
+              <div id="drawGameLabel" class="draw-game-label">???</div>
+              <div class="draw-subtitle">
+                Le logo s'arrête sur le mini-jeu qui sera joué pour ce round.
+              </div>
+            </div>
+
+            <!-- Contenu règles mini-jeu -->
+            <div id="main-rules" class="hidden">
+              <div class="rules-header">
+                <img
+                  id="rulesGameLogo"
+                  class="rules-logo"
+                  src=""
+                  alt="Logo mini-jeu"
+                />
+                <div>
+                  <div class="rules-title" id="rulesGameTitle">
+                    Mini-jeu
+                  </div>
+                  <div
+                    style="font-size: 0.8rem; opacity: 0.8"
+                    id="rulesRoundInfo"
+                  >
+                    Round 1
+                  </div>
+                </div>
+              </div>
+
+              <div id="rulesGameText" class="rules-text">
+                Texte des règles...
+              </div>
+
+              <button id="readyBtn" class="btn-outline">
+                Je suis prêt·e
+              </button>
+
+              <div class="rules-ready-section">
+                <div style="font-size: 0.9rem; margin-bottom: 4px">
+                  État des joueurs :
+                </div>
+                <div id="readyPlayersList" class="ready-list"></div>
+              </div>
+            </div>
+
+            <!-- Contenu mini-jeu "Qui veut gagner des leugtas" -->
+            <div id="main-playing" class="hidden">
+              <div class="playing-title" id="playingTitle">
+                Qui veut gagner des leugtas
+              </div>
+
+              <div id="playingTimer" class="playing-timer"></div>
+              <div id="playingTimerBar" class="playing-timer-bar">
+                <div id="playingTimerBarFill" class="playing-timer-bar-fill"></div>
+              </div>
+              <div id="playing-question-number" class="playing-question-number"></div>
+
+              <div class="playing-question" id="playingQuestion">
+                Question...
+              </div>
+              <div id="playingChoices" class="playing-choices"></div>
+              <div id="playingFeedback" class="playing-feedback"></div>
+            </div>
+<div id="fauxVraiContainer" class="hidden mini-container">
+  <div class="fauxvrai-question">
+    Quelle affirmation est fausse ?
+  </div>
+
+  <div id="fauxVraiTimerNumber" class="timer-number">30</div>
+  <div class="timer-bar">
+    <div id="fauxVraiTimerFill" class="timer-bar-fill"></div>
+  </div>
+
+  <div id="fauxVraiQuestionNumber" class="playing-question-number"></div>
+
+<div id="fauxVraiAnswers" class="fauxvrai-answers">
+    </div>
+  
+  <div id="fauxVraiFeedback" class="fauxvrai-feedback"></div>
+  </div>
+
+    <div id="leBonOrdreContainer" class="hidden mini-container">
+      <div class="playing-title" style="margin-bottom: 10px;">Le Bon Ordre</div>
+      
+      <div style="text-align: center; margin-bottom: 15px;">
+        <div id="lboQuestion" class="playing-question" style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom: 5px;">
+          Question...
+        </div>
+        <div id="lboQuestionNumber" class="playing-question-number" style="opacity:0.8;"></div>
+      </div>
+
+      <div style="width: 100%; margin-bottom: 20px;">
+        <div id="lboTimerNumber" class="timer-number">45</div>
+        <div class="timer-bar">
+          <div id="lboTimerFill" class="timer-bar-fill"></div>
+        </div>
+      </div>
+
+      <div class="lbo-container-flex">
+        <div style="text-align: center; width: 100%;">
+          <img id="lboMainImage" src="" alt="Question" />
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 15px;">
+        <div style="margin-bottom: 8px; font-weight: 600;">Votre Réponse</div>
+        <input type="text" id="lboInput" class="lbo-input" placeholder="Ex: 5-1-2-4-3 ou 5 1 2 4 3" />
+        
+        <div class="lbo-buttons-row">
+            <button id="lboValidateBtn" class="btn-validate">Valider votre réponse</button>
+            <button id="lboPassBtn" class="btn-pass">Je passe</button>
+        </div>
+        
+        <div id="lboFeedback" class="playing-feedback"></div>
+      </div>
+    </div>
+
+    <div id="quiSuisJeContainer" class="hidden mini-container">
+      <div class="playing-title" style="margin-bottom: 10px;">Qui suis-je ?</div>
+
+      <div style="text-align: center; margin-bottom: 15px;">
+        <div id="qsjQuestion" class="playing-question" style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom: 5px;">
+          Question...
+        </div>
+        <div id="qsjQuestionNumber" class="playing-question-number" style="opacity:0.8;"></div>
+      </div>
+
+      <div style="width: 100%; margin-bottom: 20px;">
+        <div id="qsjTimerNumber" class="timer-number">40</div>
+        <div class="timer-bar">
+          <div id="qsjTimerFill" class="timer-bar-fill"></div>
+        </div>
+      </div>
+
+      <div class="lbo-container-flex">
+        <div style="text-align: center; width: 100%;">
+          <img id="qsjMainImage" src="" alt="Question" 
+               style="max-width: 100%; max-height: 50vh; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); object-fit: contain;">
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 15px;">
+        <div style="margin-bottom: 8px; font-weight: 600;">Votre Réponse</div>
+        <input type="text" id="qsjInput" class="lbo-input" placeholder="Qui est ce joueur ?" />
+
+        <div class="lbo-buttons-row">
+            <button id="qsjValidateBtn" class="btn-validate">Valider</button>
+            <button id="qsjPassBtn" class="btn-pass">Je passe</button>
+        </div>
+
+        <div id="qsjFeedback" class="playing-feedback"></div>
+      </div>
+    </div>
+    <div id="tourMondeContainer" class="hidden mini-container">
+      <div class="playing-title" style="margin-bottom: 10px;">Le Tour du Monde</div>
+
+      <div style="text-align: center; margin-bottom: 15px;">
+        <div id="tdmQuestion" class="playing-question" style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom: 5px;">
+          Question...
+        </div>
+        <div id="tdmQuestionNumber" class="playing-question-number" style="opacity:0.8;"></div>
+      </div>
+
+      <div style="width: 100%; margin-bottom: 20px;">
+        <div id="tdmTimerNumber" class="timer-number">40</div>
+        <div class="timer-bar">
+          <div id="tdmTimerFill" class="timer-bar-fill"></div>
+        </div>
+      </div>
+
+      <div class="lbo-container-flex">
+        <div style="text-align: center; width: 100%;">
+          <img id="tdmMainImage" src="" alt="Question" 
+               style="max-width: 100%; max-height: 50vh; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); object-fit: contain;">
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 15px;">
+        <div style="margin-bottom: 8px; font-weight: 600;">Votre Réponse</div>
+        <input type="text" id="tdmInput" class="lbo-input" placeholder="Votre réponse..." />
+
+        <div class="lbo-buttons-row">
+            <button id="tdmValidateBtn" class="btn-validate">Valider</button>
+            <button id="tdmPassBtn" class="btn-pass">Je passe</button>
+        </div>
+
+        <div id="tdmFeedback" class="playing-feedback"></div>
+      </div>
+    </div>
+    <div id="blindTestContainer" class="hidden mini-container">
+      <div class="playing-title" style="margin-bottom: 10px;">Blind Test</div>
+
+      <div style="text-align: center; margin-bottom: 15px;">
+        <div id="btQuestion" class="playing-question" style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom: 5px;">
+          Question...
+        </div>
+        <div id="btQuestionNumber" class="playing-question-number" style="opacity:0.8;"></div>
+      </div>
+
+      <div style="width: 100%; margin-bottom: 20px;">
+        <div id="btTimerNumber" class="timer-number">40</div>
+        <div class="timer-bar">
+          <div id="btTimerFill" class="timer-bar-fill"></div>
+        </div>
+      </div>
+
+      <div class="lbo-container-flex">
+        <div style="text-align: center; width: 100%;">
+          <audio id="btMainAudio" controls style="width: 100%; max-width: 400px; margin-bottom: 20px;"></audio>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 15px;">
+        <div style="margin-bottom: 8px; font-weight: 600;">Votre Réponse</div>
+        <input type="text" id="btInput" class="lbo-input" placeholder="Titre / Artiste..." />
+
+        <div class="lbo-buttons-row">
+            <button id="btValidateBtn" class="btn-validate">Valider</button>
+            <button id="btPassBtn" class="btn-pass">Je passe</button>
+        </div>
+
+        <div id="btFeedback" class="playing-feedback"></div>
+    </div>
+  </div>
+
+  <div id="petitBacContainer" class="hidden mini-container">
+      <div class="playing-title">Le Petit Bac</div>
+      
+      <div style="text-align:center; margin-bottom:10px;">
+         <span style="font-size:1.2rem; opacity:0.8;">Lettre tirée au sort :</span>
+         <div id="pbLetterDisplay" style="font-size:4rem; font-weight:800; color:#ffcc00; text-shadow:0 0 20px rgba(255,204,0,0.6); margin: 5px 0;">?</div>
+      </div>
+
+      <div style="width: 100%; margin-bottom: 20px;">
+        <div id="pbTimerNumber" class="timer-number">120</div>
+        <div class="timer-bar">
+          <div id="pbTimerFill" class="timer-bar-fill"></div>
+        </div>
+      </div>
+
+      <div id="pbFormZone"></div>
+
+      <div style="text-align: center; margin-top: 20px;">
+        <button id="pbValidateBtn" class="btn-validate" style="width:100%; font-size:1.2rem; padding:15px;">Valider ma grille</button>
+        <div id="pbFeedback" class="playing-feedback"></div>
+      </div>
+    </div>
+
+  <style>
+    #corrAnswerBlock {
+      position: relative;
+    }
+    /* Suppression des styles overlay qui cassaient le blind test */
+    .audio-overlay {
+      /* On annule le positionnement absolu qui cassait tout */
+      position: static !important; 
+      transform: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      width: 100% !important;
+      max-width: 400px !important;
+      margin: 10px auto !important;
+    }
+
+    /* On s'assure que les images sont centrées et pas étirées */
+    #correctionImagesZone img {
+      display: block;
+      margin: 0 auto;
+    }
+    #pbFormZone {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      width: 100%;
+      margin-bottom: auto;
+    }
+
+    .pb-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+
+    .pb-input-group label {
+      font-size: 1rem;
+      color: #ffcc00;
+      font-weight: 600;
+      margin-bottom: 2px;
+      text-align: left;
+    }
+
+    .pb-input-group input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #555;
+      background: #222;
+      color: white;
+      font-size: 1.1rem;
+      height: auto;
+    }
+
+    .pb-corr-row {
+      background: rgba(255, 255, 255, 0.05);
+      padding: 8px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 6px;
+    }
+
+    .pb-corr-cat {
+      font-size: 0.85rem;
+      opacity: 0.8;
+      flex: 1;
+      text-align: left;
+      color: #ddd;
+    }
+
+    .pb-corr-ans {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: white;
+      flex: 1.5;
+      text-align: right;
+      padding-right: 12px;
+      word-break: break-word;
+    }
+
+    .pb-corr-btns {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+      flex: 1;
+      max-width: 140px;
+    }
+
+    .pb-btn-small {
+      padding: 8px 0;
+      font-size: 0.9rem;
+      font-weight: bold;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      flex: 1;
+      transition: all 0.2s ease;
+      opacity: 0.6;
+    }
+
+    .pb-1 {
+      background-color: #2ecc71 !important;
+      color: white !important;
+    }
+    .pb-05 {
+      background-color: #f1c40f !important;
+      color: black !important;
+    }
+    .pb-0 {
+      background-color: #e74c3c !important;
+      color: white !important;
+    }
+    .pb-btn-small.active {
+      opacity: 1 !important;
+      transform: scale(1.15);
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+      border: 2px solid white !important;
+      z-index: 10;
+    }
+    /* Empêcher les boutons désactivés de devenir gris/transparents */
+    .btn-grade:disabled {
+      opacity: 1 !important;
+      filter: none;
+      cursor: default;
+    }
+    .pb-btn-small:disabled {
+      opacity: 1 !important;
+      cursor: default;
+    }
+    .btn-grade.selected {
+      transform: scale(1.15);
+      box-shadow: 0 0 15px white;
+      border: 3px solid white !important;
+      z-index: 10;
+    }
+  </style>
+
+        <div id="correctionContainer" class="hidden mini-container correction-container">
+    <div class="playing-title">Correction</div>
+    <div id="correctionQuestionInfo" style="margin-bottom:10px; font-size:1.1rem; opacity:0.8;"></div>
+
+    <div id="correctionImagesZone" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; width: 100%;">
+
+      <div id="corrQuestionBlock" style="display: flex; flex-direction: column; align-items: center; max-width: 90%;">
+         <div id="corrTextQuestion" style="margin-bottom:10px; font-size:1.1rem; font-weight: 600;"></div>
+         <img id="corrImgQuestion" src="" alt="Question" style="max-width: 100%; max-height: 35vh; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); object-fit: contain; display: block;">
+      </div>
+
+      <div id="corrAnswerBlock" style="display: flex; flex-direction: column; align-items: center; max-width: 90%;">
+         <div id="corrAnswerLabel" style="font-size:0.9rem; opacity:0.8; margin-bottom:5px; display:none;">Réponse</div>
+         
+         <img id="corrImgAnswer" src="" alt="Réponse" style="max-width: 100%; max-height: 40vh; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); object-fit: contain; display: block;">
+         
+         <audio id="corrAudioPlayer" controls style="width: 300px; margin-top: 15px; display: none;"></audio>
+         
+         <div id="corrTextAnswer" class="correction-answer-text" style="margin-top: 15px; color: #4cd137; font-size: 1.6rem; text-shadow: 0 2px 4px rgba(0,0,0,0.5);"></div>
+      </div>
+    </div>
+
+    <div class="player-grading-zone" id="standardGradingZone">
+      <button id="btnPrevPlayer" class="grading-nav-btn nav-left hidden-controls">&lt;</button>
+      <button id="btnNextPlayer" class="grading-nav-btn nav-right hidden-controls">&gt;</button>
+
+      <div style="font-size:0.9rem; margin-bottom:4px;">Joueur évalué</div>
+      <div id="gradingPlayerName" class="grading-player-name">Joueur</div>
+
+      <div style="font-size:0.9rem; margin-bottom:4px;">Sa réponse</div>
+      <div id="gradingPlayerAnswer" class="grading-player-answer">...</div>
+
+      <div id="gradingControls" class="grading-buttons hidden-controls">
+        <button class="btn-grade grade-1" onclick="submitGrade(1)">1 Point</button>
+        <button class="btn-grade grade-05" onclick="submitGrade(0.5)">0.5 Point</button>
+        <button class="btn-grade grade-0" onclick="submitGrade(0)">0 Point</button>
+      </div>
+      
+      <div id="gradingWaitMessage" class="spectator-msg hidden">
+        L'hôte corrige les réponses...
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px; width:100%; margin-top:15px; align-items:center;">
+          <button id="btnPrevCorrectionQ" class="btn-secondary" style="display:none; padding: 8px 20px; width: 80%; border-radius: 8px; background-color: #555; font-size:0.9rem;">&lt;&lt; Revenir à la question précédente</button>
+          <button id="btnNextCorrectionQ" class="btn-primary" style="display:none; width: 100%;">Valider & Suivante &gt;&gt;</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="petitBacCorrectionContainer" class="hidden mini-container correction-container">
+    <div class="playing-title">Correction du Petit Bac</div>
+    
+    <div id="pbCorrectionZone" style="width:100%; margin-bottom:20px;">
+       <div style="text-align:center; font-size:1.1rem; margin-bottom:5px;">
+          Lettre : <span id="pbCorrLetter" style="font-weight:bold; font-size:2.5rem; color:#33ccff; text-shadow: 0 0 10px rgba(51, 204, 255, 0.5);"></span>
+       </div>
+       
+       <div style="text-align:center; margin-bottom:20px;">
+          <span id="pbGradingPlayerName" style="color:#ff4444; font-weight:800; font-size:2rem; text-transform: uppercase; letter-spacing: 2px;"></span>
+       </div>
+
+       <div id="pbCorrList" style="display:flex; flex-direction:column; gap:8px;"></div>
+       
+       <button id="pbSubmitTotalBtn" class="btn-primary hidden-controls" style="margin-top:25px; width:100%; background:#4cd137; color:#000; font-weight:bold; font-size:1.1rem; padding: 12px;">
+          Valider le score global (<span id="pbTotalScoreDisplay">0</span> pts)
+       </button>
+       
+       <button id="pbFinishGameBtn" class="btn-secondary hidden-controls" style="margin-top:10px; width:100%; border: 1px solid #ffcc00; color: #ffcc00; background: transparent;">
+          Terminer la correction
+        </button>
+    </div>
+    
+    <div class="player-grading-zone">
+        <button id="btnPrevPlayerPB" class="grading-nav-btn nav-left hidden-controls" onclick="socket.emit('correctionNavigate', { direction: -1 })">&lt;</button>
+        <button id="btnNextPlayerPB" class="grading-nav-btn nav-right hidden-controls" onclick="socket.emit('correctionNavigate', { direction: 1 })">&gt;</button>
+        <div class="spectator-msg pb-wait-msg">L'hôte corrige...</div>
+    </div>
+  </div>
+
+  <style>
+    /* CSS SPÉCIFIQUE ENCHÈRES - NE PAS MODIFIER LES AUTRES */
+    .encheres-container {
+      text-align: center;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .encheres-theme-btn {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      margin: 10px 0;
+      font-size: 1.2rem;
+      font-weight: bold;
+      background: #333;
+      color: white;
+      border: 1px solid #555;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .encheres-theme-btn:hover { background: #444; border-color: #ffcc00; }
+    .encheres-theme-btn.selected { background: #ffcc00; color: black; }
+
+    /* Input sans les flèches spinner (Version standard + Webkit) */
+    .encheres-big-input {
+      font-size: 2rem;
+      padding: 10px;
+      width: 250px; /* Un peu plus large pour le confort */
+      text-align: center;
+      border-radius: 8px;
+      border: 2px solid #ffcc00; /* Bordure jaune pour le style */
+      margin-bottom: 10px;
+      font-weight: 800;
+      
+      /* CORRECTION CRITIQUE : Fond blanc pour voir le texte #222 */
+      background-color: #ffffff; 
+      color: #222222;
+      
+      /* Propriété standard pour cacher les flèches */
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+    
+    /* Pour Chrome, Safari, Edge, Opera */
+    .encheres-big-input::-webkit-outer-spin-button,
+    .encheres-big-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    /* LISTE HISTORIQUE ENCHÈRES (Style liste verticale) */
+    #encheresHistory {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      min-height: 50px;
+    }
+
+    .enchere-item-list {
+      font-size: 1.4rem;
+      font-weight: bold;
+      padding: 5px 15px;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      justify-content: space-between;
+      background: rgba(0,0,0,0.4);
+      border-left: 6px solid #ccc;
+    }
+
+    /* COULEURS FIXES : P1 = Vert, P2 = Violet */
+    .enchere-fixed-p1 { border-left-color: #2ecc71; color: #2ecc71; } /* Vert */
+    .enchere-fixed-p2 { border-left-color: #9b59b6; color: #9b59b6; } /* Violet */
+    
+    .enchere-val { color: white; font-weight: 800; }
+
+    .encheres-input-zone {
+      margin-top: 20px;
+      padding: 20px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+    }
+
+    /* LISTE CORRECTION SPÉCIFIQUE ENCHÈRES */
+  .enchere-corr-item {
+    display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      border-left: 5px solid #555;
+    }
+    .enchere-corr-item.valid { border-left-color: #2ecc71; }
+    .enchere-corr-item.invalid { border-left-color: #e74c3c; }
+    
+    .enchere-corr-text { font-size: 1.1rem; color: white; flex-grow: 1; text-align: left; padding-left: 10px;}
+    
+      .enchere-toggle-btn {
+        padding: 5px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+        border: none;
+        margin-left: 10px;
+      }
+      .btn-ok { background: #2ecc71; color: white; opacity: 0.3; }
+      .btn-ok.active { opacity: 1; box-shadow: 0 0 10px #2ecc71; }
+      
+      .btn-ko { background: #e74c3c; color: white; opacity: 0.3; }
+      .btn-ko.active { opacity: 1; box-shadow: 0 0 10px #e74c3c; }
+
+    /* Style des réponses dans la liste centrale (Phase Jeu) */
+  /* Conteneur d'une réponse pour aligner texte et croix */
+  .enchere-live-answer-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      margin-bottom: 8px;
+  }
+
+  /* Item réponse existant (mise à jour légère pour flex) */
+  .enchere-live-answer-item {
+      background-color: rgba(255, 255, 255, 0.1);
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 1.2rem;
+      color: white;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,0.2);
+      flex-grow: 1;
+      max-width: 80%;
+  }
+
+  /* Bouton de suppression (Croix rouge) */
+  .enchere-delete-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      font-weight: bold;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+  }
+  .enchere-delete-btn:hover {
+      transform: scale(1.1);
+      background: #c0392b;
+  }
+
+    </style>
+
+  <div id="encheresSetupContainer" class="hidden mini-container encheres-container">
+    <div class="playing-title">Finale : Les Enchères</div>
+    <p>Les finalistes choisissent un thème...</p>
+    <div id="encheresThemesList"></div>
+  </div>
+
+  <div id="encheresGameContainer" class="hidden mini-container encheres-container" style="flex-direction: column; height: 80vh; justify-content: flex-start;">
+    
+    <div style="flex-shrink: 0;">
+        <div id="encheresPhaseTitle" class="playing-title" style="color:#ffcc00;">Phase Enchères</div>
+        <div style="font-size:1.3rem; margin: 15px 0;" id="encheresQuestionText">...</div>
+        
+        <div style="width: 100%; margin-bottom: 20px;">
+          <div id="encheresTimerNumber" class="timer-number">60</div>
+          <div class="timer-bar">
+            <div id="encheresTimerFill" class="timer-bar-fill"></div>
+          </div>
+        </div>
+    </div>
+
+    <div id="encheresBiddingZone" style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center;">
+        <div id="encheresHistory" style="margin-bottom: 15px; width: 100%;"></div>
+
+        <div class="encheres-input-zone" id="encheresBidInputBlock">
+            <label>Combien de réponses pouvez-vous donner ?</label><br>
+            <input type="number" id="encheresBidInput" class="encheres-big-input" min="1" max="50">
+            <button id="encheresBidBtn" class="btn-primary" style="width:auto; display:block; margin:0 auto;">Enchérir</button>
+        </div>
+    </div>
+
+    <div id="encheresPlayingZone" class="hidden" style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
+        
+        <div id="encheresTargetDisplay" style="font-size: 1.5rem; color: #ffcc00; font-weight: bold; margin-bottom: 15px; text-transform: uppercase;">
+            Réponses à soumettre : 0
+        </div>
+
+        <div id="encheresLiveAnswersList" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; margin-bottom: 15px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+            </div>
+
+        <div class="encheres-input-zone" id="encheresAnswerInputBlock">
+            <div id="encheresSpectatorMsg" class="hidden" style="font-size:1.2rem; color:#ffcc00; animation: pulse 1.5s infinite; margin-bottom: 10px;">
+                L'adversaire joue...
+            </div>
+
+            <div id="encheresPlayerInputArea">
+                <input type="text" id="encheresAnswerInput" class="pb-input-group" style="width:70%; display:inline-block; font-size:1.2rem; text-align: center;" placeholder="Votre réponse...">
+                <button id="encheresAnswerBtn" class="btn-primary" style="width:auto;">OK</button>
+            </div>
+            <div id="encheresCollectFeedback" style="margin-top:10px; color:#aaa; font-style:italic;"></div>
+        </div>
+    </div>
+  </div>
+
+  <div id="encheresCorrectionContainer" class="hidden mini-container encheres-container">
+      <div class="playing-title">Verdict des Enchères</div>
+      <div style="margin-bottom:15px; font-size:1.1rem;">
+          Objectif : <span id="encheresTargetScore" style="color:#ffcc00; font-weight:bold;">0</span> bonnes réponses.<br>
+          (Max 1 erreur autorisée)
+      </div>
+
+      <div id="encheresCorrectionList" style="margin-bottom:20px;"></div>
+      
+      <div id="encheresCorrectionControls" class="hidden-controls">
+          <div style="background:#222; padding:10px; border-radius:8px; margin-top:10px;">
+              <div>Score actuel : <span id="encheresCurrentValid" style="color:#2ecc71">0</span> valides / <span id="encheresCurrentErrors" style="color:#e74c3c">0</span> erreurs</div>
+              <div id="encheresResultPreview" style="font-weight:bold; margin-top:5px;"></div>
+          </div>
+          
+          <button id="encheresValidateGameBtn" class="btn-primary" style="margin-top:15px; background-color:#ffcc00; color:black; font-weight:800;">
+              VALIDER LE RÉSULTAT FINAL
+          </button>
+      </div>
+      
+      <div id="encheresWaitCorrection" class="spectator-msg hidden">L'hôte vérifie les réponses...</div>
+  </div>
+
+<div id="errorRoom" class="error"></div>
+      </div>
+    </div>
+
+    <div id="palierOverlay" class="palier-overlay hidden">
+      <div id="palierOverlayText" class="palier-overlay-text"></div>
+    </div>
+    <div id="leugtasEndOverlay" class="leugtas-end-overlay hidden">
+      <img
+        src="titres/qui_veut_gagner_des_leugtas.png"
+        id="leugtasEndLogo"
+        class="leugtas-end-logo"
+      />
+    </div>
+    <div id="encheresWinnerOverlay" class="palier-overlay hidden" style="flex-direction: column; background: rgba(0,0,0,0.9);">
+      <div style="font-size: 1.5rem; color: #fff; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;">
+        Les enchères sont terminées !
+      </div>
+      <div id="encheresWinnerName" style="font-size: 3rem; font-weight: 800; color: #ffcc00; margin-bottom: 10px; text-shadow: 0 0 20px rgba(255, 204, 0, 0.6);">
+        PSEUDO
+      </div>
+      <div style="font-size: 1.8rem; color: #fff;">
+        a annoncé <span id="encheresWinnerBid" style="color: #2ecc71; font-weight: bold;">0</span> réponses !
+      </div>
+    </div>
+    <div id="encheresResultOverlay" class="leugtas-end-overlay hidden" style="flex-direction: column; background: rgba(0,0,0,0.95);">
+      <div style="font-size: 2rem; color: #fff; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 3px;">
+        VICTOIRE !
+      </div>
+      <div id="encheresVictorName" style="font-size: 5rem; color: #ffcc00; font-weight: 900; text-shadow: 0 0 30px rgba(255, 204, 0, 0.8); margin-bottom: 20px;">
+        PSEUDO
+      </div>
+      <div style="font-size: 2rem; color: #fff;">
+        remporte les enchères !
+      </div>
+    </div>
+    <div id="fauxVraiEndOverlay" class="leugtas-end-overlay hidden">
+      <img
+        id="fauxVraiEndLogo"
+        class="leugtas-end-logo"
+        src="titres/le_faux_du_vrai.png"
+      />
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+
+<div id="leaderboard-overlay">
+  <h2 id="leaderboardTitle" style="margin-bottom: 30px; text-transform: uppercase; letter-spacing: 2px;">
+    Classement
+  </h2>
+  <div id="leaderboard-content" class="leaderboard-list"></div>
+</div>
+  </body>
+</html>
+
+
