@@ -5341,3 +5341,66 @@ if (closePlayersBtn) {
     }
   });
 }
+
+// ===============================
+//      LISEUSE D'IMAGE (FINAL)
+// ===============================
+
+// 1. Définition des fonctions en GLOBAL (window) pour accès HTML garanti
+window.openImageViewer = function(src) {
+  const viewer = document.getElementById("imageViewer");
+  const content = document.getElementById("imageViewerContent");
+  
+  // On ouvre même si le src semble bizarre, le navigateur gérera l'affichage
+  if (viewer && content && src) {
+      console.log("Ouverture liseuse :", src); // Debug dans la console
+      content.src = src;
+      viewer.classList.remove("hidden");
+  }
+};
+
+window.closeImageViewer = function() {
+  const viewer = document.getElementById("imageViewer");
+  const content = document.getElementById("imageViewerContent");
+  
+  if (viewer) {
+      viewer.classList.add("hidden");
+      // Petit délai pour nettoyer l'image
+      setTimeout(() => { 
+        if(content) content.src = ""; 
+      }, 200);
+  }
+};
+
+// 2. Initialisation forcée sur les images
+// On attend un tout petit peu que le DOM soit stable
+setTimeout(() => {
+    const zoomIds = [
+      "qsjMainImage", "lboMainImage", "tdmMainImage", "corrImgQuestion", "corrImgAnswer"
+    ];
+
+    zoomIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            // Style curseur
+            el.style.cursor = "zoom-in";
+            
+            // Événement direct : écrase tout autre listener potentiel
+            el.onclick = function(e) {
+                // Empêche le clic de traverser l'image ou de déclencher autre chose
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Appel de la fonction globale
+                window.openImageViewer(this.src);
+            };
+        }
+    });
+}, 500);
+
+// 3. Fermeture avec la touche Echap
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+      window.closeImageViewer();
+  }
+});

@@ -1269,6 +1269,49 @@
             margin-bottom: 5px !important;
         }
       }
+
+      /* --- LISEUSE D'IMAGE (Lightbox) --- */
+      .image-viewer {
+        position: fixed;
+        z-index: 9999999; /* Au-dessus de tout */
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.95); /* Fond presque noir */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: zoom-out;
+        animation: fadeIn 0.2s ease-out;
+      }
+
+      .image-viewer.hidden {
+        display: none !important;
+      }
+
+      .viewer-content {
+        margin: auto;
+        display: block;
+        width: auto;
+        height: auto;
+        max-width: 95%;
+        max-height: 95vh;
+        border-radius: 5px;
+        object-fit: contain;
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+      }
+
+      .close-viewer {
+        position: absolute;
+        top: 15px;
+        right: 25px;
+        color: #f1f1f1;
+        font-size: 40px;
+        font-weight: bold;
+        transition: 0.3s;
+        cursor: pointer;
+      }
     </style>
   </head>
 
@@ -2206,5 +2249,11 @@
   </h2>
   <div id="leaderboard-content" class="leaderboard-list"></div>
 </div>
+
+<div id="imageViewer" class="image-viewer hidden" onclick="closeImageViewer()">
+  <span class="close-viewer">&times;</span>
+  <img id="imageViewerContent" class="viewer-content" />
+</div>
+
   </body>
 </html>
