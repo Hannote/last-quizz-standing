@@ -1204,9 +1204,9 @@
       
       /* 1. Propriétés de positionnement (toujours valides) */
       #screen-lobby {
-        margin-top: 35vh; /* Position desktop */
+        margin-top: 4cm; /* RETOUR À LA VALEUR D'ORIGINE */
         width: 100%;
-        /* IMPORTANT : On ne met PAS de 'display' ici pour ne pas écraser le masquage */
+        /* Pas de display ici pour ne pas écraser le masquage */
       }
       
       /* 2. Propriétés d'affichage (UNIQUEMENT quand l'écran est actif) */
@@ -1219,78 +1219,54 @@
         margin-top: 0;
       }
 
-      /* MOBILE UNIQUEMENT : Optimisation UX Complète */
+      /* VERSION MOBILE : Optimisation de l'espace vertical (Image plus grande) */
       @media (max-width: 768px) {
         
-        /* 1. Fond d'écran et Lobby */
+        /* 1. Fond et Lobby */
         body {
           background-size: cover !important; 
           background-position: center center !important;
         }
         #screen-lobby {
-          margin-top: 22vh; 
+          margin-top: 22vh;
         }
 
-        /* 2. Gain de place sur les conteneurs (Bords élargis) */
+        /* 2. Élargissement du conteneur (Gain de largeur) */
         .main-zone {
           padding: 5px !important;
           min-height: auto !important;
         }
         .main-zone-overlay {
-          padding: 10px 5px !important;
+          padding: 10px 5px !important; /* Marges latérales fines */
           width: 100% !important;
-          max-width: 100% !important;
+          /* On s'assure que le conteneur prend bien de la hauteur si besoin */
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between; 
         }
 
-        /* 3. Réduction des textes (-15%) */
-        .playing-title, .rules-title {
-          font-size: 1.3rem !important;
-          margin-bottom: 4px !important;
-        }
-        .playing-question, .rules-text {
-          font-size: 0.9rem !important;
-          margin-bottom: 5px !important;
-          line-height: 1.2 !important;
-        }
-        .playing-question-number {
-            font-size: 0.8rem !important;
-            margin-bottom: 5px !important;
-        }
-
-        /* 4. Timer compact (-50% taille police, -10% barre) */
-        .timer-number, .playing-timer {
-          font-size: 1.2rem !important;
-          margin-bottom: 2px !important;
-        }
-        .timer-bar, .playing-timer-bar {
-          height: 10px !important;
-          margin-bottom: 8px !important;
-        }
-
-        /* 5. IMAGE MAXIMISÉE (Priorité absolue) */
+        /* 3. L'IMAGE : On l'autorise à descendre beaucoup plus bas */
         #qsjMainImage, #lboMainImage, #tdmMainImage, #corrImgQuestion, #corrImgAnswer {
           width: 100% !important;
           height: auto !important;
-          max-height: 35vh !important; /* Limite la hauteur pour garder les boutons visibles */
+          /* C'est ici que tout se joue : on autorise l'image à prendre + de la moitié de l'écran */
+          max-height: 55vh !important; 
           object-fit: contain !important;
           margin-bottom: 10px !important;
-          box-shadow: none !important; /* On gagne un peu de netteté sur les bords */
+          flex-grow: 1; /* L'image essaiera de prendre l'espace vide */
         }
         
-        /* 6. Ajustements Inputs et Boutons */
+        /* 4. Zone de réponse : On garde les tailles lisibles */
         .lbo-input {
              width: 100% !important;
-             max-width: 100% !important;
-             font-size: 1rem !important;
-             padding: 8px !important;
+             font-size: 1rem !important; /* Taille standard conservée */
+             padding: 10px !important;
              margin-bottom: 10px !important;
         }
+        
+        /* On s'assure que les boutons sont bien espacés */
         .lbo-buttons-row {
-            gap: 10px !important;
-        }
-        .lbo-buttons-row button, .playing-choice-btn {
-            padding: 8px !important;
-            font-size: 0.95rem !important;
+            margin-bottom: 5px !important;
         }
       }
     </style>
