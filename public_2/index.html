@@ -1219,16 +1219,78 @@
         margin-top: 0;
       }
 
-      /* MOBILE UNIQUEMENT : Ajustements */
+      /* MOBILE UNIQUEMENT : Optimisation UX Complète */
       @media (max-width: 768px) {
+        
+        /* 1. Fond d'écran et Lobby */
         body {
-          /* Force l'image à remplir l'écran sur téléphone */
           background-size: cover !important; 
           background-position: center center !important;
         }
         #screen-lobby {
-          /* On remonte le bouton sur mobile (22vh) */
           margin-top: 22vh; 
+        }
+
+        /* 2. Gain de place sur les conteneurs (Bords élargis) */
+        .main-zone {
+          padding: 5px !important;
+          min-height: auto !important;
+        }
+        .main-zone-overlay {
+          padding: 10px 5px !important;
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+
+        /* 3. Réduction des textes (-15%) */
+        .playing-title, .rules-title {
+          font-size: 1.3rem !important;
+          margin-bottom: 4px !important;
+        }
+        .playing-question, .rules-text {
+          font-size: 0.9rem !important;
+          margin-bottom: 5px !important;
+          line-height: 1.2 !important;
+        }
+        .playing-question-number {
+            font-size: 0.8rem !important;
+            margin-bottom: 5px !important;
+        }
+
+        /* 4. Timer compact (-50% taille police, -10% barre) */
+        .timer-number, .playing-timer {
+          font-size: 1.2rem !important;
+          margin-bottom: 2px !important;
+        }
+        .timer-bar, .playing-timer-bar {
+          height: 10px !important;
+          margin-bottom: 8px !important;
+        }
+
+        /* 5. IMAGE MAXIMISÉE (Priorité absolue) */
+        #qsjMainImage, #lboMainImage, #tdmMainImage, #corrImgQuestion, #corrImgAnswer {
+          width: 100% !important;
+          height: auto !important;
+          max-height: 35vh !important; /* Limite la hauteur pour garder les boutons visibles */
+          object-fit: contain !important;
+          margin-bottom: 10px !important;
+          box-shadow: none !important; /* On gagne un peu de netteté sur les bords */
+        }
+        
+        /* 6. Ajustements Inputs et Boutons */
+        .lbo-input {
+             width: 100% !important;
+             max-width: 100% !important;
+             font-size: 1rem !important;
+             padding: 8px !important;
+             margin-bottom: 10px !important;
+        }
+        .lbo-buttons-row {
+            gap: 10px !important;
+        }
+        .lbo-buttons-row button, .playing-choice-btn {
+            padding: 8px !important;
+            font-size: 0.95rem !important;
         }
       }
     </style>
