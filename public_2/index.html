@@ -1201,9 +1201,16 @@
         color: #ccc;
       }
       /* Ajustement du bouton Lobby : Placement responsive */
+      
+      /* 1. Propriétés de positionnement (toujours valides) */
       #screen-lobby {
-        margin-top: 35vh; /* Desktop : Place le bouton sous le logo sans couper l'image */
+        margin-top: 35vh; /* Position desktop */
         width: 100%;
+        /* IMPORTANT : On ne met PAS de 'display' ici pour ne pas écraser le masquage */
+      }
+      
+      /* 2. Propriétés d'affichage (UNIQUEMENT quand l'écran est actif) */
+      #screen-lobby.active {
         display: flex;
         justify-content: center;
       }
@@ -1212,7 +1219,7 @@
         margin-top: 0;
       }
 
-      /* MOBILE UNIQUEMENT : Image pleine page et ajustement bouton */
+      /* MOBILE UNIQUEMENT : Ajustements */
       @media (max-width: 768px) {
         body {
           /* Force l'image à remplir l'écran sur téléphone */
@@ -1220,7 +1227,7 @@
           background-position: center center !important;
         }
         #screen-lobby {
-          /* MODIFICATION : On passe de 32vh à 22vh pour remonter encore le bouton */
+          /* On remonte le bouton sur mobile (22vh) */
           margin-top: 22vh; 
         }
       }
