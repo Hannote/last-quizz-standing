@@ -1200,15 +1200,29 @@
         font-weight: 600;
         color: #ccc;
       }
-      /* 1. On annule la marge sur le bouton (pour réduire le fond noir) */
+      /* Ajustement du bouton Lobby : Placement responsive */
+      #screen-lobby {
+        margin-top: 35vh; /* Desktop : Place le bouton sous le logo sans couper l'image */
+        width: 100%;
+        display: flex;
+        justify-content: center;
+      }
+      
       #btn-enter-game {
         margin-top: 0;
       }
 
-      /* 2. On descend TOUT le bloc (le fond noir + le bouton) de 3cm */
-      #screen-lobby {
-        position: relative;
-        top: 2cm;
+      /* MOBILE UNIQUEMENT : Image pleine page et ajustement bouton */
+      @media (max-width: 768px) {
+        body {
+          /* Force l'image à remplir l'écran sur téléphone (plus de bandes noires) */
+          background-size: cover !important; 
+          background-position: center center !important;
+        }
+        #screen-lobby {
+          /* Ajuste la hauteur du bouton sur mobile si besoin */
+          margin-top: 45vh; 
+        }
       }
     </style>
   </head>
