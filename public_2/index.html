@@ -1215,13 +1215,13 @@
       /* MOBILE UNIQUEMENT : Image pleine page et ajustement bouton */
       @media (max-width: 768px) {
         body {
-          /* Force l'image à remplir l'écran sur téléphone (plus de bandes noires) */
+          /* Force l'image à remplir l'écran sur téléphone */
           background-size: cover !important; 
           background-position: center center !important;
         }
         #screen-lobby {
-          /* Ajuste la hauteur du bouton sur mobile si besoin */
-          margin-top: 45vh; 
+          /* MODIFICATION : On passe de 45vh à 32vh pour remonter le bouton */
+          margin-top: 32vh; 
         }
       }
     </style>
