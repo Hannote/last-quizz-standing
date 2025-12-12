@@ -50,7 +50,7 @@
       .card {
         background: rgba(0, 0, 0, 0.8);
         border-radius: 16px;
-        padding: 16px;
+        padding: 4px;
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
       }
 
@@ -185,7 +185,7 @@
         margin-top: 12px;
         padding: 12px;
         border-radius: 12px;
-        background: rgba(0, 0, 0, 0.7); /* plus d'image ici */
+        background: transparent; /* MODIFICATION : Fond transparent pour ne garder que l'overlay interne */
         min-height: 170px;
         display: flex;
         align-items: center;
@@ -325,9 +325,8 @@
       }
 
       .choice-visible {
-        opacity: 1;
-        transform: translateY(0);
-        transition: opacity 0.75s ease-out, transform 0.75s ease-out;
+        opacity: 1 !important;
+        transform: translateY(0) !important;
       }
 
       .playing-choice-btn:hover {
@@ -390,6 +389,40 @@
         font-size: 0.75rem;
         opacity: 0.8;
       }
+
+      /* Positionnement du groupe de boutons en haut à droite */
+      .global-controls {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 9999;
+        display: flex;
+      }
+      
+      .global-controls.hidden {
+        display: none;
+      }
+
+      /* Style des items dans la modale joueurs */
+      .modal-player-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+        font-size: 1.1rem;
+        color: white;
+      }
+      
+      .status-dot {
+        height: 12px;
+        width: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+      }
+      .status-dot.online { background-color: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+      .status-dot.offline { background-color: #e74c3c; }
 
       @media (max-width: 480px) {
         h1 {
@@ -1167,47 +1200,60 @@
         font-weight: 600;
         color: #ccc;
       }
+      /* 1. On annule la marge sur le bouton (pour réduire le fond noir) */
+      #btn-enter-game {
+        margin-top: 0;
+      }
+
+      /* 2. On descend TOUT le bloc (le fond noir + le bouton) de 3cm */
+      #screen-lobby {
+        position: relative;
+        top: 2cm;
+      }
     </style>
   </head>
 
   <body>
-    <button id="leaveRoomBtn" class="btn-danger global-quit-btn">Quitter</button>
+    <div id="globalControls" class="global-controls hidden">
+      <button id="showPlayersBtn" class="btn-secondary" style="margin-right: 10px;">Joueurs</button>
+      <button id="leaveRoomBtn" class="btn-danger">Quitter</button>
+    </div>
     <div class="container">
-      <h1>Last Quizz Standing</h1>
-      <div class="subtitle">
-        Tirage au sort du mini-jeu &amp; règles
-      </div>
-
       <!-- Écran LOBBY -->
       <div id="screen-lobby" class="card screen active">
-        <label for="pseudoInput">Ton pseudo</label>
-        <input
-          type="text"
-          id="pseudoInput"
-          placeholder="Ex : Toto"
-          maxlength="20"
-        />
+        <button id="btn-enter-game" class="btn-success">
+          Jouer à Last Quizz Standing
+        </button>
+        <div id="lobby-form" class="hidden">
+          <label for="pseudoInput">Ton pseudo</label>
+          <input
+            type="text"
+            id="pseudoInput"
+            placeholder="Ex : Toto"
+            maxlength="20"
+          />
 
-        <div class="row">
-          <div>
-            <label for="roomCodeInput">Code de salle</label>
-            <input
-              type="text"
-              id="roomCodeInput"
-              placeholder="Ex : ABCD"
-              maxlength="4"
-            />
+          <div class="row">
+            <div>
+              <label for="roomCodeInput">Code de salle</label>
+              <input
+                type="text"
+                id="roomCodeInput"
+                placeholder="Ex : ABCD"
+                maxlength="4"
+              />
+            </div>
           </div>
+
+          <button id="createRoomBtn" class="btn-primary">
+            Créer une nouvelle salle
+          </button>
+          <button id="joinRoomBtn" class="btn-secondary">
+            Rejoindre une salle
+          </button>
+
+          <div id="errorLobby" class="error"></div>
         </div>
-
-        <button id="createRoomBtn" class="btn-primary">
-          Créer une nouvelle salle
-        </button>
-        <button id="joinRoomBtn" class="btn-secondary">
-          Rejoindre une salle
-        </button>
-
-        <div id="errorLobby" class="error"></div>
       </div>
 
       <!-- Écran ROOM -->
@@ -1273,7 +1319,7 @@
                 Qui veut gagner des leugtas ?
               </option>
               <option value="le_faux_du_vrai">Le faux du vrai</option>
-              <option value="les_encheres">Les enchères</option>
+              <option value="les_encheres">Les ench&#232;res</option>
             </select>
             <div class="sandbox-hint">
               Seul·e l'hôte voit ce bloc. En mode bac à sable, tu peux lancer un
@@ -1287,17 +1333,7 @@
         <div class="main-zone">
           <div class="main-zone-overlay">
             <!-- Contenu par défaut -->
-            <div id="main-default">
-              <div
-                style="font-size: 1rem; font-weight: 600; margin-bottom: 4px"
-              >
-                Zone de jeu
-              </div>
-              <div style="font-size: 0.9rem">
-                Ici, plus tard, on affichera les mini-jeux, les questions, les
-                éliminations...
-              </div>
-            </div>
+            <div id="main-default"></div>
 
             <!-- Contenu tirage -->
             <div id="main-drawing" class="hidden">
@@ -1949,8 +1985,16 @@
     </style>
 
   <div id="encheresSetupContainer" class="hidden mini-container encheres-container">
-    <div class="playing-title">Finale : Les Enchères</div>
-    <p>Les finalistes choisissent un thème...</p>
+    <div class="playing-title">Finale : Les Encheres</div>
+    
+    <div style="width: 100%; margin-bottom: 20px;">
+        <div id="encheresSetupTimerNumber" class="timer-number">30</div>
+        <div class="timer-bar">
+            <div id="encheresSetupTimerFill" class="timer-bar-fill"></div>
+        </div>
+    </div>
+
+    <p style="margin-bottom:10px;">Les finalistes choisissent un theme...</p>
     <div id="encheresThemesList"></div>
   </div>
 
@@ -2040,7 +2084,6 @@
     </div>
     <div id="encheresWinnerOverlay" class="palier-overlay hidden" style="flex-direction: column; background: rgba(0,0,0,0.9);">
       <div style="font-size: 1.5rem; color: #fff; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px;">
-        Les enchères sont terminées !
       </div>
       <div id="encheresWinnerName" style="font-size: 3rem; font-weight: 800; color: #ffcc00; margin-bottom: 10px; text-shadow: 0 0 20px rgba(255, 204, 0, 0.6);">
         PSEUDO
@@ -2068,6 +2111,33 @@
       />
     </div>
 
+    <div id="quitConfirmOverlay" class="palier-overlay hidden" style="flex-direction: column; background: rgba(0, 0, 0, 0.95); z-index: 100000;">
+      <div style="font-size: 1.5rem; color: #fff; margin-bottom: 30px; text-align: center; font-weight: bold; max-width: 80%;">
+        Êtes-vous sûr de vouloir quitter la partie ?
+      </div>
+      <div style="display: flex; gap: 20px;">
+        <button id="cancelQuitBtn" class="btn-secondary" style="padding: 12px 24px; font-size: 1.1rem; min-width: 120px;">
+          NON
+        </button>
+        <button id="confirmQuitBtn" class="btn-danger" style="padding: 12px 24px; font-size: 1.1rem; min-width: 120px;">
+          OUI
+        </button>
+      </div>
+    </div>
+
+    <div id="playersListOverlay" class="palier-overlay hidden" style="flex-direction: column; background: rgba(0, 0, 0, 0.95); z-index: 100000;">
+      <div class="card" style="width: 90%; max-width: 500px; padding: 20px; background: #1a1a1a;">
+        <h2 style="text-align: center; color: #ffcc00; margin-top: 0; margin-bottom: 20px;">Joueurs dans la salle</h2>
+        
+        <ul id="modalPlayersList" style="list-style: none; padding: 0; max-height: 60vh; overflow-y: auto;">
+          </ul>
+
+        <div style="text-align: center; margin-top: 20px;">
+          <button id="closePlayersBtn" class="btn-secondary" style="padding: 10px 30px;">Fermer</button>
+        </div>
+      </div>
+    </div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="client.js"></script>
 
@@ -2079,5 +2149,3 @@
 </div>
   </body>
 </html>
-
-

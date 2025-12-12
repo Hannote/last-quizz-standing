@@ -112,7 +112,8 @@ const POSSIBLE_MINI_GAMES = [
   "le_bon_ordre",
   "petit_bac",
   "qui_veut_gagner_des_leugtas",
-  "le_faux_du_vrai"
+  "le_faux_du_vrai",
+  "les_encheres" // <--- AJOUT
 ];
 const LEUGTAS_TIMER_DURATION_SECONDS = 30;
 const FAUX_VRAI_TIMER_DURATION = 40;
@@ -127,7 +128,9 @@ function createInitialGameState() {
     roundNumber: 0,
     currentMiniGame: null,
     miniGamesAlreadyPlayed: [],
-    possibleMiniGames: [...POSSIBLE_MINI_GAMES],
+    // MODIFICATION : On filtre "les_encheres" pour qu'il ne soit jamais tiré au sort automatiquement
+    // (Il sera lancé manuellement par la logique de finale ou le bac à sable)
+    possibleMiniGames: POSSIBLE_MINI_GAMES.filter(g => g !== "les_encheres"),
     readyPlayers: {},
 
     // Mini-jeu spécifique
@@ -450,27 +453,46 @@ function endMiniGame(roomCode) {
   }
 }
 function performElimination(room) {
+  // 1. Vérifier si un joueur a quitté (abandonné) durant ce round
+  const quitters = room.players.filter(p => p.hasQuitDuringRound);
+
+  if (quitters.length > 0) {
+    console.log(`Elimination standard annulée : ${quitters.length} joueur(s) ont abandonné.`);
+    
+    // On nettoie le flag et on s'assure qu'ils sont marqués éliminés
+    quitters.forEach(p => {
+      p.hasQuitDuringRound = false; 
+      p.eliminated = true; 
+    });
+
+    // IMPORTANT : On s'arrête ici. Personne d'autre ne sera éliminé ce tour-ci.
+    return;
+  }
+
+  // --- LOGIQUE STANDARD (Si personne n'a quitté) ---
   const activePlayers = room.players.filter(p => !p.eliminated && !p.isSpectator);
   
   // Il faut au moins 2 joueurs pour en éliminer un
   if (activePlayers.length < 2) return;
 
   activePlayers.sort((a, b) => {
+    // Le plus petit score est éliminé
     if (a.roundScore !== b.roundScore) {
-      return a.roundScore - b.roundScore;
+      return a.roundScore - b.roundScore; 
     }
-    return b.roundTime - a.roundTime;
+    // En cas d'égalité, le plus lent (temps le plus grand) est éliminé
+    return b.roundTime - a.roundTime; 
   });
 
   const loser = activePlayers[0];
   loser.eliminated = true;
 
-  console.log(`ELIMINATION : ${loser.pseudo} (Score: ${loser.roundScore}, Temps: ${loser.roundTime.toFixed(2)}s)`);
+  console.log(`ELIMINATION : ${loser.pseudo} (Score: ${loser.roundScore})`);
 
   io.to(room.roomCode).emit("playerEliminated", {
     playerId: loser.playerId,
     pseudo: loser.pseudo,
-    reason: `Score: ${loser.roundScore} pts | Temps total: ${loser.roundTime.toFixed(1)}s`
+    reason: `Score: ${loser.roundScore} pts | Temps: ${loser.roundTime.toFixed(1)}s`
   });
 }
 async function endLeugtasQuestion(roomCode, mini) {
@@ -768,11 +790,24 @@ function startCorrectionPhase(roomCode) {
   sendCorrectionData(roomCode);
 }
 
-function sendCorrectionData(roomCode) {
+function sendCorrectionData(roomCode, targetSocket = null) {
   const room = rooms[roomCode];
+  if (!room) return;
   const gs = room.gameState;
+  if (!gs) return;
   const mini = gs.currentMiniGameState;
-  if (!mini || !room.activePlayersList) return;
+
+  // Sécurité : si pas de joueurs actifs ou pas de mini-jeu
+  if (!mini || !room.activePlayersList || room.activePlayersList.length === 0) return;
+
+  // Sécurité Index
+  if (
+    typeof mini.gradingPlayerIndex !== "number" ||
+    mini.gradingPlayerIndex < 0 ||
+    mini.gradingPlayerIndex >= room.activePlayersList.length
+  ) {
+    mini.gradingPlayerIndex = 0;
+  }
 
   const playerToCheck = room.activePlayersList[mini.gradingPlayerIndex];
 
@@ -806,7 +841,15 @@ function sendCorrectionData(roomCode) {
       mini.scoresGiven[mini.correctionIndex][playerToCheck.playerId];
   }
 
-  io.to(roomCode).emit("correctionUpdate", {
+  const emitCorrectionUpdate = (payload) => {
+    if (targetSocket) {
+      targetSocket.emit("correctionUpdate", payload);
+    } else {
+      io.to(roomCode).emit("correctionUpdate", payload);
+    }
+  };
+
+  emitCorrectionUpdate({
     miniGameType: mini.type,
     questionImage: q.image_question || q.image,
     questionText: q.question || q.text,
@@ -1250,6 +1293,7 @@ io.on("connection", (socket) => {
     socket.emit("roomJoined", serializeRoom(room));
     socket.emit("gameStateUpdate", getGameStateSummary(room));
     io.to(roomCode).emit("roomUpdate", serializeRoom(room));
+    syncPlayerWithGame(socket, room);
   });
 
   // -----------------------------------
@@ -1303,6 +1347,7 @@ io.on("connection", (socket) => {
     socket.emit("roomJoined", serializeRoom(room));
     socket.emit("gameStateUpdate", getGameStateSummary(room));
     io.to(roomCode).emit("roomUpdate", serializeRoom(room));
+    syncPlayerWithGame(socket, room);
   });
 
   // -----------------------------------
@@ -1677,18 +1722,91 @@ io.on("connection", (socket) => {
     const room = rooms[roomCode];
     if (!room) return;
 
-    const idx = room.players.findIndex((p) => p.playerId === playerId);
-    if (idx !== -1) room.players.splice(idx, 1);
+    const playerIdx = room.players.findIndex((p) => p.playerId === playerId);
+    if (playerIdx === -1) return;
 
-    socket.leave(roomCode);
+    const player = room.players[playerIdx];
+    const gs = room.gameState;
+
+    // --- LOGIQUE D'ABANDON ---
+    if (gs && gs.phase === "playing" && !player.eliminated && !player.isSpectator) {
+      console.log(`Joueur ${player.pseudo} a quitté en plein jeu -> Disqualification.`);
+      
+      player.isConnected = false;
+      player.eliminated = true;
+      player.score = 0;
+      player.roundScore = -999;
+      player.hasQuitDuringRound = true;
+
+      io.to(roomCode).emit("playerEliminated", {
+        playerId: player.playerId,
+        pseudo: player.pseudo,
+        reason: "Abandon de la partie (Disqualification)"
+      });
+
+      const activePlayers = room.players.filter(
+        (p) => !p.eliminated && !p.isSpectator && p.isConnected
+      );
+      if (activePlayers.length === 1) {
+        io.to(roomCode).emit("gameOver", { winner: activePlayers[0].pseudo });
+      }
+    } else {
+      // Sinon (Lobby ou entre deux jeux), on supprime proprement le joueur de la liste
+      room.players.splice(playerIdx, 1);
+
+      // --- AJOUT : GESTION DU PASSAGE FORCÉ EN FINALE ---
+      if (gs) {
+        const activePlayers = room.players.filter(
+          (p) => !p.eliminated && !p.isSpectator
+        );
+
+        if (
+          activePlayers.length === 2 &&
+          gs.currentMiniGame !== "les_encheres" &&
+          gs.phase !== "idle"
+        ) {
+          console.log(
+            `Salle ${roomCode} : Un joueur a quitté entre deux jeux -> Passage forcé en Finale.`
+          );
+
+          // On annule le jeu prévu et on force les enchères
+          gs.phase = "rules";
+          gs.currentMiniGame = "les_encheres";
+          gs.readyPlayers = {};
+
+          // On s'assure que les stats sont clean pour la finale
+          resetRoundStats(room);
+
+          // On informe immédiatement les clients du changement radical
+          io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+
+          io.to(roomCode).emit("showRules", {
+            miniGameCode: "les_encheres",
+            roundNumber: gs.roundNumber,
+            isFinale: true
+          });
+        }
+      }
+      // --------------------------------------------------
+    }
 
     if (room.players.length === 0) {
       delete rooms[roomCode];
+      socket.leave(roomCode);
       return;
     }
 
+    if (room.hostId === playerId) {
+      const newHost = room.players.find((p) => p.isConnected) || room.players[0];
+      room.hostId = newHost ? newHost.playerId : null;
+    }
+    
+    socket.leave(roomCode);
+
     io.to(roomCode).emit("roomUpdate", serializeRoom(room));
-    io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+    if (!gs || gs.phase !== "playing") {
+      io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+    }
   });
 
   // -----------------------------------
@@ -2022,6 +2140,73 @@ io.on("connection", (socket) => {
   //        LOGIQUE : LES ENCHÈRES
   // ==========================================
 
+  function finalizeThemeSelection(room) {
+    const gs = room.gameState;
+    const mini = gs.currentMiniGameState;
+    if (!mini || mini.subPhase !== "theme_selection") return;
+
+    if (room.encheresInterval) {
+      clearInterval(room.encheresInterval);
+      room.encheresInterval = null;
+    }
+    if (mini.timer) mini.timer.running = false;
+
+    const activePlayers = room.players.filter((p) => !p.eliminated && !p.isSpectator);
+    activePlayers.forEach((p) => {
+      if (!mini.playerVotes[p.playerId]) {
+        const randomTheme = mini.themesAvailable[Math.floor(Math.random() * mini.themesAvailable.length)];
+        mini.playerVotes[p.playerId] = randomTheme.id;
+      }
+    });
+
+    const votes = Object.values(mini.playerVotes);
+    let selectedThemeId = votes[0];
+    if (votes.length > 1 && votes[0] !== votes[1]) {
+      selectedThemeId = votes[Math.floor(Math.random() * votes.length)];
+    }
+
+    const pool = ENCHERES_QUESTIONS.filter((q) => q.theme_id === selectedThemeId);
+    const question = pool[Math.floor(Math.random() * pool.length)] || ENCHERES_QUESTIONS[0];
+    mini.question = question;
+
+    io.to(room.roomCode).emit("encheresThemeAnim", {
+      chosenThemeId: selectedThemeId,
+      candidates: votes
+    });
+
+    setTimeout(() => {
+      mini.subPhase = "bidding";
+      io.to(room.roomCode).emit("encheresStartBidding", {
+        themeId: selectedThemeId,
+        questionText: question.question,
+        duration: 60
+      });
+
+      startEncheresTimer(room.roomCode, 60, () => {
+        let winnerId = mini.currentBidder;
+        let winningBid = mini.currentMaxBid;
+        if (!winnerId) {
+          const active = room.players.filter((p) => !p.eliminated && !p.isSpectator);
+          if (active.length > 0) {
+            winnerId = active[0].playerId;
+            winningBid = 1;
+            mini.currentBidder = winnerId;
+            mini.currentMaxBid = winningBid;
+          }
+        }
+
+        io.to(room.roomCode).emit("encheresBidResult", {
+          winnerId,
+          amount: winningBid
+        });
+
+        setTimeout(() => {
+          startEncheresCollection(room.roomCode);
+        }, 4000);
+      });
+    }, 3500);
+  }
+
   function startLesEncheres(roomCode) {
     const room = rooms[roomCode];
     if (!room) return;
@@ -2044,6 +2229,11 @@ io.on("connection", (socket) => {
 
     io.to(roomCode).emit("encheresSetup", {
       themes: ENCHERES_THEMES
+    });
+
+    // TIMER SÉLECTION (30s) -> Si fin, on finalise automatiquement
+    startEncheresTimer(roomCode, 30, () => {
+      finalizeThemeSelection(room);
     });
   }
 
@@ -2120,64 +2310,8 @@ io.on("connection", (socket) => {
       (p) => !p.eliminated && !p.isSpectator
     );
 
-    if (
-      activePlayers.length >= 2 &&
-      activePlayers.every((p) => mini.playerVotes[p.playerId])
-    ) {
-      const votes = Object.values(mini.playerVotes);
-      let selectedThemeId = votes[0];
-      
-      if (votes[0] !== votes[1]) {
-        selectedThemeId = votes[Math.floor(Math.random() * votes.length)];
-      }
-
-      const pool = ENCHERES_QUESTIONS.filter(
-        (q) => q.theme_id === selectedThemeId
-      );
-      const question =
-        pool[Math.floor(Math.random() * pool.length)] || ENCHERES_QUESTIONS[0];
-      mini.question = question;
-
-      io.to(socket.roomCode).emit("encheresThemeAnim", {
-        chosenThemeId: selectedThemeId,
-        candidates: votes
-      });
-
-      setTimeout(() => {
-        mini.subPhase = "bidding";
-
-        io.to(socket.roomCode).emit("encheresStartBidding", {
-          themeId: selectedThemeId,
-          questionText: question.question,
-          duration: 60
-        });
-
-        startEncheresTimer(socket.roomCode, 60, () => {
-          let winnerId = mini.currentBidder;
-          let winningBid = mini.currentMaxBid;
-
-          if (!winnerId) {
-            const active = room.players.filter(
-              (p) => !p.eliminated && !p.isSpectator
-            );
-            if (active.length > 0) {
-              winnerId = active[0].playerId;
-              winningBid = 1;
-              mini.currentBidder = winnerId;
-              mini.currentMaxBid = winningBid;
-            }
-          }
-
-          io.to(socket.roomCode).emit("encheresBidResult", {
-            winnerId: winnerId,
-            amount: winningBid
-          });
-
-          setTimeout(() => {
-            startEncheresCollection(socket.roomCode);
-          }, 4000);
-        });
-      }, 3500);
+    if (activePlayers.every((p) => mini.playerVotes[p.playerId])) {
+      finalizeThemeSelection(room);
     }
   });
 
@@ -2291,6 +2425,127 @@ io.on("connection", (socket) => {
     }, 6000);
   });
 }); // <--- ICI : C'est la fermeture cruciale de io.on("connection")
+
+function syncPlayerWithGame(socket, room) {
+  if (!room || !room.gameState) return;
+  const gs = room.gameState;
+  // CORRECTIF : On regarde currentMiniGameState OU room.mini (pour le cas spécifique du Faux du Vrai)
+  const mini = gs.currentMiniGameState || room.mini;
+
+  if (gs.phase !== "playing" || !mini) return;
+
+  // === GESTION DE LA CORRECTION (Si le jeu est fini) ===
+  if (
+    mini.finished &&
+    ["qui_suis_je", "le_bon_ordre", "le_tour_du_monde", "blind_test", "petit_bac", "les_encheres"].includes(mini.type)
+  ) {
+    if (typeof mini.correctionIndex !== "undefined") {
+      sendCorrectionData(room.roomCode, socket);
+    } else {
+      // Écrans de fin d'attente
+      if (mini.type === "petit_bac") socket.emit("petitBacEnd");
+      else if (mini.type === "blind_test") socket.emit("blindTestEnd");
+      else if (mini.type === "le_tour_du_monde") socket.emit("leTourDuMondeEnd");
+      else if (mini.type === "le_bon_ordre") socket.emit("leBonOrdreEnd");
+      else if (mini.type === "qui_suis_je") socket.emit("quiSuisJeEnd");
+    }
+    return;
+  }
+
+  // === GESTION EN JEU (Classique) ===
+  // 1. QUI SUIS-JE
+  if (mini.type === "qui_suis_je") {
+    const q = mini.questions[mini.questionIndex];
+    if (q) {
+      const safeQ = { ...q, image_question: q.image_question || q.image };
+      socket.emit("quiSuisJeQuestion", { question: safeQ, index: mini.questionIndex + 1, total: mini.questions.length });
+    }
+    if (mini.timer && mini.timer.running) {
+      socket.emit("quiSuisJeTimerUpdate", { remaining: mini.timer.remainingSeconds, total: mini.timer.totalSeconds });
+    }
+  }
+  // 2. LE BON ORDRE
+  else if (mini.type === "le_bon_ordre") {
+    const q = mini.questions[mini.questionIndex];
+    if (q) {
+      const safeQ = { ...q, image_question: q.image_question || q.image };
+      socket.emit("leBonOrdreQuestion", { question: safeQ, themeName: q.themeName, index: mini.questionIndex + 1, total: mini.questions.length });
+    }
+    if (mini.timer && mini.timer.running) {
+      socket.emit("leBonOrdreTimerUpdate", { remaining: mini.timer.remainingSeconds, total: mini.timer.totalSeconds });
+    }
+  }
+  // 3. LE TOUR DU MONDE
+  else if (mini.type === "le_tour_du_monde") {
+    const q = mini.questions[mini.questionIndex];
+    if (q) {
+      const safeQ = { ...q, image_question: q.image_question || q.image };
+      socket.emit("leTourDuMondeQuestion", { question: safeQ, themeName: q.themeName, index: mini.questionIndex + 1, total: mini.questions.length });
+    }
+    if (mini.timer && mini.timer.running) {
+      socket.emit("leTourDuMondeTimerUpdate", { remaining: mini.timer.remainingSeconds, total: mini.timer.totalSeconds });
+    }
+  }
+  // 4. BLIND TEST
+  else if (mini.type === "blind_test") {
+    const q = mini.questions[mini.questionIndex];
+    if (q) {
+      socket.emit("blindTestQuestion", { question: q, themeName: q.themeName, index: mini.questionIndex + 1, total: mini.questions.length });
+    }
+    if (mini.timer && mini.timer.running) {
+      socket.emit("blindTestTimerUpdate", { remaining: mini.timer.remainingSeconds, total: mini.timer.totalSeconds });
+    }
+  }
+  // 5. LE FAUX DU VRAI
+  else if (mini.type === "faux_vrai") {
+    const q = mini.list ? mini.list[mini.index] : null;
+    if (q) {
+      socket.emit("fauxVraiQuestion", { 
+        question: q.question, affirmations: q.affirmations, themeId: q.themeId, 
+        indexFausse: q.indexFausse, duration: 40, index: mini.index + 1, total: mini.list.length, 
+        isReload: true // FLAG IMPORTANT
+      });
+    }
+  }
+  // 6. QUI VEUT GAGNER DES LEUGTAS
+  else if (mini.type === "qui_veut_gagner_des_leugtas") {
+    const q = mini.questions[mini.questionIndex];
+    socket.emit("leugtasQuestion", { 
+      question: q, index: mini.questionIndex + 1, total: mini.questions.length, 
+      isReload: true // FLAG IMPORTANT
+    });
+    if (mini.leugtasTimer && mini.leugtasTimer.running) {
+      socket.emit("leugtasTimerUpdate", { remainingSeconds: mini.leugtasTimer.remainingSeconds, totalSeconds: mini.leugtasTimer.totalSeconds });
+    }
+  }
+  // 7. PETIT BAC
+  else if (mini.type === "petit_bac") {
+    socket.emit("petitBacStart", { letter: mini.letter, categories: mini.categories, duration: 120 });
+    if (mini.timer && mini.timer.running) {
+      socket.emit("petitBacTimerUpdate", { remaining: mini.timer.remainingSeconds, total: 120 });
+    }
+  }
+  // 8. LES ENCHERES
+  else if (mini.type === "les_encheres") {
+    if (mini.subPhase === "theme_selection") {
+       const myVote = mini.playerVotes ? mini.playerVotes[socket.playerId] : null;
+       socket.emit("encheresSetup", { themes: ENCHERES_THEMES, currentVote: myVote });
+       if (mini.timer && mini.timer.running) {
+         socket.emit("encheresTimerUpdate", { remaining: mini.timer.remainingSeconds || mini.timer.remaining, total: mini.timer.total || mini.timer.totalSeconds });
+       }
+    }
+    else if (mini.subPhase === "bidding") {
+      socket.emit("encheresStartBidding", { questionText: mini.question ? mini.question.question : "...", duration: 60 });
+      mini.bids.forEach((bid) => socket.emit("encheresNewBid", bid));
+    } else if (mini.subPhase === "collecting") {
+      socket.emit("encheresStartCollection", { activePlayerId: mini.activePlayerId, target: mini.currentMaxBid, duration: 60 });
+      socket.emit("encheresLiveAnswerUpdate", { answers: mini.answersGiven });
+    } else if (mini.subPhase === "correction") {
+      socket.emit("encheresStartCorrection", { answers: mini.answersGiven, target: mini.currentMaxBid });
+      socket.emit("encheresCorrectionRefresh", { answers: mini.answersGiven, status: mini.validatedStatus });
+    }
+  }
+}
 
 // ===============================
 //     START SERVER

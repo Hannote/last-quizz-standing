@@ -86,7 +86,7 @@ const body = document.body;
 
 const roomUpper = document.getElementById("room-upper");
 
-const globalQuitBtn = document.getElementById("leaveRoomBtn");
+const globalControls = document.getElementById("globalControls");
 
 
 
@@ -110,11 +110,22 @@ const sandboxToggle = document.getElementById("sandboxToggle");
 
 const sandboxMiniGameSelect = document.getElementById("sandboxMiniGameSelect");
 
-
+const btnEnterGame = document.getElementById("btn-enter-game");
+const lobbyForm = document.getElementById("lobby-form");
 
 const errorLobby = document.getElementById("errorLobby");
 
 const errorRoom = document.getElementById("errorRoom");
+
+if (btnEnterGame && lobbyForm) {
+  btnEnterGame.addEventListener("click", () => {
+    btnEnterGame.classList.add("hidden");
+    lobbyForm.classList.remove("hidden");
+    if (pseudoInput) {
+      pseudoInput.focus();
+    }
+  });
+}
 
 
 
@@ -455,15 +466,15 @@ function showScreen(screenName) {
 
 
 
-  if (globalQuitBtn) {
+  if (globalControls) {
 
     if (screenName === "room") {
 
-      globalQuitBtn.style.display = "inline-block";
+      globalControls.classList.remove("hidden");
 
     } else {
 
-      globalQuitBtn.style.display = "none";
+      globalControls.classList.add("hidden");
 
     }
 
@@ -2923,6 +2934,8 @@ createRoomBtn.addEventListener("click", () => {
 
 
 
+  localStorage.setItem("lqs_pseudo", pseudo);
+
   socket.emit("createRoom", { pseudo, playerId });
 
 });
@@ -2957,75 +2970,77 @@ joinRoomBtn.addEventListener("click", () => {
 
 
 
+  localStorage.setItem("lqs_pseudo", pseudo);
+  localStorage.setItem("lqs_room_code", roomCode);
+
   socket.emit("joinRoom", { pseudo, roomCode, playerId });
 
 });
 
 
 
-leaveRoomBtn.addEventListener("click", () => {
+// --- GESTION SÉCURISÉE DU BOUTON QUITTER ---
 
-  socket.emit("leaveRoom");
+const quitConfirmOverlay = document.getElementById("quitConfirmOverlay");
+const confirmQuitBtn = document.getElementById("confirmQuitBtn");
+const cancelQuitBtn = document.getElementById("cancelQuitBtn");
 
-  
+// 1. Clic sur le bouton "Quitter" en haut à droite -> Ouvre l'overlay
+if (leaveRoomBtn) {
+  leaveRoomBtn.addEventListener("click", () => {
+    if (quitConfirmOverlay) {
+      quitConfirmOverlay.classList.remove("hidden");
+      quitConfirmOverlay.style.animation = "fadeIn 0.3s ease-out";
+    }
+  });
+}
 
-  hideAllMiniGames(); 
+// 2. Clic sur "NON" -> Ferme l'overlay
+if (cancelQuitBtn) {
+  cancelQuitBtn.addEventListener("click", () => {
+    if (quitConfirmOverlay) {
+      quitConfirmOverlay.classList.add("hidden");
+    }
+  });
+}
 
-  
+// 3. Clic sur "OUI" -> Exécute la déconnexion
+if (confirmQuitBtn) {
+  confirmQuitBtn.addEventListener("click", () => {
+    if (quitConfirmOverlay) quitConfirmOverlay.classList.add("hidden");
 
-  if (petitBacContainer) petitBacContainer.classList.add("hidden");
+    localStorage.removeItem("lqs_room_code");
+    localStorage.removeItem("lqs_pseudo");
 
-  if (pbLetterDisplay) pbLetterDisplay.textContent = "?";
+    socket.emit("leaveRoom");
 
-  if (pbFormZone) pbFormZone.innerHTML = "";
+    hideAllMiniGames();
 
-  
+    if (petitBacContainer) petitBacContainer.classList.add("hidden");
+    if (pbLetterDisplay) pbLetterDisplay.textContent = "?";
+    if (pbFormZone) pbFormZone.innerHTML = "";
 
-  const enchHist = document.getElementById("encheresHistory");
+    const enchHist = document.getElementById("encheresHistory");
+    if (enchHist) enchHist.innerHTML = "";
 
-  if (enchHist) enchHist.innerHTML = "";
+    currentRoom = null;
+    currentPlayersData = [];
+    const lbOverlay = document.getElementById("leaderboard-overlay");
+    if (lbOverlay) lbOverlay.classList.remove("active");
 
-
-
-  // --- CLEANUP IMPORTANT ---
-
-  currentRoom = null;
-
-  currentPlayersData = [];
-
-  const lbOverlay = document.getElementById("leaderboard-overlay");
-
-  if (lbOverlay) lbOverlay.classList.remove("active");
-
-  // -------------------------
-
-
-
-  currentGameState = {
-
-    phase: "idle",
-
-    roundNumber: 0,
-
-    currentMiniGame: null,
-
-    readyPlayerIds: []
-
-  };
-
-  iAmReady = false;
-
-  lastPhase = "idle";
-
-  stopDrawAnimation();
-
-  updateGameStateUI(currentGameState);
-
-  showScreen("lobby");
-
-
-
-});
+    currentGameState = {
+      phase: "idle",
+      roundNumber: 0,
+      currentMiniGame: null,
+      readyPlayerIds: []
+    };
+    iAmReady = false;
+    lastPhase = "idle";
+    stopDrawAnimation();
+    updateGameStateUI(currentGameState);
+    showScreen("lobby");
+  });
+}
 
 // clic sur "Je suis prÃªtÂ�e"
 
@@ -3225,7 +3240,7 @@ socket.on("leugtasQuestion", (data) => {
 
 
 
-  if (palierOverlayText && palierOverlay) {
+  if (palierOverlayText && palierOverlay && !data.isReload) {
 
     palierOverlayText.textContent = "PALIER " + data.index;
 
@@ -3255,9 +3270,14 @@ socket.on("leugtasQuestion", (data) => {
 
 
 
-socket.on("roomJoined", (room) => {
+socket.on("roomJoined", (roomData) => {
 
-  updateRoomUI(room);
+  console.log("Rejoint la salle :", roomData.roomCode);
+  if (roomData && roomData.roomCode) {
+    localStorage.setItem("lqs_room_code", roomData.roomCode);
+  }
+
+  updateRoomUI(roomData);
 
   showScreen("room");
 
@@ -3279,6 +3299,33 @@ socket.on("gameStateUpdate", (gs) => {
 
   updateGameStateUI(gs);
 
+});
+
+socket.on("gameOver", (data) => {
+  // 1. On cache tous les mini-jeux en cours pour nettoyer l'écran
+  hideAllMiniGames();
+  
+  // 2. On utilise l'overlay de résultat des enchères car il est générique (Victoire)
+  const overlay = document.getElementById("encheresResultOverlay");
+  
+  // Mise à jour des textes
+  const nameEl = document.getElementById("encheresVictorName");
+  const reasonEl = overlay ? overlay.querySelector("div:last-child") : null; // Le sous-texte
+  
+  if (nameEl) nameEl.textContent = data.winner;
+  
+  // --- MODIFICATION ICI ---
+  if (reasonEl) reasonEl.textContent = "remporte les enchères !"; 
+  // ------------------------
+  
+  // Affichage de l'overlay avec animation
+  if (overlay) {
+      overlay.classList.remove("hidden");
+      overlay.style.display = "flex";
+      overlay.style.animation = "fadeIn 0.8s ease-out";
+  }
+  
+  console.log("Victoire par forfait. Vainqueur : " + data.winner);
 });
 
 
@@ -3324,13 +3371,23 @@ socket.on("leugtasTimerUpdate", ({ remainingSeconds, totalSeconds }) => {
     btn.classList.remove("btn-locked-intro");
   });
 
+  const elapsed =
+    Math.max(0, (totalSeconds || 0) - (remainingSeconds || 0));
+  const hiddenBtns = document.querySelectorAll(
+    ".playing-choice-btn.choice-hidden"
+  );
+
   // 2. Lancement de l'animation d'apparition (UNE SEULE FOIS au démarrage)
-  if (!leugtasAnswersShown && remainingSeconds < totalSeconds) {
-    leugtasAnswersShown = true;
-    const hiddenBtns = document.querySelectorAll(
-      ".playing-choice-btn.choice-hidden"
-    );
-    if (hiddenBtns.length > 0) {
+  if (!leugtasAnswersShown) {
+    if (hiddenBtns.length > 0 && elapsed > 3.5) {
+      leugtasAnswersShown = true;
+      hiddenBtns.forEach((btn) => {
+        btn.classList.remove("choice-hidden");
+        btn.classList.add("choice-visible");
+        btn.style.transition = "none";
+      });
+    } else if (hiddenBtns.length > 0 && remainingSeconds < totalSeconds) {
+      leugtasAnswersShown = true;
       animateChoicesSequentially(Array.from(hiddenBtns));
     }
   }
@@ -3380,19 +3437,16 @@ socket.on("leugtasTimerUpdate", ({ remainingSeconds, totalSeconds }) => {
 
 
 socket.on("leugtasEnd", () => {
+  // Masquage immédiat du jeu
+  hideAllMiniGames();
+  if (mainPlaying) mainPlaying.classList.add("hidden");
 
   if (!leugtasEndOverlay) return;
-
   leugtasEndOverlay.classList.remove("hidden");
 
-
-
-    setTimeout(() => {
-
-      leugtasEndOverlay.classList.add("hidden");
-
-    }, 3500);
-
+  setTimeout(() => {
+    leugtasEndOverlay.classList.add("hidden");
+  }, 3500);
 });
 
 
@@ -3557,7 +3611,7 @@ socket.on("fauxVraiQuestion", (data) => {
 
 
 
-  if (palierOverlayText && palierOverlay) {
+  if (palierOverlayText && palierOverlay && !data.isReload) {
 
     palierOverlayText.textContent = themeLabel;
 
@@ -3604,15 +3658,26 @@ socket.on("fauxVraiTimerUpdate", ({ remaining, total }) => {
     btn.style.opacity = "";
   });
 
+  const elapsed = Math.max(0, (total || 0) - remaining);
+  const fvButtons = document.querySelectorAll(".fauxvrai-answer-btn");
+
   // 2. Lancement de l'animation (Cascade)
-  if (!fauxVraiAnswersShown && remaining < total) {
-    fauxVraiAnswersShown = true;
-    const btns = document.querySelectorAll(".fauxvrai-answer-btn");
-    btns.forEach((btn, index) => {
-      setTimeout(() => {
+  if (!fauxVraiAnswersShown && fvButtons.length > 0) {
+    if (elapsed > 2.5) {
+      fauxVraiAnswersShown = true;
+      fvButtons.forEach((btn) => {
         btn.classList.add("choice-visible");
-      }, index * 100);
-    });
+        btn.style.opacity = "1";
+        btn.style.transition = "none";
+      });
+    } else if (remaining < total) {
+      fauxVraiAnswersShown = true;
+      fvButtons.forEach((btn, index) => {
+        setTimeout(() => {
+          btn.classList.add("choice-visible");
+        }, index * 100);
+      });
+    }
   }
 
   if (!fauxVraiTimerNumber || !fauxVraiTimerFill) return;
@@ -4262,65 +4327,42 @@ if (pbFinishGameBtn) {
 }
 
 socket.on("leBonOrdreExit", () => {
+  // Masquage immédiat du jeu pour tous les jeux à correction
+  hideAllMiniGames();
+  if (mainPlaying) mainPlaying.classList.add("hidden");
 
   if (leugtasEndOverlay) {
-
     const logo = document.getElementById("leugtasEndLogo");
-
     if (logo) {
-
       let gameName = currentGameState.currentMiniGame || "le_bon_ordre";
-
       if (gameName === "petit_bac" || gameName === "le_petit_bac") {
-
         gameName = "le_petit_bac";
-
       }
-
       logo.src = `titres/${gameName}.png`;
-
     }
 
-
-
     leugtasEndOverlay.classList.remove("hidden");
-
     setTimeout(() => {
-
       leugtasEndOverlay.classList.add("hidden");
-
     }, 3000);
-
   }
-
 });
 
 
 
 socket.on("fauxVraiEnd", () => {
-
-  if (fauxVraiContainer) {
-
-    fauxVraiContainer.classList.add("hidden");
-
-  }
-
-
+  // Masquage immédiat du jeu
+  hideAllMiniGames();
+  if (mainPlaying) mainPlaying.classList.add("hidden");
+  if (fauxVraiContainer) fauxVraiContainer.classList.add("hidden");
 
   if (fauxVraiEndOverlay) {
-
     fauxVraiEndOverlay.classList.remove("hidden");
 
-
-
     setTimeout(() => {
-
       fauxVraiEndOverlay.classList.add("hidden");
-
     }, 3500);
-
   }
-
 });
 
 
@@ -4355,9 +4397,10 @@ socket.on("encheresSetup", (data) => {
 
     list.innerHTML = "";
 
-    
 
     const isSpec = amISpectator();
+
+    const myVoteId = data.currentVote;
 
     data.themes.forEach((theme) => {
 
@@ -4367,25 +4410,55 @@ socket.on("encheresSetup", (data) => {
 
       btn.dataset.themeId = theme.id;
 
-      btn.textContent = theme.nom || theme.name || "Thème";
+      btn.textContent = theme.nom || theme.name || "ThËme";
 
-      
 
       if (isSpec) {
+
         btn.disabled = true;
+
         btn.style.opacity = "0.5";
+
         btn.style.cursor = "default";
-      } else {
-        btn.onclick = () => {
-          socket.emit("encheresVoteTheme", theme.id);
+
+      } else if (myVoteId) {
+
+        btn.disabled = true;
+
+        if (theme.id === myVoteId) {
+
           btn.classList.add("selected");
+
+          btn.style.opacity = "1";
+
+        } else {
+
+          btn.style.opacity = "0.5";
+
+        }
+
+      } else {
+
+        btn.onclick = () => {
+
+          socket.emit("encheresVoteTheme", theme.id);
+
+          btn.classList.add("selected");
+
           Array.from(list.children).forEach((sibling) => {
+
             sibling.disabled = true;
+
             if (sibling !== btn) {
+
               sibling.style.opacity = "0.5";
+
             }
+
           });
+
         };
+
       }
 
       list.appendChild(btn);
@@ -4395,7 +4468,6 @@ socket.on("encheresSetup", (data) => {
   }
 
 });
-
 
 
 socket.on("encheresThemeAnim", (data) => {
@@ -4580,15 +4652,15 @@ socket.on("encheresStartBidding", (data) => {
 
 
 socket.on("encheresTimerUpdate", ({ remaining, total }) => {
-
   const num = document.getElementById("encheresTimerNumber");
-
   const bar = document.getElementById("encheresTimerFill");
-
   if (num) num.textContent = remaining;
-
   if (bar) bar.style.width = (remaining / total) * 100 + "%";
 
+  const numSetup = document.getElementById("encheresSetupTimerNumber");
+  const barSetup = document.getElementById("encheresSetupTimerFill");
+  if (numSetup) numSetup.textContent = remaining;
+  if (barSetup) barSetup.style.width = (remaining / total) * 100 + "%";
 });
 
 
@@ -5183,4 +5255,89 @@ socket.on("playerEliminated", (data) => {
     }
   }
 });
+// ===============================
+//   LOGIQUE DE RECONNEXION AUTO
+// ===============================
 
+// 1. Au chargement de la page (F5)
+window.addEventListener("load", () => {
+  const savedRoom = localStorage.getItem("lqs_room_code");
+  const savedPseudo = localStorage.getItem("lqs_pseudo");
+
+  if (savedRoom && savedPseudo && !currentRoom) {
+    console.log("Tentative de reconnexion auto (Refresh)...");
+    socket.emit("joinRoom", {
+      pseudo: savedPseudo,
+      roomCode: savedRoom,
+      playerId: playerId
+    });
+  }
+});
+
+// 2. A la reconnexion du socket (Sortie de veille mobile / Micro-coupure)
+socket.on("connect", () => {
+  const savedRoom = localStorage.getItem("lqs_room_code");
+  const savedPseudo = localStorage.getItem("lqs_pseudo");
+
+  if (savedRoom && savedPseudo) {
+    console.log("Tentative de reconnexion auto (Socket connect)...");
+    socket.emit("joinRoom", {
+      pseudo: savedPseudo,
+      roomCode: savedRoom,
+      playerId: playerId
+    });
+  }
+});
+
+// --- GESTION FENÊTRE LISTE DES JOUEURS ---
+
+const showPlayersBtn = document.getElementById("showPlayersBtn");
+const playersListOverlay = document.getElementById("playersListOverlay");
+const closePlayersBtn = document.getElementById("closePlayersBtn");
+const modalPlayersList = document.getElementById("modalPlayersList");
+
+if (showPlayersBtn) {
+  showPlayersBtn.addEventListener("click", () => {
+    if (!playersListOverlay || !modalPlayersList || !currentRoom) return;
+
+    modalPlayersList.innerHTML = "";
+
+    currentRoom.players.forEach((p) => {
+      const li = document.createElement("li");
+      li.className = "modal-player-item";
+
+      const isOnline = p.isConnected;
+      const statusColorClass = isOnline ? "online" : "offline";
+      const statusText = isOnline ? "Connecté" : "Déconnecté";
+
+      let extraInfo = "";
+      if (p.eliminated) extraInfo = " <span style='color:#e74c3c; font-size:0.8em; margin-left:5px;'>(Éliminé)</span>";
+      else if (p.isSpectator) extraInfo = " <span style='color:#aaa; font-size:0.8em; margin-left:5px;'>(Spectateur)</span>";
+      if (p.playerId === currentRoom.hostId) extraInfo += " <span style='color:#ffcc00; font-size:0.8em; margin-left:5px;'>★ Hôte</span>";
+
+      li.innerHTML = `
+        <div style="text-align:left;">
+          <span style="font-weight:bold;">${p.pseudo}</span>${extraInfo}
+        </div>
+        <div style="display:flex; align-items:center;">
+          <span class="status-dot ${statusColorClass}"></span>
+          <span style="font-size:0.85rem; opacity:0.7;">${statusText}</span>
+        </div>
+      `;
+
+      modalPlayersList.appendChild(li);
+    });
+
+    playersListOverlay.classList.remove("hidden");
+    playersListOverlay.style.display = "flex";
+  });
+}
+
+if (closePlayersBtn) {
+  closePlayersBtn.addEventListener("click", () => {
+    if (playersListOverlay) {
+      playersListOverlay.classList.add("hidden");
+      playersListOverlay.style.display = "none";
+    }
+  });
+}
