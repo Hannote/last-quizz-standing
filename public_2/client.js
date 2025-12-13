@@ -86,7 +86,7 @@ const body = document.body;
 
 const roomUpper = document.getElementById("room-upper");
 
-const globalControls = document.getElementById("globalControls");
+const globalQuitBtn = document.getElementById("leaveRoomBtn");
 
 
 
@@ -110,22 +110,11 @@ const sandboxToggle = document.getElementById("sandboxToggle");
 
 const sandboxMiniGameSelect = document.getElementById("sandboxMiniGameSelect");
 
-const btnEnterGame = document.getElementById("btn-enter-game");
-const lobbyForm = document.getElementById("lobby-form");
+
 
 const errorLobby = document.getElementById("errorLobby");
 
 const errorRoom = document.getElementById("errorRoom");
-
-if (btnEnterGame && lobbyForm) {
-  btnEnterGame.addEventListener("click", () => {
-    btnEnterGame.classList.add("hidden");
-    lobbyForm.classList.remove("hidden");
-    if (pseudoInput) {
-      pseudoInput.focus();
-    }
-  });
-}
 
 
 
@@ -466,15 +455,15 @@ function showScreen(screenName) {
 
 
 
-  if (globalControls) {
+  if (globalQuitBtn) {
 
     if (screenName === "room") {
 
-      globalControls.classList.remove("hidden");
+      globalQuitBtn.style.display = "inline-block";
 
     } else {
 
-      globalControls.classList.add("hidden");
+      globalQuitBtn.style.display = "none";
 
     }
 
@@ -1225,47 +1214,34 @@ function stopBlindTestAudio() {
 
 
 socket.on("leBonOrdreQuestion", (data) => {
-
   if (mainDefault) mainDefault.classList.add("hidden");
-
   if (mainRules) mainRules.classList.add("hidden");
-
   if (mainDrawing) mainDrawing.classList.add("hidden");
-
   if (mainPlaying) mainPlaying.classList.add("hidden");
-
   hideAllMiniGames();
 
-
-
   if (palierOverlay && palierOverlayText) {
-
     palierOverlayText.textContent = data.themeName || "Thème";
-
     palierOverlay.classList.remove("hidden");
-
+    
+    // MASQUER LE FOND (CORRECTIF)
+    const mainZone = document.querySelector(".main-zone");
+    if (mainZone) mainZone.classList.add("hidden");
+    
     if (leBonOrdreContainer) leBonOrdreContainer.classList.add("hidden");
 
-
-
     setTimeout(() => {
+      // RÉAFFICHER LE FOND
+      if (mainZone) mainZone.classList.remove("hidden");
 
       showLeBonOrdreQuestion(data);
-
       setTimeout(() => {
-
         palierOverlay.classList.add("hidden");
-
       }, 100);
-
     }, 1500);
-
   } else {
-
     showLeBonOrdreQuestion(data);
-
   }
-
 });
 
 
@@ -1444,43 +1420,32 @@ socket.on("quiSuisJeEnd", () => {
 
 
 socket.on("leTourDuMondeQuestion", (data) => {
-
   if (mainDefault) mainDefault.classList.add("hidden");
-
   if (mainRules) mainRules.classList.add("hidden");
-
   hideAllMiniGames();
 
-
-
   if (palierOverlay && palierOverlayText) {
-
     palierOverlayText.textContent = data.themeName || "Thème";
-
     palierOverlay.classList.remove("hidden");
+    
+    // MASQUER LE FOND (CORRECTIF)
+    const mainZone = document.querySelector(".main-zone");
+    if (mainZone) mainZone.classList.add("hidden");
 
     if (tourMondeContainer) tourMondeContainer.classList.add("hidden");
 
-
-
     setTimeout(() => {
+      // RÉAFFICHER LE FOND
+      if (mainZone) mainZone.classList.remove("hidden");
 
       showTourMondeQuestion(data);
-
       setTimeout(() => {
-
         palierOverlay.classList.add("hidden");
-
       }, 100);
-
     }, 1500);
-
   } else {
-
     showTourMondeQuestion(data);
-
   }
-
 });
 
 
@@ -1542,47 +1507,34 @@ socket.on("leTourDuMondeEnd", () => {
 
 
 socket.on("blindTestQuestion", (data) => {
-
   stopBlindTestAudio();
 
-
-
   if (mainDefault) mainDefault.classList.add("hidden");
-
   if (mainRules) mainRules.classList.add("hidden");
-
   hideAllMiniGames();
 
-
-
   if (palierOverlay && palierOverlayText) {
-
     palierOverlayText.textContent = data.themeName || "Thème";
-
     palierOverlay.classList.remove("hidden");
+
+    // MASQUER LE FOND (CORRECTIF)
+    const mainZone = document.querySelector(".main-zone");
+    if (mainZone) mainZone.classList.add("hidden");
 
     if (blindTestContainer) blindTestContainer.classList.add("hidden");
 
-
-
     setTimeout(() => {
+      // RÉAFFICHER LE FOND
+      if (mainZone) mainZone.classList.remove("hidden");
 
       showBlindTestQuestion(data);
-
       setTimeout(() => {
-
         palierOverlay.classList.add("hidden");
-
       }, 100);
-
     }, 1500);
-
   } else {
-
     showBlindTestQuestion(data);
-
   }
-
 });
 
 
@@ -1666,7 +1618,15 @@ socket.on("petitBacStart", (data) => {
 
     palierOverlay.classList.remove("hidden");
 
-    setTimeout(() => palierOverlay.classList.add("hidden"), 2000);
+    // MASQUER LE FOND (CORRECTIF)
+    const mainZone = document.querySelector(".main-zone");
+    if (mainZone) mainZone.classList.add("hidden");
+
+    setTimeout(() => {
+      // RÉAFFICHER LE FOND
+      if (mainZone) mainZone.classList.remove("hidden");
+      palierOverlay.classList.add("hidden");
+    }, 2000);
 
   }
 
@@ -2934,8 +2894,6 @@ createRoomBtn.addEventListener("click", () => {
 
 
 
-  localStorage.setItem("lqs_pseudo", pseudo);
-
   socket.emit("createRoom", { pseudo, playerId });
 
 });
@@ -2970,77 +2928,75 @@ joinRoomBtn.addEventListener("click", () => {
 
 
 
-  localStorage.setItem("lqs_pseudo", pseudo);
-  localStorage.setItem("lqs_room_code", roomCode);
-
   socket.emit("joinRoom", { pseudo, roomCode, playerId });
 
 });
 
 
 
-// --- GESTION SÉCURISÉE DU BOUTON QUITTER ---
+leaveRoomBtn.addEventListener("click", () => {
 
-const quitConfirmOverlay = document.getElementById("quitConfirmOverlay");
-const confirmQuitBtn = document.getElementById("confirmQuitBtn");
-const cancelQuitBtn = document.getElementById("cancelQuitBtn");
+  socket.emit("leaveRoom");
 
-// 1. Clic sur le bouton "Quitter" en haut à droite -> Ouvre l'overlay
-if (leaveRoomBtn) {
-  leaveRoomBtn.addEventListener("click", () => {
-    if (quitConfirmOverlay) {
-      quitConfirmOverlay.classList.remove("hidden");
-      quitConfirmOverlay.style.animation = "fadeIn 0.3s ease-out";
-    }
-  });
-}
+  
 
-// 2. Clic sur "NON" -> Ferme l'overlay
-if (cancelQuitBtn) {
-  cancelQuitBtn.addEventListener("click", () => {
-    if (quitConfirmOverlay) {
-      quitConfirmOverlay.classList.add("hidden");
-    }
-  });
-}
+  hideAllMiniGames(); 
 
-// 3. Clic sur "OUI" -> Exécute la déconnexion
-if (confirmQuitBtn) {
-  confirmQuitBtn.addEventListener("click", () => {
-    if (quitConfirmOverlay) quitConfirmOverlay.classList.add("hidden");
+  
 
-    localStorage.removeItem("lqs_room_code");
-    localStorage.removeItem("lqs_pseudo");
+  if (petitBacContainer) petitBacContainer.classList.add("hidden");
 
-    socket.emit("leaveRoom");
+  if (pbLetterDisplay) pbLetterDisplay.textContent = "?";
 
-    hideAllMiniGames();
+  if (pbFormZone) pbFormZone.innerHTML = "";
 
-    if (petitBacContainer) petitBacContainer.classList.add("hidden");
-    if (pbLetterDisplay) pbLetterDisplay.textContent = "?";
-    if (pbFormZone) pbFormZone.innerHTML = "";
+  
 
-    const enchHist = document.getElementById("encheresHistory");
-    if (enchHist) enchHist.innerHTML = "";
+  const enchHist = document.getElementById("encheresHistory");
 
-    currentRoom = null;
-    currentPlayersData = [];
-    const lbOverlay = document.getElementById("leaderboard-overlay");
-    if (lbOverlay) lbOverlay.classList.remove("active");
+  if (enchHist) enchHist.innerHTML = "";
 
-    currentGameState = {
-      phase: "idle",
-      roundNumber: 0,
-      currentMiniGame: null,
-      readyPlayerIds: []
-    };
-    iAmReady = false;
-    lastPhase = "idle";
-    stopDrawAnimation();
-    updateGameStateUI(currentGameState);
-    showScreen("lobby");
-  });
-}
+
+
+  // --- CLEANUP IMPORTANT ---
+
+  currentRoom = null;
+
+  currentPlayersData = [];
+
+  const lbOverlay = document.getElementById("leaderboard-overlay");
+
+  if (lbOverlay) lbOverlay.classList.remove("active");
+
+  // -------------------------
+
+
+
+  currentGameState = {
+
+    phase: "idle",
+
+    roundNumber: 0,
+
+    currentMiniGame: null,
+
+    readyPlayerIds: []
+
+  };
+
+  iAmReady = false;
+
+  lastPhase = "idle";
+
+  stopDrawAnimation();
+
+  updateGameStateUI(currentGameState);
+
+  showScreen("lobby");
+
+
+
+});
 
 // clic sur "Je suis prÃªtÂ�e"
 
@@ -3245,39 +3201,32 @@ socket.on("leugtasQuestion", (data) => {
     palierOverlayText.textContent = "PALIER " + data.index;
 
     palierOverlay.classList.remove("hidden");
-
-
+    
+    // MASQUER LE FOND
+    const mainZone = document.querySelector(".main-zone");
+    if (mainZone) mainZone.classList.add("hidden");
 
     setTimeout(() => {
 
+      // RÉAFFICHER LE FOND
+      if (mainZone) mainZone.classList.remove("hidden");
+      
       revealQuestion();
-
       setTimeout(() => {
-
         palierOverlay.classList.add("hidden");
-
       }, 100);
-
     }, 1500);
-
   } else {
-
     revealQuestion();
-
   }
 
 });
 
 
 
-socket.on("roomJoined", (roomData) => {
+socket.on("roomJoined", (room) => {
 
-  console.log("Rejoint la salle :", roomData.roomCode);
-  if (roomData && roomData.roomCode) {
-    localStorage.setItem("lqs_room_code", roomData.roomCode);
-  }
-
-  updateRoomUI(roomData);
+  updateRoomUI(room);
 
   showScreen("room");
 
@@ -3299,33 +3248,6 @@ socket.on("gameStateUpdate", (gs) => {
 
   updateGameStateUI(gs);
 
-});
-
-socket.on("gameOver", (data) => {
-  // 1. On cache tous les mini-jeux en cours pour nettoyer l'écran
-  hideAllMiniGames();
-  
-  // 2. On utilise l'overlay de résultat des enchères car il est générique (Victoire)
-  const overlay = document.getElementById("encheresResultOverlay");
-  
-  // Mise à jour des textes
-  const nameEl = document.getElementById("encheresVictorName");
-  const reasonEl = overlay ? overlay.querySelector("div:last-child") : null; // Le sous-texte
-  
-  if (nameEl) nameEl.textContent = data.winner;
-  
-  // --- MODIFICATION ICI ---
-  if (reasonEl) reasonEl.textContent = "remporte les enchères !"; 
-  // ------------------------
-  
-  // Affichage de l'overlay avec animation
-  if (overlay) {
-      overlay.classList.remove("hidden");
-      overlay.style.display = "flex";
-      overlay.style.animation = "fadeIn 0.8s ease-out";
-  }
-  
-  console.log("Victoire par forfait. Vainqueur : " + data.winner);
 });
 
 
@@ -3371,23 +3293,13 @@ socket.on("leugtasTimerUpdate", ({ remainingSeconds, totalSeconds }) => {
     btn.classList.remove("btn-locked-intro");
   });
 
-  const elapsed =
-    Math.max(0, (totalSeconds || 0) - (remainingSeconds || 0));
-  const hiddenBtns = document.querySelectorAll(
-    ".playing-choice-btn.choice-hidden"
-  );
-
   // 2. Lancement de l'animation d'apparition (UNE SEULE FOIS au démarrage)
-  if (!leugtasAnswersShown) {
-    if (hiddenBtns.length > 0 && elapsed > 3.5) {
-      leugtasAnswersShown = true;
-      hiddenBtns.forEach((btn) => {
-        btn.classList.remove("choice-hidden");
-        btn.classList.add("choice-visible");
-        btn.style.transition = "none";
-      });
-    } else if (hiddenBtns.length > 0 && remainingSeconds < totalSeconds) {
-      leugtasAnswersShown = true;
+  if (!leugtasAnswersShown && remainingSeconds < totalSeconds) {
+    leugtasAnswersShown = true;
+    const hiddenBtns = document.querySelectorAll(
+      ".playing-choice-btn.choice-hidden"
+    );
+    if (hiddenBtns.length > 0) {
       animateChoicesSequentially(Array.from(hiddenBtns));
     }
   }
@@ -3437,16 +3349,19 @@ socket.on("leugtasTimerUpdate", ({ remainingSeconds, totalSeconds }) => {
 
 
 socket.on("leugtasEnd", () => {
-  // Masquage immédiat du jeu
-  hideAllMiniGames();
-  if (mainPlaying) mainPlaying.classList.add("hidden");
 
   if (!leugtasEndOverlay) return;
+
   leugtasEndOverlay.classList.remove("hidden");
 
-  setTimeout(() => {
-    leugtasEndOverlay.classList.add("hidden");
-  }, 3500);
+
+
+    setTimeout(() => {
+
+      leugtasEndOverlay.classList.add("hidden");
+
+    }, 3500);
+
 });
 
 
@@ -3617,15 +3532,17 @@ socket.on("fauxVraiQuestion", (data) => {
 
     palierOverlay.classList.remove("hidden");
 
-
+    // MASQUER LE FOND
+    const mainZone = document.querySelector(".main-zone");
+    if (mainZone) mainZone.classList.add("hidden");
 
     setTimeout(() => {
 
+      // RÉAFFICHER LE FOND
+      if (mainZone) mainZone.classList.remove("hidden");
+
       showFauxVraiQuestion(data);
-
       if (scoreboard) scoreboard.classList.remove("hidden");
-
-
 
       setTimeout(() => {
 
@@ -3638,7 +3555,6 @@ socket.on("fauxVraiQuestion", (data) => {
   } else {
 
     showFauxVraiQuestion(data);
-
     if (scoreboard) scoreboard.classList.remove("hidden");
 
   }
@@ -3658,26 +3574,15 @@ socket.on("fauxVraiTimerUpdate", ({ remaining, total }) => {
     btn.style.opacity = "";
   });
 
-  const elapsed = Math.max(0, (total || 0) - remaining);
-  const fvButtons = document.querySelectorAll(".fauxvrai-answer-btn");
-
   // 2. Lancement de l'animation (Cascade)
-  if (!fauxVraiAnswersShown && fvButtons.length > 0) {
-    if (elapsed > 2.5) {
-      fauxVraiAnswersShown = true;
-      fvButtons.forEach((btn) => {
+  if (!fauxVraiAnswersShown && remaining < total) {
+    fauxVraiAnswersShown = true;
+    const btns = document.querySelectorAll(".fauxvrai-answer-btn");
+    btns.forEach((btn, index) => {
+      setTimeout(() => {
         btn.classList.add("choice-visible");
-        btn.style.opacity = "1";
-        btn.style.transition = "none";
-      });
-    } else if (remaining < total) {
-      fauxVraiAnswersShown = true;
-      fvButtons.forEach((btn, index) => {
-        setTimeout(() => {
-          btn.classList.add("choice-visible");
-        }, index * 100);
-      });
-    }
+      }, index * 100);
+    });
   }
 
   if (!fauxVraiTimerNumber || !fauxVraiTimerFill) return;
@@ -4327,42 +4232,65 @@ if (pbFinishGameBtn) {
 }
 
 socket.on("leBonOrdreExit", () => {
-  // Masquage immédiat du jeu pour tous les jeux à correction
-  hideAllMiniGames();
-  if (mainPlaying) mainPlaying.classList.add("hidden");
 
   if (leugtasEndOverlay) {
+
     const logo = document.getElementById("leugtasEndLogo");
+
     if (logo) {
+
       let gameName = currentGameState.currentMiniGame || "le_bon_ordre";
+
       if (gameName === "petit_bac" || gameName === "le_petit_bac") {
+
         gameName = "le_petit_bac";
+
       }
+
       logo.src = `titres/${gameName}.png`;
+
     }
 
+
+
     leugtasEndOverlay.classList.remove("hidden");
+
     setTimeout(() => {
+
       leugtasEndOverlay.classList.add("hidden");
+
     }, 3000);
+
   }
+
 });
 
 
 
 socket.on("fauxVraiEnd", () => {
-  // Masquage immédiat du jeu
-  hideAllMiniGames();
-  if (mainPlaying) mainPlaying.classList.add("hidden");
-  if (fauxVraiContainer) fauxVraiContainer.classList.add("hidden");
+
+  if (fauxVraiContainer) {
+
+    fauxVraiContainer.classList.add("hidden");
+
+  }
+
+
 
   if (fauxVraiEndOverlay) {
+
     fauxVraiEndOverlay.classList.remove("hidden");
 
+
+
     setTimeout(() => {
+
       fauxVraiEndOverlay.classList.add("hidden");
+
     }, 3500);
+
   }
+
 });
 
 
@@ -4397,10 +4325,9 @@ socket.on("encheresSetup", (data) => {
 
     list.innerHTML = "";
 
+    
 
     const isSpec = amISpectator();
-
-    const myVoteId = data.currentVote;
 
     data.themes.forEach((theme) => {
 
@@ -4410,55 +4337,25 @@ socket.on("encheresSetup", (data) => {
 
       btn.dataset.themeId = theme.id;
 
-      btn.textContent = theme.nom || theme.name || "ThËme";
+      btn.textContent = theme.nom || theme.name || "Thème";
 
+      
 
       if (isSpec) {
-
         btn.disabled = true;
-
         btn.style.opacity = "0.5";
-
         btn.style.cursor = "default";
-
-      } else if (myVoteId) {
-
-        btn.disabled = true;
-
-        if (theme.id === myVoteId) {
-
-          btn.classList.add("selected");
-
-          btn.style.opacity = "1";
-
-        } else {
-
-          btn.style.opacity = "0.5";
-
-        }
-
       } else {
-
         btn.onclick = () => {
-
           socket.emit("encheresVoteTheme", theme.id);
-
           btn.classList.add("selected");
-
           Array.from(list.children).forEach((sibling) => {
-
             sibling.disabled = true;
-
             if (sibling !== btn) {
-
               sibling.style.opacity = "0.5";
-
             }
-
           });
-
         };
-
       }
 
       list.appendChild(btn);
@@ -4468,6 +4365,7 @@ socket.on("encheresSetup", (data) => {
   }
 
 });
+
 
 
 socket.on("encheresThemeAnim", (data) => {
@@ -4652,15 +4550,15 @@ socket.on("encheresStartBidding", (data) => {
 
 
 socket.on("encheresTimerUpdate", ({ remaining, total }) => {
+
   const num = document.getElementById("encheresTimerNumber");
+
   const bar = document.getElementById("encheresTimerFill");
+
   if (num) num.textContent = remaining;
+
   if (bar) bar.style.width = (remaining / total) * 100 + "%";
 
-  const numSetup = document.getElementById("encheresSetupTimerNumber");
-  const barSetup = document.getElementById("encheresSetupTimerFill");
-  if (numSetup) numSetup.textContent = remaining;
-  if (barSetup) barSetup.style.width = (remaining / total) * 100 + "%";
 });
 
 
@@ -5253,154 +5151,5 @@ socket.on("playerEliminated", (data) => {
         
         setTimeout(() => notif.remove(), 4000);
     }
-  }
-});
-// ===============================
-//   LOGIQUE DE RECONNEXION AUTO
-// ===============================
-
-// 1. Au chargement de la page (F5)
-window.addEventListener("load", () => {
-  const savedRoom = localStorage.getItem("lqs_room_code");
-  const savedPseudo = localStorage.getItem("lqs_pseudo");
-
-  if (savedRoom && savedPseudo && !currentRoom) {
-    console.log("Tentative de reconnexion auto (Refresh)...");
-    socket.emit("joinRoom", {
-      pseudo: savedPseudo,
-      roomCode: savedRoom,
-      playerId: playerId
-    });
-  }
-});
-
-// 2. A la reconnexion du socket (Sortie de veille mobile / Micro-coupure)
-socket.on("connect", () => {
-  const savedRoom = localStorage.getItem("lqs_room_code");
-  const savedPseudo = localStorage.getItem("lqs_pseudo");
-
-  if (savedRoom && savedPseudo) {
-    console.log("Tentative de reconnexion auto (Socket connect)...");
-    socket.emit("joinRoom", {
-      pseudo: savedPseudo,
-      roomCode: savedRoom,
-      playerId: playerId
-    });
-  }
-});
-
-// --- GESTION FENÊTRE LISTE DES JOUEURS ---
-
-const showPlayersBtn = document.getElementById("showPlayersBtn");
-const playersListOverlay = document.getElementById("playersListOverlay");
-const closePlayersBtn = document.getElementById("closePlayersBtn");
-const modalPlayersList = document.getElementById("modalPlayersList");
-
-if (showPlayersBtn) {
-  showPlayersBtn.addEventListener("click", () => {
-    if (!playersListOverlay || !modalPlayersList || !currentRoom) return;
-
-    modalPlayersList.innerHTML = "";
-
-    currentRoom.players.forEach((p) => {
-      const li = document.createElement("li");
-      li.className = "modal-player-item";
-
-      const isOnline = p.isConnected;
-      const statusColorClass = isOnline ? "online" : "offline";
-      const statusText = isOnline ? "Connecté" : "Déconnecté";
-
-      let extraInfo = "";
-      if (p.eliminated) extraInfo = " <span style='color:#e74c3c; font-size:0.8em; margin-left:5px;'>(Éliminé)</span>";
-      else if (p.isSpectator) extraInfo = " <span style='color:#aaa; font-size:0.8em; margin-left:5px;'>(Spectateur)</span>";
-      if (p.playerId === currentRoom.hostId) extraInfo += " <span style='color:#ffcc00; font-size:0.8em; margin-left:5px;'>★ Hôte</span>";
-
-      li.innerHTML = `
-        <div style="text-align:left;">
-          <span style="font-weight:bold;">${p.pseudo}</span>${extraInfo}
-        </div>
-        <div style="display:flex; align-items:center;">
-          <span class="status-dot ${statusColorClass}"></span>
-          <span style="font-size:0.85rem; opacity:0.7;">${statusText}</span>
-        </div>
-      `;
-
-      modalPlayersList.appendChild(li);
-    });
-
-    playersListOverlay.classList.remove("hidden");
-    playersListOverlay.style.display = "flex";
-  });
-}
-
-if (closePlayersBtn) {
-  closePlayersBtn.addEventListener("click", () => {
-    if (playersListOverlay) {
-      playersListOverlay.classList.add("hidden");
-      playersListOverlay.style.display = "none";
-    }
-  });
-}
-
-// ===============================
-//      LISEUSE D'IMAGE (FINAL)
-// ===============================
-
-// 1. Définition des fonctions en GLOBAL (window) pour accès HTML garanti
-window.openImageViewer = function(src) {
-  const viewer = document.getElementById("imageViewer");
-  const content = document.getElementById("imageViewerContent");
-  
-  // On ouvre même si le src semble bizarre, le navigateur gérera l'affichage
-  if (viewer && content && src) {
-      console.log("Ouverture liseuse :", src); // Debug dans la console
-      content.src = src;
-      viewer.classList.remove("hidden");
-  }
-};
-
-window.closeImageViewer = function() {
-  const viewer = document.getElementById("imageViewer");
-  const content = document.getElementById("imageViewerContent");
-  
-  if (viewer) {
-      viewer.classList.add("hidden");
-      // Petit délai pour nettoyer l'image
-      setTimeout(() => { 
-        if(content) content.src = ""; 
-      }, 200);
-  }
-};
-
-// 2. Initialisation forcée sur les images
-// On attend un tout petit peu que le DOM soit stable
-setTimeout(() => {
-    const zoomIds = [
-      "qsjMainImage", "lboMainImage", "tdmMainImage", "corrImgQuestion", "corrImgAnswer"
-    ];
-
-    zoomIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            // Style curseur
-            el.style.cursor = "zoom-in";
-            
-            // Événement direct : écrase tout autre listener potentiel
-            el.onclick = function(e) {
-                // Empêche le clic de traverser l'image ou de déclencher autre chose
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Appel de la fonction globale
-                window.openImageViewer(this.src);
-            };
-        }
-    });
-}, 500);
-
-// 3. Fermeture avec la touche Echap
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-      window.closeImageViewer();
   }
 });
