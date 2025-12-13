@@ -716,19 +716,19 @@
       }
 
       .palier-overlay-text {
-        /* TAILLE DYNAMIQUE : Minimum 2rem (mobile), Max 4rem (PC) */
-        font-size: clamp(2rem, 7vw, 4rem);
+        /* TAILLE AUGMENTÉE : Min 2.5rem (mobile), Max 5rem (PC) */
+        font-size: clamp(2.5rem, 8vw, 5rem);
         font-weight: 900;
         color: #ffcc00;
         text-shadow: 0 0 16px rgba(255, 255, 0, 0.8);
         animation: palierZoomFade 1.5s ease-out forwards;
         
-        /* CENTRAGE ET SÉCURITÉ MOBILE */
-        text-align: center;         /* Centre le texte sur plusieurs lignes */
-        width: 90%;                 /* Marge de sécurité sur les bords */
-        max-width: 800px;           /* Pas trop large sur PC */
-        line-height: 1.1;           /* Espacement des lignes serré */
-        word-wrap: break-word;      /* Coupe proprement si un mot est géant */
+        /* CENTRAGE ET SÉCURITÉ MOBILE (Inchangé) */
+        text-align: center;
+        width: 90%;
+        max-width: 800px;
+        line-height: 1.1;
+        word-wrap: break-word;
       }
 
       @keyframes palierZoomFade {
