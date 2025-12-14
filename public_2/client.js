@@ -43,6 +43,9 @@ const sfxAdjugeVendu = new Howl({ src: ['sons/adjuge_vendu.mp3'], volume: 0.5 })
 const sfxEnchereChampion = new Howl({ src: ['sons/enchere_champion.mp3'], volume: 0.5 });
 const sfxCorrectionArrow = new Howl({ src: ['sons/correction_fleche.mp3'], volume: 0.5 });
 const sfxCorrectOther = new Howl({ src: ['sons/correction_autre.mp3'], volume: 0.5 });
+const sfxQuestion = new Howl({ src: ['sons/question.mp3'], volume: 0.5 });
+const sfxLeugtasQuestion = new Howl({ src: ['sons/question_leugta.mp3'], volume: 0.5 });
+const sfxEnchereReady = new Howl({ src: ['sons/enchere_ready.mp3'], volume: 0.5 });
 
 // Utilitaire pour savoir si je suis spectateur (éliminé ou spectateur pur)
 function amISpectator() {
@@ -903,6 +906,7 @@ function lockFauxVraiButtons(selectedIndex) {
 
 
 function showFauxVraiQuestion(data) {
+  sfxQuestion.play(); // AJOUT ICI
   if (mainDefault) mainDefault.classList.add("hidden");
   if (mainDrawing) mainDrawing.classList.add("hidden");
   if (mainRules) mainRules.classList.add("hidden");
@@ -984,6 +988,7 @@ function showFauxVraiQuestion(data) {
   }
 }
 function showLeBonOrdreQuestion(data) {
+  sfxQuestion.play(); // AJOUT ICI
   hideAllMiniGames();
   if (mainDefault) mainDefault.classList.add("hidden");
   if (mainDrawing) mainDrawing.classList.add("hidden");
@@ -1043,6 +1048,7 @@ if (!isLboSpectator) {
 }
 
 function showQuiSuisJeQuestion(data) {
+  sfxQuestion.play(); // AJOUT ICI
   hideAllMiniGames();
   if (mainDefault) mainDefault.classList.add("hidden");
   if (mainDrawing) mainDrawing.classList.add("hidden");
@@ -1101,6 +1107,7 @@ if (!isQsjSpectator) {
   }
 }
 function showTourMondeQuestion(data) {
+  sfxQuestion.play(); // AJOUT ICI
   if (mainDefault) mainDefault.classList.add("hidden");
   if (mainRules) mainRules.classList.add("hidden");
   hideAllMiniGames();
@@ -1266,7 +1273,6 @@ function stopBlindTestAudio() {
 
 
 socket.on("leBonOrdreQuestion", (data) => {
-
   if (mainDefault) mainDefault.classList.add("hidden");
 
   if (mainRules) mainRules.classList.add("hidden");
@@ -2285,6 +2291,8 @@ function setupLeugtasQuestion(questionData) {
   }
 
 
+
+  sfxLeugtasQuestion.play();
 
   if (playingTimer) {
 
@@ -4824,7 +4832,10 @@ socket.on("encheresNewBid", (bid) => {
 // NOUVEAU : Animation du vainqueur des enchÃ¨res
 
 socket.on("encheresBidResult", (data) => {
+    // 1. Son et Nettoyage visuel
     sfxAdjugeVendu.play();
+    hideAllMiniGames(); // Cache le plateau des enchères
+    if (scoreboard) scoreboard.classList.add("hidden"); // Cache les scores
 
     const biddingZone = document.getElementById("encheresBiddingZone");
 
@@ -4873,6 +4884,13 @@ socket.on("encheresBidResult", (data) => {
 // 4. PHASE DE JEU (COLLECTE) - NOUVELLE INTERFACE
 
 socket.on("encheresStartCollection", (data) => {
+  // --- CORRECTIF AFFICHAGE ---
+  const encheresGame = document.getElementById("encheresGameContainer");
+  if (encheresGame) {
+      encheresGame.classList.remove("hidden");
+      encheresGame.style.display = "flex";
+  }
+  // ---------------------------
 
   const overlay = document.getElementById("encheresWinnerOverlay");
 
@@ -5389,6 +5407,54 @@ socket.on("playerEliminated", (data) => {
         
         setTimeout(() => notif.remove(), 4000);
     }
+  }
+});
+socket.on("encheresCountdown", () => {
+  // 1. Son
+  sfxEnchereReady.play();
+
+  // 2. On cache tout le reste (le board, les jeux, etc.)
+  hideAllMiniGames();
+  if (scoreboard) scoreboard.classList.add("hidden");
+
+  // 3. On masque l'overlay du vainqueur proprement (avec display: none pour éviter les conflits)
+  const winnerOverlay = document.getElementById("encheresWinnerOverlay");
+  if (winnerOverlay) {
+    winnerOverlay.classList.add("hidden");
+    winnerOverlay.style.display = "none"; // FORCE LE MASQUAGE
+  }
+
+  const overlay = document.getElementById("palierOverlay");
+  const textEl = document.getElementById("palierOverlayText");
+  
+  if (overlay && textEl) {
+    textEl.style.animation = "none";
+    textEl.style.fontSize = "8rem";
+    textEl.style.color = "#ffcc00";
+    
+    overlay.classList.remove("hidden");
+    
+    let count = 3;
+    textEl.textContent = count;
+    
+    const interval = setInterval(() => {
+      count--;
+      if (count > 0) {
+        textEl.textContent = count;
+        textEl.style.transform = "scale(1.2)";
+        setTimeout(() => textEl.style.transform = "scale(1)", 100);
+      } else {
+        clearInterval(interval);
+        textEl.textContent = "À VOUS !";
+      }
+    }, 1000);
+
+    setTimeout(() => {
+      overlay.classList.add("hidden");
+      textEl.style.animation = "";
+      textEl.style.transform = "";
+      textEl.style.fontSize = "";
+    }, 4000);
   }
 });
 // ===============================

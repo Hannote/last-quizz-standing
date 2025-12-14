@@ -2209,9 +2209,17 @@ io.on("connection", (socket) => {
           amount: winningBid
         });
 
+        // 1. On attend 5s (Réduit de 1s) que les joueurs lisent le vainqueur
         setTimeout(() => {
-          startEncheresCollection(room.roomCode);
-        }, 4000);
+          // 2. On lance l'animation de décompte (4s)
+          io.to(room.roomCode).emit("encheresCountdown");
+
+          setTimeout(() => {
+            // 3. On démarre vraiment le jeu
+            startEncheresCollection(room.roomCode);
+          }, 4000);
+
+        }, 5000);
       });
     }, 3500);
   }
