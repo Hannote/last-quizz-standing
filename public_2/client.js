@@ -8,6 +8,42 @@
 
 const socket = io();
 
+// --- AUDIO SETUP (Howler.js) ---
+const sfxBubbleClick = new Howl({
+  src: ['sons/buble_click.mp3'],
+  volume: 0.5,
+  preload: true
+});
+const sfxTheme = new Howl({
+  src: ['sons/theme.mp3'],
+  volume: 0.5,
+  preload: true
+});
+const sfxReady = new Howl({
+  src: ['sons/pret.mp3'],
+  volume: 0.5,
+  preload: true
+});
+const sfxCorrect1 = new Howl({ src: ['sons/correction_1point.mp3'], volume: 0.5 });
+const sfxCorrect0 = new Howl({ src: ['sons/correction_0point.mp3'], volume: 0.5 });
+const sfxFauxVraiWin = new Howl({
+  src: ['sons/faux_bonne_reponse.mp3'],
+  volume: 0.5
+});
+const sfxFauxVraiLose = new Howl({
+  src: ['sons/faux_mauvaise_reponse.mp3'],
+  volume: 0.5
+});
+const sfxEnchereReponse = new Howl({ src: ['sons/enchere_reponse.mp3'], volume: 0.5 });
+const sfxLeugtasClick = new Howl({ src: ['sons/leugta_reponse.mp3'], volume: 0.5 });
+const sfxLeugtasWin = new Howl({ src: ['sons/leugta_bonne_reponse.mp3'], volume: 0.5 });
+const sfxLeugtasLose = new Howl({ src: ['sons/leugta_mauvaise_reponse.mp3'], volume: 0.5 });
+const sfxEnchereTheme = new Howl({ src: ['sons/enchere_theme.mp3'], volume: 0.5 });
+const sfxAdjugeVendu = new Howl({ src: ['sons/adjuge_vendu.mp3'], volume: 0.5 });
+const sfxEnchereChampion = new Howl({ src: ['sons/enchere_champion.mp3'], volume: 0.5 });
+const sfxCorrectionArrow = new Howl({ src: ['sons/correction_fleche.mp3'], volume: 0.5 });
+const sfxCorrectOther = new Howl({ src: ['sons/correction_autre.mp3'], volume: 0.5 });
+
 // Utilitaire pour savoir si je suis spectateur (éliminé ou spectateur pur)
 function amISpectator() {
   if (!currentRoom) return false;
@@ -385,7 +421,8 @@ window.submitGrade = function (points) {
 
   if (socket) {
 
-    socket.emit("hostGradePlayer", { points });
+    // On envoie 'soundValue' pour dire au serveur quel son jouer
+    socket.emit("hostGradePlayer", { points, soundValue: points });
 
   }
 
@@ -917,6 +954,10 @@ function showFauxVraiQuestion(data) {
           if (btn.classList.contains("locked") || btn.classList.contains("fv-intro-lock"))
             return;
 
+          // --- AJOUT AUDIO ---
+          sfxBubbleClick.play();
+          // -------------------
+
           lockFauxVraiButtons(index);
           socket.emit("fauxVraiAnswer", index);
 
@@ -1239,7 +1280,7 @@ socket.on("leBonOrdreQuestion", (data) => {
 
 
   if (palierOverlay && palierOverlayText) {
-
+    sfxTheme.play();
     palierOverlayText.textContent = data.themeName || "Thème";
 
     palierOverlay.classList.remove("hidden");
@@ -1454,6 +1495,7 @@ socket.on("leTourDuMondeQuestion", (data) => {
 
 
   if (palierOverlay && palierOverlayText) {
+    sfxTheme.play();
 
     palierOverlayText.textContent = data.themeName || "Thème";
 
@@ -1556,6 +1598,7 @@ socket.on("blindTestQuestion", (data) => {
 
 
   if (palierOverlay && palierOverlayText) {
+    sfxTheme.play();
 
     palierOverlayText.textContent = data.themeName || "Thème";
 
@@ -1661,6 +1704,7 @@ socket.on("petitBacStart", (data) => {
 
 
   if (palierOverlay && palierOverlayText) {
+    sfxTheme.play();
 
     palierOverlayText.textContent = "Lettre " + data.letter;
 
@@ -1739,6 +1783,8 @@ if (lboValidateBtn) {
     )
       return;
 
+    sfxBubbleClick.play();
+
     const val = lboInput ? lboInput.value.trim() : "";
 
     if (!val) return;
@@ -1760,6 +1806,9 @@ if (lboValidateBtn) {
 if (lboPassBtn) {
 
   lboPassBtn.addEventListener("click", () => {
+    if (lboPassBtn.disabled) return;
+
+    sfxBubbleClick.play();
 
     socket.emit("leBonOrdreAnswer", {
 
@@ -1786,6 +1835,8 @@ if (qsjValidateBtn) {
     )
       return;
 
+    sfxBubbleClick.play();
+
     if (!currentRoom || !qsjInput) return;
 
     const val = qsjInput.value.trim();
@@ -1809,6 +1860,9 @@ if (qsjValidateBtn) {
 if (qsjPassBtn) {
 
   qsjPassBtn.addEventListener("click", () => {
+    if (qsjPassBtn.disabled) return;
+
+    sfxBubbleClick.play();
 
     if (!currentRoom) return;
 
@@ -1837,6 +1891,8 @@ if (tdmValidateBtn) {
     )
       return;
 
+    sfxBubbleClick.play();
+
     if (!currentRoom || !tdmInput) return;
 
     const val = tdmInput.value.trim();
@@ -1860,6 +1916,9 @@ if (tdmValidateBtn) {
 if (tdmPassBtn) {
 
   tdmPassBtn.addEventListener("click", () => {
+    if (tdmPassBtn.disabled) return;
+
+    sfxBubbleClick.play();
 
     if (!currentRoom) return;
 
@@ -1888,6 +1947,8 @@ if (btValidateBtn) {
     )
       return;
 
+    sfxBubbleClick.play();
+
     if (!currentRoom || !btInput) return;
 
     const val = btInput.value.trim();
@@ -1911,6 +1972,9 @@ if (btValidateBtn) {
 if (pbValidateBtn) {
 
   pbValidateBtn.addEventListener("click", () => {
+    if (pbValidateBtn.disabled) return;
+
+    sfxBubbleClick.play();
 
     if (!currentRoom || !pbFormZone) return;
 
@@ -1941,6 +2005,9 @@ if (pbValidateBtn) {
 if (btPassBtn) {
 
   btPassBtn.addEventListener("click", () => {
+    if (btPassBtn.disabled) return;
+
+    sfxBubbleClick.play();
 
     if (!currentRoom) return;
 
@@ -2307,6 +2374,8 @@ function setupLeugtasQuestion(questionData) {
       btn.addEventListener("click", () => {
         // SÉCURITÉ ANTI-SPAM : Si le bouton a la classe de verrouillage, on stoppe tout.
         if (btn.disabled || btn.classList.contains("btn-locked-intro")) return;
+
+        sfxLeugtasClick.play();
 
         if (leugtasHasAnswered) return;
         leugtasHasAnswered = true;
@@ -3048,6 +3117,8 @@ if (readyBtn) {
 
   readyBtn.addEventListener("click", () => {
 
+    sfxReady.play();
+
     if (!currentRoom) return;
 
     const newReady = !iAmReady;
@@ -3117,6 +3188,9 @@ if (sandboxMiniGameSelect) {
 
 
 socket.on("leugtasQuestion", (data) => {
+
+  sfxLeugtasWin.stop();
+  sfxLeugtasLose.stop();
 
   console.log("Question Leugtas reçue :", data);
 
@@ -3241,6 +3315,7 @@ socket.on("leugtasQuestion", (data) => {
 
 
   if (palierOverlayText && palierOverlay && !data.isReload) {
+    sfxTheme.play();
 
     palierOverlayText.textContent = "PALIER " + data.index;
 
@@ -3437,6 +3512,10 @@ socket.on("leugtasTimerUpdate", ({ remainingSeconds, totalSeconds }) => {
 
 
 socket.on("leugtasEnd", () => {
+
+  sfxLeugtasWin.stop();
+  sfxLeugtasLose.stop();
+
   // Masquage immédiat du jeu
   hideAllMiniGames();
   if (mainPlaying) mainPlaying.classList.add("hidden");
@@ -3510,6 +3589,14 @@ socket.on("leugtasReveal", (data) => {
   const buttons = playingChoices.querySelectorAll("button");
   const correctId = String(correctAnswerId);
   const me = playerAnswers && playerAnswers[playerId];
+
+  if (me) {
+    if (me.isCorrect) {
+      sfxLeugtasWin.play();
+    } else {
+      sfxLeugtasLose.play();
+    }
+  }
 
   buttons.forEach((btn) => {
     const btnId = btn.dataset.answerId;
@@ -3612,6 +3699,7 @@ socket.on("fauxVraiQuestion", (data) => {
 
 
   if (palierOverlayText && palierOverlay && !data.isReload) {
+    sfxTheme.play();
 
     palierOverlayText.textContent = themeLabel;
 
@@ -3718,6 +3806,11 @@ socket.on("fauxVraiReveal", ({ indexFausse, playerChoice, isLastQuestion }) => {
 
   const btns = document.querySelectorAll(".fauxvrai-answer-btn");
 
+  if (playerChoice === indexFausse) {
+    sfxFauxVraiWin.play();
+  } else {
+    sfxFauxVraiLose.play();
+  }
 
 
   btns.forEach((btn, i) => {
@@ -3766,6 +3859,9 @@ socket.on("fauxVraiReveal", ({ indexFausse, playerChoice, isLastQuestion }) => {
 
 
 
+    sfxFauxVraiWin.stop();
+    sfxFauxVraiLose.stop();
+
     handleInterimLeaderboard(
 
       currentPlayersData,
@@ -3788,6 +3884,19 @@ socket.on("fauxVraiReveal", ({ indexFausse, playerChoice, isLastQuestion }) => {
 
   }, 2500);
 
+});
+
+
+
+socket.on("playGradeSound", (value) => {
+  const val = parseFloat(value);
+  if (val === 1) sfxCorrect1.play();
+  else if (val === 0) sfxCorrect0.play();
+  else if (val === 0.5) sfxCorrectOther.play();
+});
+
+socket.on("playCorrectionArrow", () => {
+  sfxCorrectionArrow.play();
 });
 
 
@@ -4282,7 +4391,10 @@ window.ratePbLine = function (lineIdx, points, btnElement) {
 
       points: total, // Met Ã  jour le score global
 
-      details: window.pbScoresMap // Envoie le dÃ©tail pour allumer les boutons chez les autres
+      details: window.pbScoresMap, // Envoie le dÃ©tail pour allumer les boutons chez les autres
+
+      soundValue: points // AJOUT : note specifique de la ligne (1, 0.5 ou 0)
+
 
     });
 
@@ -4441,6 +4553,8 @@ socket.on("encheresSetup", (data) => {
 
         btn.onclick = () => {
 
+          sfxBubbleClick.play();
+
           socket.emit("encheresVoteTheme", theme.id);
 
           btn.classList.add("selected");
@@ -4471,6 +4585,8 @@ socket.on("encheresSetup", (data) => {
 
 
 socket.on("encheresThemeAnim", (data) => {
+
+  sfxEnchereTheme.play();
 
   const list = document.getElementById("encheresThemesList");
 
@@ -4666,6 +4782,14 @@ socket.on("encheresTimerUpdate", ({ remaining, total }) => {
 
 
 socket.on("encheresNewBid", (bid) => {
+  // Lecture dynamique du son d'enchère si le serveur le demande
+  if (bid.sound) {
+    const sfxEnchereCalme = new Howl({
+      src: [`sons/${bid.sound}`],
+      volume: 0.5
+    });
+    sfxEnchereCalme.play();
+  }
   const history = document.getElementById("encheresHistory");
   if (!history) return;
 
@@ -4700,6 +4824,7 @@ socket.on("encheresNewBid", (bid) => {
 // NOUVEAU : Animation du vainqueur des enchÃ¨res
 
 socket.on("encheresBidResult", (data) => {
+    sfxAdjugeVendu.play();
 
     const biddingZone = document.getElementById("encheresBiddingZone");
 
@@ -4855,6 +4980,10 @@ socket.on("encheresStartCollection", (data) => {
 
 socket.on("encheresLiveAnswerUpdate", (data) => {
 
+  if (data.playSound) {
+    sfxEnchereReponse.play();
+  }
+
   const listDiv = document.getElementById("encheresLiveAnswersList");
 
   const inputArea = document.getElementById("encheresPlayerInputArea");
@@ -4975,6 +5104,7 @@ window.deleteEnchereAnswer = function(index) {
 
 // FIN DE PARTIE : VICTOIRE ENCHERES
 socket.on("encheresVictory", (data) => {
+    sfxEnchereChampion.play();
     hideAllMiniGames();
     
     const overlay = document.getElementById("encheresResultOverlay");
@@ -5029,6 +5159,12 @@ socket.on("encheresStartCorrection", (data) => {
 
 
 socket.on("encheresCorrectionRefresh", (data) => {
+  // --- AJOUT SONORE ---
+  if (data.soundToPlay !== undefined) {
+    if (data.soundToPlay === 1) sfxCorrect1.play();
+    else if (data.soundToPlay === 0) sfxCorrect0.play();
+  }
+  // --------------------
 
   renderEncheresCorrectionList(data.answers || [], data.status || []);
 

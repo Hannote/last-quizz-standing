@@ -1979,6 +1979,9 @@ io.on("connection", (socket) => {
     if (!room || room.hostId !== socket.playerId) return;
     const mini = room.gameState.currentMiniGameState;
 
+    // Joue le son de flèche pour tout le monde
+    io.to(socket.roomCode).emit("playCorrectionArrow");
+
     let newIndex = mini.gradingPlayerIndex + direction;
     if (newIndex < 0) newIndex = 0;
     if (newIndex >= room.activePlayersList.length) {
@@ -1989,7 +1992,13 @@ io.on("connection", (socket) => {
     sendCorrectionData(socket.roomCode);
   });
 
-  socket.on("hostGradePlayer", ({ points, details }) => {
+  socket.on("hostGradePlayer", function (data = {}) {
+    const { points, details } = data;
+    const soundVal =
+      typeof data === "object" && data !== null ? data.soundValue : null;
+    if (soundVal !== undefined && soundVal !== null) {
+      io.to(socket.roomCode).emit("playGradeSound", soundVal);
+    }
     const roomCode = socket.roomCode;
     const room = rooms[roomCode];
     if (!room || room.hostId !== socket.playerId) return;
@@ -2327,9 +2336,28 @@ io.on("connection", (socket) => {
 
     const val = parseInt(amount);
     if (val > mini.currentMaxBid) {
+      // Vérifie si ce joueur a DÉJÀ enchéri auparavant dans ce round
+      const hasBidBefore = mini.bids.some((b) => b.playerId === socket.playerId);
+
+      let soundFile = null;
+
+      // Si c'est sa PREMIÈRE enchère -> son "calme" (ex: calme_4.mp3)
+      if (!hasBidBefore) {
+        soundFile = `calme_${val}.mp3`;
+      } else {
+        // Si c'est une SURENCHÈRE -> son standard (ex: 4.mp3)
+        soundFile = `${val}.mp3`;
+      }
+
       mini.currentMaxBid = val;
       mini.currentBidder = socket.playerId;
-      const bidData = { playerId: socket.playerId, amount: val };
+
+      const bidData = {
+        playerId: socket.playerId,
+        amount: val,
+        sound: soundFile // On envoie le nom du fichier au client
+      };
+
       mini.bids.push(bidData);
       io.to(socket.roomCode).emit("encheresNewBid", bidData);
     }
@@ -2359,7 +2387,8 @@ io.on("connection", (socket) => {
     mini.validatedStatus.push(null);
 
     io.to(socket.roomCode).emit("encheresLiveAnswerUpdate", {
-      answers: mini.answersGiven
+      answers: mini.answersGiven,
+      playSound: true // AJOUT : Déclenche le son chez tout le monde
     });
   });
 
@@ -2392,9 +2421,13 @@ io.on("connection", (socket) => {
 
     mini.validatedStatus[index] = status;
 
+    // 1 = Vrai (correction_1point), 0 = Faux (correction_0point)
+    const soundVal = status === true ? 1 : 0;
+
     io.to(socket.roomCode).emit("encheresCorrectionRefresh", {
       answers: mini.answersGiven,
-      status: mini.validatedStatus
+      status: mini.validatedStatus,
+      soundToPlay: soundVal // AJOUT : On dit aux clients quel son jouer
     });
   });
 
