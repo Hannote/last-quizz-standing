@@ -43,7 +43,9 @@ const sfxAdjugeVendu = new Howl({ src: ['sons/adjuge_vendu.mp3'], volume: 0.5 })
 const sfxEnchereChampion = new Howl({ src: ['sons/enchere_champion.mp3'], volume: 0.5 });
 const sfxCorrectionArrow = new Howl({ src: ['sons/correction_fleche.mp3'], volume: 0.5 });
 const sfxCorrectOther = new Howl({ src: ['sons/correction_autre.mp3'], volume: 0.5 });
-const sfxQuestion = new Howl({ src: ['sons/question.mp3'], volume: 0.5 });
+const sfx40s = new Howl({ src: ['sons/40s.mp3'], volume: 0.5 });
+const sfx45s = new Howl({ src: ['sons/45s.mp3'], volume: 0.5 });
+const sfx2min = new Howl({ src: ['sons/2min.mp3'], volume: 0.5 });
 const sfxLeugtasQuestion = new Howl({ src: ['sons/question_leugta.mp3'], volume: 0.5 });
 const sfxEnchereReady = new Howl({ src: ['sons/enchere_ready.mp3'], volume: 0.5 });
 
@@ -906,7 +908,7 @@ function lockFauxVraiButtons(selectedIndex) {
 
 
 function showFauxVraiQuestion(data) {
-  sfxQuestion.play(); // AJOUT ICI
+  sfx40s.play(); // Remplacement : joue 40s
   if (mainDefault) mainDefault.classList.add("hidden");
   if (mainDrawing) mainDrawing.classList.add("hidden");
   if (mainRules) mainRules.classList.add("hidden");
@@ -958,9 +960,8 @@ function showFauxVraiQuestion(data) {
           if (btn.classList.contains("locked") || btn.classList.contains("fv-intro-lock"))
             return;
 
-          // --- AJOUT AUDIO ---
+          sfx40s.stop();
           sfxBubbleClick.play();
-          // -------------------
 
           lockFauxVraiButtons(index);
           socket.emit("fauxVraiAnswer", index);
@@ -988,7 +989,7 @@ function showFauxVraiQuestion(data) {
   }
 }
 function showLeBonOrdreQuestion(data) {
-  sfxQuestion.play(); // AJOUT ICI
+  sfx45s.play(); // Utilise la nouvelle boucle 45s
   hideAllMiniGames();
   if (mainDefault) mainDefault.classList.add("hidden");
   if (mainDrawing) mainDrawing.classList.add("hidden");
@@ -1048,7 +1049,7 @@ if (!isLboSpectator) {
 }
 
 function showQuiSuisJeQuestion(data) {
-  sfxQuestion.play(); // AJOUT ICI
+  sfx40s.play(); // Remplacement : joue 40s
   hideAllMiniGames();
   if (mainDefault) mainDefault.classList.add("hidden");
   if (mainDrawing) mainDrawing.classList.add("hidden");
@@ -1107,7 +1108,7 @@ if (!isQsjSpectator) {
   }
 }
 function showTourMondeQuestion(data) {
-  sfxQuestion.play(); // AJOUT ICI
+  sfx40s.play(); // Remplacement : joue 40s
   if (mainDefault) mainDefault.classList.add("hidden");
   if (mainRules) mainRules.classList.add("hidden");
   hideAllMiniGames();
@@ -1353,6 +1354,10 @@ socket.on("leBonOrdreTimerUpdate", ({ remaining, total }) => {
 
   }
 
+  if (remaining <= 0) {
+    sfx45s.stop();
+  }
+
 });
 
 
@@ -1444,6 +1449,10 @@ socket.on("quiSuisJeTimerUpdate", ({ remaining, total }) => {
 
     qsjTimerNumber.style.color = "#ffffff";
 
+  }
+
+  if (remaining <= 0) {
+    sfx40s.stop();
   }
 
 });
@@ -1555,6 +1564,10 @@ socket.on("leTourDuMondeTimerUpdate", ({ remaining, total }) => {
   if (remaining <= 5) tdmTimerFill.style.background = "#ff3b30";
 
   else tdmTimerFill.style.background = "#ffcc00";
+
+  if (remaining <= 0) {
+    sfx40s.stop();
+  }
 
 });
 
@@ -1716,7 +1729,10 @@ socket.on("petitBacStart", (data) => {
 
     palierOverlay.classList.remove("hidden");
 
-    setTimeout(() => palierOverlay.classList.add("hidden"), 2000);
+    setTimeout(() => {
+      palierOverlay.classList.add("hidden");
+      sfx2min.play(); // Relance le son longue durée après l'animation
+    }, 2000);
 
   }
 
@@ -1729,6 +1745,10 @@ socket.on("petitBacTimerUpdate", ({ remaining, total }) => {
   if (pbTimerNumber) pbTimerNumber.textContent = remaining;
 
   if (pbTimerFill) pbTimerFill.style.width = (remaining / total) * 100 + "%";
+
+  if (remaining <= 0) {
+    sfx2min.stop();
+  }
 
 });
 
@@ -1789,6 +1809,8 @@ if (lboValidateBtn) {
     )
       return;
 
+    sfx45s.stop();
+
     sfxBubbleClick.play();
 
     const val = lboInput ? lboInput.value.trim() : "";
@@ -1813,6 +1835,8 @@ if (lboPassBtn) {
 
   lboPassBtn.addEventListener("click", () => {
     if (lboPassBtn.disabled) return;
+
+    sfx45s.stop();
 
     sfxBubbleClick.play();
 
@@ -1841,6 +1865,7 @@ if (qsjValidateBtn) {
     )
       return;
 
+    sfx40s.stop();
     sfxBubbleClick.play();
 
     if (!currentRoom || !qsjInput) return;
@@ -1868,6 +1893,7 @@ if (qsjPassBtn) {
   qsjPassBtn.addEventListener("click", () => {
     if (qsjPassBtn.disabled) return;
 
+    sfx40s.stop();
     sfxBubbleClick.play();
 
     if (!currentRoom) return;
@@ -1897,6 +1923,7 @@ if (tdmValidateBtn) {
     )
       return;
 
+    sfx40s.stop();
     sfxBubbleClick.play();
 
     if (!currentRoom || !tdmInput) return;
@@ -1924,6 +1951,7 @@ if (tdmPassBtn) {
   tdmPassBtn.addEventListener("click", () => {
     if (tdmPassBtn.disabled) return;
 
+    sfx40s.stop();
     sfxBubbleClick.play();
 
     if (!currentRoom) return;
@@ -1979,6 +2007,8 @@ if (pbValidateBtn) {
 
   pbValidateBtn.addEventListener("click", () => {
     if (pbValidateBtn.disabled) return;
+
+    sfx2min.stop();
 
     sfxBubbleClick.play();
 
@@ -2382,6 +2412,8 @@ function setupLeugtasQuestion(questionData) {
       btn.addEventListener("click", () => {
         // SÉCURITÉ ANTI-SPAM : Si le bouton a la classe de verrouillage, on stoppe tout.
         if (btn.disabled || btn.classList.contains("btn-locked-intro")) return;
+
+        sfxLeugtasQuestion.stop();
 
         sfxLeugtasClick.play();
 
@@ -3515,6 +3547,10 @@ socket.on("leugtasTimerUpdate", ({ remainingSeconds, totalSeconds }) => {
 
   }
 
+  if (remainingSeconds <= 0) {
+    sfxLeugtasQuestion.stop();
+  }
+
 });
 
 
@@ -3523,6 +3559,7 @@ socket.on("leugtasEnd", () => {
 
   sfxLeugtasWin.stop();
   sfxLeugtasLose.stop();
+  sfxLeugtasQuestion.stop();
 
   // Masquage immédiat du jeu
   hideAllMiniGames();
@@ -3800,6 +3837,10 @@ socket.on("fauxVraiTimerUpdate", ({ remaining, total }) => {
 
     fauxVraiTimerNumber.style.color = "white";
 
+  }
+
+  if (remaining <= 0) {
+    sfx40s.stop();
   }
 
 });
