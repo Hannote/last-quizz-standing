@@ -46,6 +46,7 @@ const sfxCorrectOther = new Howl({ src: ['sons/correction_autre.mp3'], volume: 0
 const sfx40s = new Howl({ src: ['sons/40s.mp3'], volume: 0.5 });
 const sfx45s = new Howl({ src: ['sons/45s.mp3'], volume: 0.5 });
 const sfx2min = new Howl({ src: ['sons/2min.mp3'], volume: 0.5 });
+const sfxEnchere = new Howl({ src: ['sons/enchere.mp3'], volume: 0.5 });
 const sfxLeugtasQuestion = new Howl({ src: ['sons/question_leugta.mp3'], volume: 0.5 });
 const sfxEnchereReady = new Howl({ src: ['sons/enchere_ready.mp3'], volume: 0.5 });
 
@@ -1274,6 +1275,7 @@ function stopBlindTestAudio() {
 
 
 socket.on("leBonOrdreQuestion", (data) => {
+  sfx45s.stop();
   if (mainDefault) mainDefault.classList.add("hidden");
 
   if (mainRules) mainRules.classList.add("hidden");
@@ -1382,6 +1384,7 @@ socket.on("leBonOrdreAnswerAck", () => {
 
 
 socket.on("leBonOrdreEnd", () => {
+  sfx45s.stop();
 
   if (lboFeedback) lboFeedback.textContent = "Fin de la manche !";
 
@@ -1390,6 +1393,7 @@ socket.on("leBonOrdreEnd", () => {
 
 
 socket.on("quiSuisJeQuestion", (data) => {
+  sfx40s.stop();
   // 1. Nettoyage préventif de l'interface
   if (mainDefault) mainDefault.classList.add("hidden");
   if (mainDrawing) mainDrawing.classList.add("hidden");
@@ -1523,6 +1527,7 @@ socket.on("quiSuisJeAnswerAck", () => {
 
 
 socket.on("quiSuisJeEnd", () => {
+  sfx40s.stop();
 
   if (qsjFeedback) qsjFeedback.textContent = "Fin du jeu !";
 
@@ -1531,6 +1536,7 @@ socket.on("quiSuisJeEnd", () => {
 
 
 socket.on("leTourDuMondeQuestion", (data) => {
+  sfx40s.stop();
 
   if (mainDefault) mainDefault.classList.add("hidden");
 
@@ -1626,6 +1632,7 @@ socket.on("leTourDuMondeAnswerAck", () => {
 
 
 socket.on("leTourDuMondeEnd", () => {
+  sfx40s.stop();
 
   if (tdmFeedback) tdmFeedback.textContent = "Fin du jeu !";
 
@@ -1813,9 +1820,9 @@ socket.on("petitBacAnswerAck", () => {
 
 });
 
-
-
 socket.on("petitBacEnd", () => {
+
+  sfx2min.stop();
 
   if (pbFeedback) {
 
@@ -3656,6 +3663,8 @@ socket.on("scoreUpdate", (data) => {
 socket.on("leugtasReveal", (data) => {
   if (!currentRoom) return;
 
+  sfxLeugtasQuestion.stop();
+
   const { correctAnswerId, playerAnswers, isLastQuestion, skipAnimation } = data;
   if (!playingChoices || !playingQuestion || !playingFeedback) return;
 
@@ -3879,6 +3888,8 @@ socket.on("fauxVraiTimerUpdate", ({ remaining, total }) => {
 
 
 socket.on("fauxVraiReveal", ({ indexFausse, playerChoice, isLastQuestion }) => {
+
+  sfx40s.stop();
 
   const fb = document.getElementById("fauxVraiFeedback");
 
@@ -4578,6 +4589,7 @@ const encheresCorrection = document.getElementById("encheresCorrectionContainer"
 // 1. SETUP & VOTE
 
 socket.on("encheresSetup", (data) => {
+  sfxEnchere.play();
 
   hideAllMiniGames();
 
@@ -4633,6 +4645,8 @@ socket.on("encheresSetup", (data) => {
 
         btn.onclick = () => {
 
+          sfxEnchere.stop();
+
           sfxBubbleClick.play();
 
           socket.emit("encheresVoteTheme", theme.id);
@@ -4665,6 +4679,8 @@ socket.on("encheresSetup", (data) => {
 
 
 socket.on("encheresThemeAnim", (data) => {
+
+  sfxEnchere.stop();
 
   sfxEnchereTheme.play();
 
@@ -4857,6 +4873,10 @@ socket.on("encheresTimerUpdate", ({ remaining, total }) => {
   const barSetup = document.getElementById("encheresSetupTimerFill");
   if (numSetup) numSetup.textContent = remaining;
   if (barSetup) barSetup.style.width = (remaining / total) * 100 + "%";
+
+  if (remaining <= 0) {
+    sfxEnchere.stop();
+  }
 });
 
 
