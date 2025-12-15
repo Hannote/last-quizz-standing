@@ -1390,9 +1390,40 @@ socket.on("leBonOrdreEnd", () => {
 
 
 socket.on("quiSuisJeQuestion", (data) => {
+  // 1. Nettoyage préventif de l'interface
+  if (mainDefault) mainDefault.classList.add("hidden");
+  if (mainDrawing) mainDrawing.classList.add("hidden");
+  if (mainRules) mainRules.classList.add("hidden");
+  if (mainPlaying) mainPlaying.classList.add("hidden");
+  hideAllMiniGames();
 
-  showQuiSuisJeQuestion(data);
+  // 2. Gestion de l'Overlay (Animation "Joueur X")
+  if (palierOverlay && palierOverlayText) {
+    sfxTheme.play(); // <--- Son de thème demandé
 
+    // Construction du texte : "Joueur 1", "Joueur 2"...
+    palierOverlayText.textContent = "Joueur " + (data.index || "?");
+
+    palierOverlay.classList.remove("hidden");
+
+    // On s'assure que le conteneur du jeu est caché pendant l'animation
+    if (quiSuisJeContainer) quiSuisJeContainer.classList.add("hidden");
+
+    // 3. Délai de 1.5s avant d'afficher la question (fin de l'anim)
+    setTimeout(() => {
+      showQuiSuisJeQuestion(data); // Affiche la question (et lancera sfx40s)
+
+      // On cache l'overlay juste après l'apparition du jeu
+      setTimeout(() => {
+        palierOverlay.classList.add("hidden");
+      }, 100);
+
+    }, 1500);
+
+  } else {
+    // Fallback si l'overlay ne fonctionne pas
+    showQuiSuisJeQuestion(data);
+  }
 });
 
 
