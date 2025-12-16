@@ -187,6 +187,13 @@ const sfxTirage = new Howl({
 });
 
 
+const sfxLumiere = new Howl({ src: ['sons/lumiere.mp3'], volume: 1.0 });
+const sfxPas = new Howl({ src: ['sons/pas.mp3'], volume: 1.0 });
+const sfxDbz = new Howl({ src: ['sons/dbz.mp3'], volume: 0.4 });
+const sfxRumble = new Howl({ src: ['sons/rumble.mp3'], volume: 1.0 });
+const sfxText = new Howl({ src: ['sons/text.mp3'], volume: 0.5, loop: true });
+
+
 function stopRuleSounds() {
 
 
@@ -9428,33 +9435,6 @@ async function runGameIntro(playerCount) {
     const gamesCount = Math.max(1, playerCount - 1); 
 
 
-    // Sons
-
-
-    const sfxLumiere = new Audio('sons/lumiere.mp3');
-
-
-    const sfxPas = new Audio('sons/pas.mp3');
-
-
-    const sfxDbz = new Audio('sons/dbz.mp3');
-
-
-    const sfxText = new Audio('sons/text.mp3'); 
-
-
-    const sfxRumble = new Audio('sons/rumble.mp3'); 
-
-
-    sfxDbz.volume = 0.4; 
-
-
-    sfxText.volume = 0.5;
-
-
-    sfxText.loop = true;
-
-
     // Phase 1 : Visuel
 
 
@@ -9482,13 +9462,14 @@ async function runGameIntro(playerCount) {
     introBg.appendChild(charDiv);
 
 
-    await playAudioAndWaitEnd(sfxLumiere);
+    sfxLumiere.play();
+    await wait(1000); // (Durée approx du son ou ajustée)
 
 
     await wait(1000);
 
 
-    sfxPas.play().catch(e => {});
+    sfxPas.play();
 
 
     await wait(3200); 
@@ -9503,7 +9484,7 @@ async function runGameIntro(playerCount) {
     charDiv.style.backgroundImage = "url('intro_3.png')";
 
 
-    sfxDbz.play().catch(e => {});
+    sfxDbz.play();
 
 
     await wait(2000);
@@ -9539,10 +9520,8 @@ async function runGameIntro(playerCount) {
     async function sayPhrase(text) {
 
 
-        sfxText.currentTime = 0;
-
-
-        sfxText.play().catch(e => {});
+        sfxText.stop();
+        const id = sfxText.play();
 
 
         charDiv.classList.remove('paused'); 
@@ -9551,7 +9530,7 @@ async function runGameIntro(playerCount) {
         await typeText(text, textSpan, 30);
 
 
-        sfxText.pause();
+        sfxText.stop(id); // Ou sfxText.pause(id);
 
 
         charDiv.classList.add('paused');
@@ -9617,7 +9596,7 @@ async function runGameIntro(playerCount) {
     charDiv.classList.add('shouting'); 
 
 
-    sfxRumble.play().catch(e => console.warn(e));
+    sfxRumble.play();
 
 
     textSpan.innerHTML = ""; 
@@ -9638,10 +9617,10 @@ async function runGameIntro(playerCount) {
     await wait(7000);
 
 
-    sfxDbz.pause();
+    sfxDbz.stop();
 
 
-    sfxRumble.pause();
+    sfxRumble.stop();
 
 
 }
