@@ -273,6 +273,33 @@
         margin-bottom: 6px;
       }
 
+      /* Animation Logo Tirage Plein Écran - CORRIGÉE */
+      .draw-logo-fullscreen {
+        position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        
+        /* On centre et on zoome fort (x8) */
+        transform: translate(-50%, -50%) scale(8) !important;
+        
+        /* On fige la taille pour garder le ratio carré de la "boîte" d'origine */
+        width: 130px !important;
+        height: 130px !important;
+        
+        z-index: 99999 !important;
+        
+        /* MODIFICATION : On n'anime QUE la transformation (le zoom) 
+           Cela empêche le logo de "glisser" depuis sa position d'origine. 
+           Il apparaîtra centré instantanément et zoomera. */
+        transition: transform 0.9s ease-out !important;
+        
+        /* On force le fond blanc et le style "carte" */
+        background: #ffffff !important;
+        border-radius: 16px !important;
+        box-shadow: 0 0 50px rgba(255, 204, 0, 0.9) !important;
+        object-fit: contain !important;
+      }
+
       .draw-subtitle {
         font-size: 0.85rem;
         opacity: 0.85;

@@ -49,6 +49,30 @@ const sfx2min = new Howl({ src: ['sons/2min.mp3'], volume: 0.5 });
 const sfxEnchere = new Howl({ src: ['sons/enchere.mp3'], volume: 0.5 });
 const sfxLeugtasQuestion = new Howl({ src: ['sons/question_leugta.mp3'], volume: 0.5 });
 const sfxEnchereReady = new Howl({ src: ['sons/enchere_ready.mp3'], volume: 0.5 });
+const sfxRuleQuiSuisJe = new Howl({ src: ['sons/qui_suis_je.mp3'], volume: 0.6 });
+const sfxRuleLeugtas = new Howl({ src: ['sons/qui_veut_gagner_des_leugtas.mp3'], volume: 0.6 });
+const sfxRuleTourDuMonde = new Howl({ src: ['sons/le_tour_du_monde.mp3'], volume: 0.6 });
+const sfxRulePetitBac = new Howl({ src: ['sons/petit_bac.mp3'], volume: 0.6 });
+const sfxRuleBonOrdre = new Howl({ src: ['sons/le_bon_ordre.mp3'], volume: 0.6 });
+const sfxRuleBlindTest = new Howl({ src: ['sons/blind_test.mp3'], volume: 0.6 });
+const sfxRuleEncheres = new Howl({ src: ['sons/enchere_final.mp3'], volume: 0.6 });
+const sfxRuleFauxVrai = new Howl({ src: ['sons/le_faux_du_vrai.mp3'], volume: 0.6 });
+const sfxTirage = new Howl({
+  src: ['sons/tirage.mp3'],
+  volume: 0.6,
+  preload: true
+});
+
+function stopRuleSounds() {
+  sfxRuleQuiSuisJe.stop();
+  sfxRuleLeugtas.stop();
+  sfxRuleTourDuMonde.stop();
+  sfxRulePetitBac.stop();
+  sfxRuleBonOrdre.stop();
+  sfxRuleBlindTest.stop();
+  sfxRuleEncheres.stop();
+  sfxRuleFauxVrai.stop();
+}
 
 // Utilitaire pour savoir si je suis spectateur (éliminé ou spectateur pur)
 function amISpectator() {
@@ -759,35 +783,60 @@ function startDrawAnimation(finalCode, isHost) {
   stopDrawAnimation();
 
   if (mainDrawing) mainDrawing.classList.remove("hidden");
-  // CORRECTIF : On cache explicitement les règles pour éviter le conflit
+  // On cache explicitement les règles pour éviter le conflit
   if (mainRules) mainRules.classList.add("hidden");
   if (mainPlaying) mainPlaying.classList.add("hidden");
 
   if (!mainDrawing || !drawLogo || !drawGameLabel) return;
 
+  // 1. Démarrage du son (On ne le coupe PLUS manuellement)
+  sfxTirage.play();
+
+  drawLogo.classList.remove("draw-logo-fullscreen");
+  drawLogo.style.transform = "";
+
   const list = [...ALL_MINI_GAMES];
   let index = 0;
 
+  // 2. Animation de mélange pendant 6.4 secondes exactement
   drawAnimationInterval = setInterval(() => {
     const code = list[index % list.length];
     index++;
     drawLogo.src = miniGameCodeToLogoPath(code);
     drawGameLabel.textContent = miniGameCodeToLabel(code);
-  }, 140);
+  }, 100);
 
+  // 3. À 6400ms (6.4s) : Fin du mélange, Apparition du logo final et Début du Zoom
   drawAnimationTimeout = setTimeout(() => {
     clearInterval(drawAnimationInterval);
     drawAnimationInterval = null;
 
+    // NOTE : On ne coupe PAS le son sfxTirage ici, il continue.
+
+    // Affichage du vrai logo gagnant
     drawLogo.src = miniGameCodeToLogoPath(finalCode);
     drawGameLabel.textContent = miniGameCodeToLabel(finalCode);
 
+    // Lancement du zoom (durée CSS réglée à 0.9s)
+    setTimeout(() => {
+        drawLogo.classList.add("draw-logo-fullscreen");
+    }, 50); // Petit délai technique pour assurer la transition
+
+    // 4. Calcul du temps restant :
+    // Zoom (0.9s) + Pause statique (2s) = 2.9s d'attente avant la suite
     drawAnimationFinalTimeout = setTimeout(() => {
+      // Nettoyage
+      drawLogo.classList.remove("draw-logo-fullscreen");
+      
+      // On peut arrêter le son ici si tu veux qu'il s'arrête en changeant d'écran, 
+      // ou le laisser finir naturellement. Par sécurité, on le stop ici pour la phase de règles.
+      sfxTirage.stop();
+      
       if (isHost) {
         socket.emit("drawingFinished");
       }
-    }, 1000);
-  }, 2500);
+    }, 2900); // 900ms (zoom) + 2000ms (pause)
+  }, 6400); // 6.4 secondes de tirage
 }
 
 
@@ -2114,32 +2163,18 @@ if (btPassBtn) {
    */
 
 function handleInterimLeaderboard(players, callback, duration = 4000, customTitle = "Classement") {
-
   const overlay = document.getElementById("leaderboard-overlay");
-
   const content = document.getElementById("leaderboard-content");
-
   const titleEl = document.getElementById("leaderboardTitle");
 
-
-
-    if (!overlay || !content) {
-
-      if (callback) callback();
-
-      return;
-
-    }
-
-
-
-  if (titleEl) {
-
-    titleEl.textContent = customTitle;
-
+  if (!overlay || !content) {
+    if (callback) callback();
+    return;
   }
 
-
+  if (titleEl) {
+    titleEl.textContent = customTitle;
+  }
 
   const sorted = [...players].sort((a, b) => {
     if (b.score !== a.score) {
@@ -2150,57 +2185,46 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
     return timeA - timeB;
   });
 
+  // MODIFICATION : Détection si c'est le classement final pour afficher les émoticones
+  const isFinal = customTitle === "CLASSEMENT FINAL";
 
+  content.innerHTML = sorted
+    .map((p, i) => {
+      const color =
+        i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : i === 2 ? "#CD7F32" : "white";
+      const timeDisplay =
+        p.time !== undefined ? parseFloat(p.time).toFixed(1) + "s" : "";
 
-    content.innerHTML = sorted
+      // MODIFICATION : Logique d'affichage (Validé ou Éliminé)
+      let statusIcon = "";
+      if (isFinal) {
+        // Si c'est le dernier joueur de la liste triée, il est éliminé
+        if (i === sorted.length - 1) {
+          statusIcon = "💀"; 
+        } else {
+          statusIcon = "✅";
+        }
+      }
 
-        .map((p, i) => {
+      return `
+        <div class="player-row ${i === 0 ? "rank-1" : ""}">
+          <div class="rank-num" style="color:${color}">#${i + 1}</div>
+          <div class="p-name">${p.nickname}</div>
+          <div class="p-score">${p.score} pts</div>
+          <div class="p-time">${timeDisplay}</div>
+          <div class="p-meta" style="font-size: 1.5rem; text-align: center; min-width: 40px;">${statusIcon}</div>
+        </div>
+      `;
+    })
+    .join("");
 
-          const color =
+  overlay.classList.add("active");
 
-            i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : i === 2 ? "#CD7F32" : "white";
-
-          const timeDisplay =
-
-            p.time !== undefined ? parseFloat(p.time).toFixed(1) + "s" : "";
-
-          return `
-
-            <div class="player-row ${i === 0 ? "rank-1" : ""}">
-
-              <div class="rank-num" style="color:${color}">#${i + 1}</div>
-
-              <div class="p-name">${p.nickname}</div>
-
-              <div class="p-score">${p.score} pts</div>
-
-              <div class="p-time">${timeDisplay}</div>
-
-              <div class="p-meta"></div>
-
-            </div>
-
-          `;
-
-        })
-
-        .join("");
-
-
-
-    overlay.classList.add("active");
-
-
-
-    setTimeout(() => {
-
-      overlay.classList.remove("active");
-
-      if (callback) callback();
-
-    }, duration);
-
-  }
+  setTimeout(() => {
+    overlay.classList.remove("active");
+    if (callback) callback();
+  }, duration);
+}
 
 
 
@@ -2622,6 +2646,28 @@ function updateGameStateUI(gs) {
     }
 
   } else if (currentGameState.phase === "rules") {
+
+    // AJOUT : Lecture du son des règles (uniquement à l'entrée de la phase)
+    if (previousPhase !== "rules") {
+        const code = currentGameState.currentMiniGame;
+        
+        // Sécurité : on coupe les sons précédents
+        if (typeof sfxTirage !== 'undefined') sfxTirage.stop();
+        if (typeof sfxTheme !== 'undefined') sfxTheme.stop();
+        stopRuleSounds(); // Sécurité supplémentaire
+
+        switch(code) {
+            case "qui_suis_je": sfxRuleQuiSuisJe.play(); break;
+            case "qui_veut_gagner_des_leugtas": sfxRuleLeugtas.play(); break;
+            case "le_tour_du_monde": sfxRuleTourDuMonde.play(); break;
+            case "petit_bac": 
+            case "le_petit_bac": sfxRulePetitBac.play(); break;
+            case "le_bon_ordre": sfxRuleBonOrdre.play(); break;
+            case "blind_test": sfxRuleBlindTest.play(); break;
+            case "les_encheres": sfxRuleEncheres.play(); break;
+            case "le_faux_du_vrai": sfxRuleFauxVrai.play(); break;
+        }
+    }
 
     stopDrawAnimation();
 
@@ -3194,6 +3240,9 @@ if (confirmQuitBtn) {
 if (readyBtn) {
 
   readyBtn.addEventListener("click", () => {
+
+    // AJOUT : On coupe immédiatement le son des règles quand le joueur clique
+    stopRuleSounds();
 
     sfxReady.play();
 
@@ -3943,8 +3992,8 @@ socket.on("fauxVraiReveal", ({ indexFausse, playerChoice, isLastQuestion }) => {
 
 
   setTimeout(() => {
-
-    const duration = isLastQuestion ? 8000 : 999999;
+    // MODIFICATION : Durée réduite à 4500ms (au lieu de 8000) pour synchronisation
+    const duration = isLastQuestion ? 4500 : 999999;
 
     const title = isLastQuestion ? "CLASSEMENT FINAL" : "CLASSEMENT";
 
@@ -4558,6 +4607,9 @@ socket.on("fauxVraiEnd", () => {
   hideAllMiniGames();
   if (mainPlaying) mainPlaying.classList.add("hidden");
   if (fauxVraiContainer) fauxVraiContainer.classList.add("hidden");
+  
+  // AJOUT : On masque le board pour avoir un fond propre
+  if (scoreboard) scoreboard.classList.add("hidden");
 
   if (fauxVraiEndOverlay) {
     fauxVraiEndOverlay.classList.remove("hidden");
@@ -5537,7 +5589,7 @@ socket.on("encheresCountdown", () => {
         setTimeout(() => textEl.style.transform = "scale(1)", 100);
       } else {
         clearInterval(interval);
-        textEl.textContent = "À VOUS !";
+        textEl.textContent = "GO !";
       }
     }, 1000);
 

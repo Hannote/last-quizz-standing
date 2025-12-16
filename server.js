@@ -353,7 +353,8 @@ function revealFauxVrai(roomCode) {
       }))
   });
 
-  const waitTime = isLastQuestion ? 8500 : 5500;
+  // Passage de 8500 à 7000 pour isLastQuestion afin d'aligner avec l'animation client
+  const waitTime = isLastQuestion ? 7000 : 5500;
 
   setTimeout(() => {
     nextFauxVrai(roomCode);
