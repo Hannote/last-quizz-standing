@@ -2475,7 +2475,7 @@ io.on("connection", (socket) => {
 
     setTimeout(() => {
       io.to(socket.roomCode).emit("gameOver", { winner: winnerPseudo });
-    }, 6000);
+    }, 4000);
   });
 }); // <--- ICI : C'est la fermeture cruciale de io.on("connection")
 

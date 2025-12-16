@@ -5249,6 +5249,17 @@ if (confirmQuitBtn) {
 
 
   confirmQuitBtn.addEventListener("click", () => {
+    // AJOUT : Arret propre de l'animation de victoire
+    const animState = runGlobalVictoryAnim._state;
+    if (animState) {
+        animState.stop = true; // Arrete la boucle de confettis
+        if (animState.audio) {
+            animState.audio.pause();
+            animState.audio.currentTime = 0;
+        }
+        const overlay = document.querySelector('.victory-overlay');
+        if (overlay) overlay.remove();
+    }
 
 
     if (quitConfirmOverlay) quitConfirmOverlay.classList.add("hidden");
@@ -5687,62 +5698,24 @@ socket.on("gameStateUpdate", (gs) => {
 
 
 socket.on("gameOver", (data) => {
+  console.log("Fin de partie. Vainqueur : " + data.winner);
 
-
-  // 1. On cache tous les mini-jeux en cours pour nettoyer l'écran
-
-
+  // 1. On cache d'abord l'interface des enchères si elle est encore là
   hideAllMiniGames();
-
-
-  // 2. On utilise l'overlay de résultat des enchères car il est générique (Victoire)
-
-
-  const overlay = document.getElementById("encheresResultOverlay");
-
-
-  // Mise à jour des textes
-
-
-  const nameEl = document.getElementById("encheresVictorName");
-
-
-  const reasonEl = overlay ? overlay.querySelector("div:last-child") : null; // Le sous-texte
-
-
-  if (nameEl) nameEl.textContent = data.winner;
-
-
-  // --- MODIFICATION ICI ---
-
-
-  if (reasonEl) reasonEl.textContent = "remporte les enchères !"; 
-
-
-  // ------------------------
-
-
-  // Affichage de l'overlay avec animation
-
-
-  if (overlay) {
-
-
-      overlay.classList.remove("hidden");
-
-
-      overlay.style.display = "flex";
-
-
-      overlay.style.animation = "fadeIn 0.8s ease-out";
-
-
+  
+  // 2. Si un overlay "Vainqueur du round" (celui des enchères) est affiché, 
+  // on le cache pour laisser place au grand final.
+  const encheresOverlay = document.getElementById("encheresResultOverlay");
+  if (encheresOverlay) {
+    encheresOverlay.classList.add("hidden");
+    encheresOverlay.style.display = "none";
   }
 
+  // 3. On s'assure que le bouton Quitter est visible
+  if (globalControls) globalControls.classList.remove("hidden");
 
-  console.log("Victoire par forfait. Vainqueur : " + data.winner);
-
-
+  // 4. Lancement de l'animation finale
+  runGlobalVictoryAnim(data.winner);
 });
 
 
@@ -9655,3 +9628,157 @@ async function runGameIntro(playerCount) {
 }
 
 
+
+// ===============================
+//    ANIMATION VICTOIRE FINALE
+// ===============================
+//    ANIMATION VICTOIRE FINALE
+// ===============================
+//    ANIMATION VICTOIRE FINALE
+// ===============================
+//    ANIMATION VICTOIRE FINALE
+// ===============================
+//    ANIMATION VICTOIRE FINALE (VERSION ROBUSTE)
+// ===============================
+//    ANIMATION VICTOIRE (CORRECTIF DIV vs H1)
+// ===============================
+//    ANIMATION VICTOIRE (FINAL : MOBILE + DIV FIX)
+// ===============================
+function runGlobalVictoryAnim(winnerName) {
+    const safeWinner = winnerName || "Un joueur";
+    console.log("🏆 VICTOIRE : ", safeWinner);
+
+    // 1. Nettoyage préventif
+    const prev = runGlobalVictoryAnim._state;
+    if (prev) {
+        prev.stop = true;
+        try { if (prev.rafId) cancelAnimationFrame(prev.rafId); } catch (e) {}
+        try { if (prev.audio) { prev.audio.pause(); prev.audio.currentTime = 0; } } catch (e) {}
+        const oldOverlay = document.querySelector('.victory-overlay');
+        if (oldOverlay) oldOverlay.remove();
+    }
+
+    const state = { stop: false, rafId: null, audio: null };
+    runGlobalVictoryAnim._state = state;
+
+    // 2. Cacher l'interface du jeu
+    hideAllMiniGames();
+    if (typeof scoreboard !== 'undefined' && scoreboard) scoreboard.classList.add("hidden");
+    
+    // Bouton Quitter : visible et accessible au doigt
+    if (globalControls) {
+        globalControls.classList.remove("hidden");
+        globalControls.style.display = "flex";
+        globalControls.style.zIndex = "200005"; 
+    }
+
+    // 3. Création Overlay (Fond Noir)
+    const overlay = document.createElement('div');
+    overlay.className = 'victory-overlay';
+    Object.assign(overlay.style, {
+        position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+        backgroundColor: 'black', display: 'flex', flexDirection: 'column',
+        justifyContent: 'center', alignItems: 'center', zIndex: '200000',
+        padding: '20px',
+        boxSizing: 'border-box',
+        overflow: 'hidden'
+    });
+
+    // 4. LE TEXTE (DIV pour éviter le bug du H1 invisible)
+    const victoryText = document.createElement('div'); 
+    victoryText.innerText = `${safeWinner}\nremporte la partie !`;
+    
+    Object.assign(victoryText.style, {
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontSize: 'clamp(1.8rem, 7vw, 5rem)',
+        fontWeight: '900',
+        color: '#FFD700',
+        textAlign: 'center',
+        lineHeight: '1.2',
+        margin: '0 0 20px 0', 
+        zIndex: '200002',
+        textShadow: '0 0 20px rgba(255, 215, 0, 0.8)',
+        whiteSpace: 'pre-wrap',
+        maxWidth: '100%',
+        wordBreak: 'break-word',
+        transform: 'scale(1)', 
+        opacity: '0' 
+    });
+    
+    overlay.appendChild(victoryText); 
+
+    // 5. L'IMAGE (Ajustée Mobile)
+    const img = document.createElement('img');
+    img.src = 'animateur.png';
+    Object.assign(img.style, {
+        maxWidth: '90%', 
+        maxHeight: '40vh',
+        objectFit: 'contain',
+        zIndex: '200001', opacity: '0', transform: 'translateY(50px)'
+    });
+    overlay.appendChild(img);
+
+    document.body.appendChild(overlay);
+
+    // 6. ANIMATIONS
+    
+    // A. Image
+    img.animate([
+        { opacity: 0, transform: 'translateY(50px)' },
+        { opacity: 1, transform: 'translateY(0)' }
+    ], { duration: 600, fill: 'forwards', easing: 'ease-out' });
+
+    // B. Texte (Pop In)
+    const textAnim = victoryText.animate([
+        { transform: 'scale(0.5)', opacity: 0 }, 
+        { transform: 'scale(1.2)', opacity: 1, offset: 0.8 },
+        { transform: 'scale(1)', opacity: 1 }
+    ], { duration: 800, fill: 'forwards', easing: 'ease-out', delay: 200 });
+
+    // C. Respiration
+    textAnim.onfinish = () => {
+        victoryText.style.opacity = '1';
+        victoryText.animate([
+            { transform: 'scale(1)' },
+            { transform: 'scale(1.05)' },
+            { transform: 'scale(1)' }
+        ], { duration: 2000, iterations: Infinity, easing: 'ease-in-out' });
+    };
+
+    // 7. Audio & Confettis (Optimisés Mobile)
+    const sfxVictoire = new Audio('sons/victoire.mp3');
+    sfxVictoire.volume = 0.6;
+    state.audio = sfxVictoire;
+    sfxVictoire.play().catch(e => console.warn("Audio bloqué", e));
+
+    if (window.confetti) {
+        const isMobile = window.innerWidth < 600;
+        const particleCount = isMobile ? 80 : 150;
+        const scalar = isMobile ? 0.8 : 1;
+
+        window.confetti({ 
+            particleCount: particleCount, 
+            spread: 70, origin: { y: 0.6 }, zIndex: 200010,
+            scalar: scalar 
+        });
+
+        const duration = 15000;
+        const animationEnd = Date.now() + duration;
+        (function frame() {
+            if (state.stop) return;
+            if (Date.now() > animationEnd) return;
+
+            window.confetti({ 
+                particleCount: isMobile ? 1 : 2, 
+                angle: 60, spread: 55, origin: { x: 0 }, zIndex: 200010,
+                scalar: scalar
+            });
+            window.confetti({ 
+                particleCount: isMobile ? 1 : 2, 
+                angle: 120, spread: 55, origin: { x: 1 }, zIndex: 200010,
+                scalar: scalar
+            });
+            state.rafId = requestAnimationFrame(frame);
+        }());
+    }
+}
