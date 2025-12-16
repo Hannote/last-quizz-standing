@@ -9,6 +9,9 @@
 
 const socket = io();
 
+// Variable globale de sécurité (bloque la boucle Quitter -> Game Over)
+let isQuitting = false;
+
 
 // --- AUDIO SETUP (Howler.js) ---
 
@@ -116,6 +119,18 @@ const sfxCorrectOther = new Howl({ src: ['sons/correction_autre.mp3'], volume: 0
 
 
 const sfx40s = new Howl({ src: ['sons/40s.mp3'], volume: 0.5 });
+
+
+const sfxVictoire = new Howl({
+
+
+  src: ['sons/victoire.mp3'],
+
+
+  volume: 0.6
+
+
+});
 
 
 const sfx45s = new Howl({ src: ['sons/45s.mp3'], volume: 0.5 });
@@ -5249,14 +5264,15 @@ if (confirmQuitBtn) {
 
 
   confirmQuitBtn.addEventListener("click", () => {
+    isQuitting = true; // <--- On lève le drapeau
+
+    // Arrêt immédiat du son si on quitte pendant l'anim
+    sfxVictoire.stop();
+
     // AJOUT : Arret propre de l'animation de victoire
     const animState = runGlobalVictoryAnim._state;
     if (animState) {
         animState.stop = true; // Arrete la boucle de confettis
-        if (animState.audio) {
-            animState.audio.pause();
-            animState.audio.currentTime = 0;
-        }
         const overlay = document.querySelector('.victory-overlay');
         if (overlay) overlay.remove();
     }
@@ -5337,6 +5353,7 @@ if (confirmQuitBtn) {
     showScreen("lobby");
 
 
+    setTimeout(() => { isQuitting = false; }, 2000); // Reset sécurité
   });
 
 
@@ -5698,6 +5715,8 @@ socket.on("gameStateUpdate", (gs) => {
 
 
 socket.on("gameOver", (data) => {
+  if (isQuitting) return; // <--- On ignore l'anim si on part
+
   console.log("Fin de partie. Vainqueur : " + data.winner);
 
   // 1. On cache d'abord l'interface des enchères si elle est encore là
@@ -9653,12 +9672,15 @@ function runGlobalVictoryAnim(winnerName) {
     if (prev) {
         prev.stop = true;
         try { if (prev.rafId) cancelAnimationFrame(prev.rafId); } catch (e) {}
-        try { if (prev.audio) { prev.audio.pause(); prev.audio.currentTime = 0; } } catch (e) {}
+
+        // CORRECTION HOWLER : On arrête le son Howl proprement
+        if (sfxVictoire) sfxVictoire.stop();
+
         const oldOverlay = document.querySelector('.victory-overlay');
         if (oldOverlay) oldOverlay.remove();
     }
 
-    const state = { stop: false, rafId: null, audio: null };
+    const state = { stop: false, rafId: null }; // Plus besoin de stocker 'audio' ici pour Howler
     runGlobalVictoryAnim._state = state;
 
     // 2. Cacher l'interface du jeu
@@ -9746,10 +9768,10 @@ function runGlobalVictoryAnim(winnerName) {
     };
 
     // 7. Audio & Confettis (Optimisés Mobile)
-    const sfxVictoire = new Audio('sons/victoire.mp3');
-    sfxVictoire.volume = 0.6;
-    state.audio = sfxVictoire;
-    sfxVictoire.play().catch(e => console.warn("Audio bloqué", e));
+    // CORRECTION HOWLER : On lance le son déclaré globalement
+    // Comme l'utilisateur a déjà cliqué plein de fois avant d'arriver là,
+    // Howler a déjà débloqué l'AudioContext. Ça marchera direct sur mobile.
+    sfxVictoire.play();
 
     if (window.confetti) {
         const isMobile = window.innerWidth < 600;
