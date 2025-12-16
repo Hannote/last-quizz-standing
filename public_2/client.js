@@ -9614,7 +9614,7 @@ async function runGameIntro(playerCount) {
     await typeText("LET'S GET READY TO RUMBLE !!!", textSpan, 40);
 
 
-    await wait(7000);
+    await wait(4500); 
 
 
     sfxDbz.stop();

@@ -1383,7 +1383,7 @@ io.on("connection", (socket) => {
     io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
 
     // Durée de l'animation (29s) avant de lancer le tirage au sort
-    const INTRO_DURATION_MS = 35000; 
+    const INTRO_DURATION_MS = 32500; 
 
     setTimeout(() => {
         const forcedMiniGame = POSSIBLE_MINI_GAMES.includes(data?.forcedMiniGame)
@@ -2475,7 +2475,7 @@ io.on("connection", (socket) => {
 
     setTimeout(() => {
       io.to(socket.roomCode).emit("gameOver", { winner: winnerPseudo });
-    }, 4000);
+    }, 2500);
   });
 }); // <--- ICI : C'est la fermeture cruciale de io.on("connection")
 
