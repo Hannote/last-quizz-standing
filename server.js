@@ -1364,30 +1364,41 @@ io.on("connection", (socket) => {
     if (!room || room.hostId !== playerId) return;
 
     const gs = room.gameState;
-
-    const forcedMiniGame = POSSIBLE_MINI_GAMES.includes(data?.forcedMiniGame)
-      ? data.forcedMiniGame
-      : null;
-
     const activePlayers = room.players.filter((p) => !p.eliminated);
-    if (!forcedMiniGame && activePlayers.length < 3) {
-      return socket.emit(
-        "errorMessage",
-        "Il faut au moins 3 joueurs pour lancer une partie."
-      );
+
+    // Vérification du nombre de joueurs (min 3 sauf si forcé)
+    if (activePlayers.length < 3 && !data?.forcedMiniGame) {
+       return socket.emit("errorMessage", "Il faut au moins 3 joueurs pour lancer une partie.");
     }
 
-    gs.roundNumber += 1;
-    gs.currentMiniGame = forcedMiniGame || pickRandomMiniGame(room);
-    gs.miniGamesAlreadyPlayed.push(gs.currentMiniGame);
-    gs.phase = "drawingGame";
-    gs.readyPlayers = {};
+    // --- LOGIQUE INTRO ---
+    gs.phase = "intro";
+    gs.roundNumber = 1;
+    gs.currentMiniGame = null;
 
-    console.log(
-      `Salle ${roomCode} : round ${gs.roundNumber}, mini-jeu = ${gs.currentMiniGame}`
-    );
-
+    const playerCount = activePlayers.length;
+    
+    // Déclenche l'animation chez les clients avec le nb de joueurs
+    io.to(roomCode).emit("playIntroAnimation", { playerCount: playerCount });
     io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+
+    // Durée de l'animation (29s) avant de lancer le tirage au sort
+    const INTRO_DURATION_MS = 35000; 
+
+    setTimeout(() => {
+        const forcedMiniGame = POSSIBLE_MINI_GAMES.includes(data?.forcedMiniGame)
+          ? data.forcedMiniGame
+          : null;
+    
+        gs.currentMiniGame = forcedMiniGame || pickRandomMiniGame(room);
+        gs.miniGamesAlreadyPlayed.push(gs.currentMiniGame);
+        gs.phase = "drawingGame";
+        gs.readyPlayers = {};
+    
+        console.log(`Salle ${roomCode} : Fin intro -> round ${gs.roundNumber}, mini-jeu = ${gs.currentMiniGame}`);
+    
+        io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+    }, INTRO_DURATION_MS);
   });
 
   // -----------------------------------
