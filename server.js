@@ -428,7 +428,7 @@ function endMiniGame(roomCode) {
         // Supprime la room
         delete rooms[roomCode];
       }
-    }, 24000); // 20 secondes
+    }, 22000); // 20 secondes
     return;
   }
 
@@ -459,7 +459,7 @@ function endMiniGame(roomCode) {
           roundNumber: gs.roundNumber,
           isFinale: true
         });
-    }, 20000); 
+    }, 23000); 
 
   } else {
     // --- NOUVEAU ROUND (Cycle normal) ---

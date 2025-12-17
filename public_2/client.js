@@ -4377,6 +4377,9 @@ function updateGameStateUI(gs) {
   }
 
 
+  body.classList.toggle("drawing-mode", currentGameState.phase === "drawingGame");
+
+
   // Affiche ou masque le haut de la salle (code, joueurs, bac Ã  sable)
 
 
