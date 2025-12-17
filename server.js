@@ -418,26 +418,48 @@ function endMiniGame(roomCode) {
     // VICTOIRE
     const winner = activePlayers[0] || { pseudo: "Personne" };
     io.to(roomCode).emit("gameOver", { winner: winner.pseudo });
+
+    // FERMETURE AUTOMATIQUE
+    setTimeout(() => {
+      if (rooms[roomCode]) {
+        console.log(`Fermeture auto de la salle ${roomCode}`);
+        // Deconnecte proprement tous les sockets de la room
+        io.in(roomCode).disconnectSockets();
+        // Supprime la room
+        delete rooms[roomCode];
+      }
+    }, 24000); // 20 secondes
     return;
   }
 
   if (activePlayers.length === 2) {
-    // --- FINALE ---
-    console.log(`Salle ${roomCode} : Place � la finale (Les Ench�res) !`);
-    gs.phase = "rules";
-    gs.currentMiniGame = "les_encheres";
-    gs.roundNumber += 1;
-    gs.readyPlayers = {};
-    room.mini = null;
+    console.log(`Salle ${roomCode} : Finale d?tect?e, lancement de l'animation.`);
+    
+    // On r?cup?re les pseudos des deux finalistes
+    const p1 = activePlayers[0].pseudo;
+    const p2 = activePlayers[1].pseudo;
 
-    resetRoundStats(room);
+    // On envoie le signal aux clients
+    io.to(roomCode).emit("playFinaleAnimation", { player1: p1, player2: p2 });
 
-    io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
-    io.to(roomCode).emit("showRules", {
-      miniGameCode: "les_encheres",
-      roundNumber: gs.roundNumber,
-      isFinale: true
-    });
+    // On attend 32 secondes (dur?e de l'animation + dialogue) avant de passer aux r?gles
+    setTimeout(() => {
+        if (!rooms[roomCode]) return;
+
+        gs.phase = "rules";
+        gs.currentMiniGame = "les_encheres";
+        gs.roundNumber += 1;
+        gs.readyPlayers = {};
+        room.mini = null;
+        resetRoundStats(room);
+
+        io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+        io.to(roomCode).emit("showRules", {
+          miniGameCode: "les_encheres",
+          roundNumber: gs.roundNumber,
+          isFinale: true
+        });
+    }, 20000); 
 
   } else {
     // --- NOUVEAU ROUND (Cycle normal) ---

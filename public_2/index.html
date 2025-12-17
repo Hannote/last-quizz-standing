@@ -467,9 +467,17 @@
         }
       }
       /* Mode plateau de jeu plein écran */
+
       body.playing-mode {
-        background: url("last_quizz_standing.jpeg") center center / cover
-          no-repeat fixed;
+        background: url("last_quizz_standing.jpeg") center center / cover no-repeat fixed;
+        
+        /* CORRECTIF : On aligne tout en haut pour �viter de couper les t�tes qui d�passent */
+        align-items: flex-start !important; 
+        padding-top: 40px; 
+        padding-bottom: 40px;
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto; /* La s�curit� : si �a d�passe, on scrolle ! */
       }
 
       body.playing-mode .container {
@@ -1393,7 +1401,7 @@
       /* Le bouton QUITTER (DOIT ETRE AU DESSUS) */
       .global-controls {
         z-index: 20005 !important; /* Au-dessus de l'overlay */
-        display: flex !important; /* Force l'affichage */
+        /* On retire le display:flex !important qui empêchait de masquer les boutons sur le lobby */
       }
 
       /* L'image de l'animateur */
@@ -1961,13 +1969,13 @@
 
       <div id="corrQuestionBlock" style="display: flex; flex-direction: column; align-items: center; max-width: 90%;">
          <div id="corrTextQuestion" style="margin-bottom:10px; font-size:1.1rem; font-weight: 600;"></div>
-         <img id="corrImgQuestion" src="" alt="Question" style="max-width: 100%; max-height: 35vh; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); object-fit: contain; display: block;">
+         <img id="corrImgQuestion" src="" alt="Question" style="max-width: 100%; max-height: 25vh; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); object-fit: contain; display: block;">
       </div>
 
       <div id="corrAnswerBlock" style="display: flex; flex-direction: column; align-items: center; max-width: 90%;">
          <div id="corrAnswerLabel" style="font-size:0.9rem; opacity:0.8; margin-bottom:5px; display:none;">Réponse</div>
          
-         <img id="corrImgAnswer" src="" alt="Réponse" style="max-width: 100%; max-height: 40vh; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); object-fit: contain; display: block;">
+         <img id="corrImgAnswer" src="" alt="Réponse" style="max-width: 100%; max-height: 30vh; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); object-fit: contain; display: block;">
          
          <audio id="corrAudioPlayer" controls style="width: 300px; margin-top: 15px; display: none;"></audio>
          
@@ -2274,6 +2282,63 @@
 .dialogue-text { white-space: pre-wrap; line-height: 1.5; }
 .cursor::after { content: '|'; animation: blink 1s infinite; }
 @keyframes blink { 50% { opacity: 0; } }
+
+/* --- CSS ANIMATION FINALE (YUGI - UNIQUE) --- */
+.yugi-intro-container {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: #000; display: flex; flex-direction: column;
+  justify-content: center; align-items: center; z-index: 2000000;
+}
+
+.yugi-char {
+  width: 209px !important; height: 298.5px !important; margin: 0 auto;
+  background-repeat: no-repeat; background-position: center bottom; background-size: contain;
+  opacity: 0; transform: scale(0.9); filter: brightness(0) blur(15px);
+  transition: opacity 1.2s ease-out, transform 1.2s ease-out, filter 1.2s ease-out;
+}
+.yugi-char.reveal { opacity: 1; transform: scale(1.4); filter: brightness(1) blur(0); }
+
+.yugi-light-full {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  object-fit: cover; z-index: 2000001; opacity: 0; transition: opacity 0.2s;
+}
+.yugi-light-full.active { opacity: 1; }
+
+.yugi-title-final {
+  position: fixed; top: 50%; left: 50%; width: 80%; max-width: 800px;
+  z-index: 2000002; transform: translate(-50%, -50%) scale(0);
+  transition: transform 1s cubic-bezier(0.19, 1, 0.22, 1);
+}
+.yugi-title-final.zoom { transform: translate(-50%, -50%) scale(1); }
+
+/* CLASSES UNIQUES POUR ÉVITER LE CONFLIT AVEC L'INTRO */
+.yugi-dialogue-box {
+  width: 80%; max-width: 800px; height: 150px; background: #fff;
+  border: 4px solid #333; border-radius: 12px; padding: 20px;
+  font-family: 'Courier New', monospace; font-size: 1.2rem; color: #000;
+  z-index: 2000003; display: flex; align-items: flex-start; overflow: hidden; opacity: 0;
+}
+.yugi-dialogue-text { white-space: pre-wrap; line-height: 1.5; }
+
+.yugi-speaking { animation: yugiSpriteCycle 0.8s steps(1) infinite; }
+.yugi-final-move { animation: yugiDuelCycle 2s steps(1) infinite; }
+
+@keyframes yugiDuelCycle {
+  0% { background-position: 100% 0%; } 
+  33% { background-position: 0% 100%; } 
+  66% { background-position: 100% 100%; } 
+  100% { background-position: 100% 0%; }
+}
+@keyframes yugiSpriteCycle {
+  0% { background-position: 0% 0%; } 25% { background-position: 100% 0%; }
+  50% { background-position: 0% 100%; } 75% { background-position: 100% 100%; }
+}
+
+@media (max-width: 768px) {
+  .yugi-char.reveal { transform: scale(1.0); }
+  .yugi-dialogue-box { width: 95% !important; font-size: 1rem !important; }
+}
 
     </style>
 

@@ -852,50 +852,30 @@ let drawAnimationFinalTimeout = null;
 
 
 function showScreen(screenName) {
-
-
   screenLobby.classList.remove("active");
-
-
   screenRoom.classList.remove("active");
 
-
   if (screenName === "lobby") {
-
-
     screenLobby.classList.add("active");
-
-
   } else if (screenName === "room") {
-
-
     screenRoom.classList.add("active");
-
-
   }
-
 
   if (globalControls) {
-
+    // Nettoyage impératif : on retire tout style inline (display: flex/none)
+    // qui aurait pu être forcé par des animations précédentes (victoire, etc.)
+    globalControls.style.zIndex = "";
 
     if (screenName === "room") {
-
-
+      // Dans la salle d'attente ou en jeu -> Visible
       globalControls.classList.remove("hidden");
-
-
+      globalControls.style.display = "flex";
     } else {
-
-
+      // À l'accueil (Lobby de connexion) -> Caché
       globalControls.classList.add("hidden");
-
-
+      globalControls.style.display = "none";
     }
-
-
   }
-
-
 }
 
 
@@ -4671,6 +4651,7 @@ function updateGameStateUI(gs) {
 
 
       stopDrawAnimation();
+      stopRuleSounds(); // <--- AJOUT SÉCURITÉ AUDIO : Coupe les règles pour tout le monde (joueurs et spectateurs)
 
 
       if (palierOverlay && !palierOverlay.classList.contains("hidden")) {
@@ -5264,22 +5245,26 @@ if (cancelQuitBtn) {
 }
 
 
-// 3. Clic sur "OUI" -> Exécute la déconnexion
+// 3. Clic sur "OUI" -> Exécute la déconnexion PROPRE ET RADICALE
 
 
 if (confirmQuitBtn) {
 
 
   confirmQuitBtn.addEventListener("click", () => {
-    isQuitting = true; // <--- On lève le drapeau
+    isQuitting = true; 
 
-    // Arrêt immédiat du son si on quitte pendant l'anim
-    sfxVictoire.stop();
+    // 1. COUPURE TOTALE DU SON
+    // On arrête tout ce qui joue via Howler (musiques, sfx, voix) d'un coup.
+    if (typeof Howler !== 'undefined') {
+        Howler.stop();
+    }
 
-    // AJOUT : Arret propre de l'animation de victoire
-    const animState = runGlobalVictoryAnim._state;
+    // 2. NETTOYAGE UI
+    // Arrêt propre de l'animation de victoire si elle est en cours
+    const animState = typeof runGlobalVictoryAnim !== 'undefined' ? runGlobalVictoryAnim._state : null;
     if (animState) {
-        animState.stop = true; // Arrete la boucle de confettis
+        animState.stop = true;
         const overlay = document.querySelector('.victory-overlay');
         if (overlay) overlay.remove();
     }
@@ -5288,13 +5273,17 @@ if (confirmQuitBtn) {
     if (quitConfirmOverlay) quitConfirmOverlay.classList.add("hidden");
 
 
-    localStorage.removeItem("lqs_room_code");
-
-
-    localStorage.removeItem("lqs_pseudo");
-
-
+    // 3. DECONNEXION SOCKET (Le "Mur")
+    // On prévient le serveur qu'on part
     socket.emit("leaveRoom");
+    
+    // IMMÉDIATEMENT APRÈS, on coupe le lien. 
+    // Cela empêche tout événement "en transit" (reveal, score, timer) d'arriver au client.
+    socket.disconnect();
+
+    // Nettoyage des données locales
+    localStorage.removeItem("lqs_room_code");
+    localStorage.removeItem("lqs_pseudo");
 
 
     hideAllMiniGames();
@@ -5360,7 +5349,13 @@ if (confirmQuitBtn) {
     showScreen("lobby");
 
 
-    setTimeout(() => { isQuitting = false; }, 2000); // Reset sécurité
+    // 4. RECONNEXION A NEUF
+    // On attend un court instant et on reconnecte le socket.
+    // Cela génère un nouveau Socket.ID, vierge de toute room précédente.
+    setTimeout(() => { 
+        socket.connect(); 
+        isQuitting = false; 
+    }, 500);
   });
 
 
@@ -6675,329 +6670,136 @@ socket.on("correctionUpdate", (data) => {
 // --- FONCTION 1 : CORRECTION STANDARD (CorrigÃ©e) ---
 
 
+// --- FONCTION 1 : CORRECTION STANDARD (Corrig�e et Renforc�e) ---
 function handleStandardCorrection(data, container) {
-
-
   if (!container) return;
-
-
   container.classList.remove("hidden");
 
-
-  // RÃ©fÃ©rences DOM
-
-
+  // R�f�rences DOM
   const qInfo = document.getElementById("correctionQuestionInfo");
-
-
   const imgQ = document.getElementById("corrImgQuestion");
-
-
   const txtQ = document.getElementById("corrTextQuestion");
-
-
   const imgA = document.getElementById("corrImgAnswer");
-
-
   const txtA = document.getElementById("corrTextAnswer");
-
-
   const audio = document.getElementById("corrAudioPlayer");
-
-
   const blockQ = document.getElementById("corrQuestionBlock");
-
-
   const blockA = document.getElementById("corrAnswerBlock");
-
-
   const pName = document.getElementById("gradingPlayerName");
-
-
   const pAns = document.getElementById("gradingPlayerAnswer");
-
-
   const gradControls = document.getElementById("gradingControls");
-
-
   const waitMsg = document.getElementById("gradingWaitMessage");
-
-
+  
   const amIHost = currentRoom && currentRoom.hostId === playerId;
 
-
-  // 1. Infos gÃ©nÃ©rales
-
-
-  if (qInfo) qInfo.textContent = `Question ${data.currentQIndex} / ${data.totalQ}`;
-
+  // 1. Infos g�n�rales (CORRECTIF : On force l'affichage du compteur)
+  if (qInfo) {
+      qInfo.textContent = `Question ${data.currentQIndex} / ${data.totalQ}`;
+      qInfo.style.display = "block";   // Force l'affichage
+      qInfo.style.color = "#ffffff";   // Force le blanc
+      qInfo.style.opacity = "1";       // Enl�ve la transparence
+      qInfo.classList.remove("hidden");
+  }
 
   if (pName) pName.textContent = data.playerPseudo || "Joueur";
-
-
   if (pAns) pAns.textContent = data.playerAnswer || "";
 
-
   // 2. Reset visuel
-
-
   if (blockQ) blockQ.style.display = "none";
-
-
   if (imgA) imgA.style.display = "none";
-
-
   if (audio) audio.style.display = "none";
-
-
   if (txtA) txtA.style.display = "block";
 
-
   // 3. Logique par type de jeu
-
-
   // --- BLIND TEST ---
-
-
   if (data.miniGameType === "blind_test") {
-
-
      if (blockA) blockA.style.display = "flex";
-
-
      if (data.audio) {
-
-
          audio.src = data.audio;
-
-
          audio.style.display = "block";
-
-
          audio.classList.remove("hidden");
-
-
      }
-
-
      if (data.answerImage) {
-
-
          imgA.src = data.answerImage;
-
-
          imgA.style.display = "block";
-
-
      }
-
-
      if (txtA) txtA.textContent = data.answerText;
-
-
   }
-
-
   // --- AUTRES JEUX (Tour du Monde, Qui suis-je, Le Bon Ordre) ---
-
-
   else {
-
-
       if (blockQ) blockQ.style.display = "flex";
-
-
       // GESTION IMAGE QUESTION
-
-
       if (data.miniGameType === "le_bon_ordre") {
-
-
           // Pour le Bon Ordre : JAMAIS d'image question
-
-
           if (imgQ) imgQ.style.display = "none";
-
-
       } else if (imgQ) {
-
-
           // Pour Tour du Monde / Qui suis-je : On affiche si elle existe
-
-
           if (data.questionImage) {
-
-
               imgQ.src = data.questionImage;
-
-
               imgQ.style.display = "block";
-
-
           } else {
-
-
               imgQ.style.display = "none";
-
-
           }
-
-
       }
-
 
       if (data.questionText && txtQ) {
-
-
           txtQ.textContent = data.questionText;
-
-
           txtQ.style.display = "block";
-
-
       } else if (txtQ) {
-
-
           txtQ.style.display = "none";
-
-
       }
 
-
-      // Affichage de la rÃ©ponse
-
-
+      // Affichage de la r�ponse
       if (data.answerImage && imgA) {
-
-
           imgA.src = data.answerImage;
-
-
           imgA.style.display = "block";
-
-
       }
-
 
       if (txtA) txtA.textContent = data.answerText;
-
-
   }
 
-
-  // 4. ContrÃ´les HÃ´te
-
-
+  // 4. Contr�les H�te
   if (gradControls) {
-
-
       gradControls.style.display = "flex";
-
-
       const btns = gradControls.querySelectorAll("button");
-
-
       btns.forEach(btn => {
-
-
           btn.classList.remove("selected");
-
-
           btn.disabled = !amIHost; 
-
-
           btn.style.opacity = amIHost ? "1" : "0.5";
-
-
           btn.style.cursor = amIHost ? "pointer" : "default";
-
-
       });
 
-
       if (data.currentGrade === 1) document.querySelector(".grade-1")?.classList.add("selected");
-
-
       else if (data.currentGrade === 0.5) document.querySelector(".grade-05")?.classList.add("selected");
-
-
       else if (data.currentGrade === 0) document.querySelector(".grade-0")?.classList.add("selected");
-
-
   }
-
 
   // Navigation Joueurs
-
-
   const navLeft = document.getElementById("btnPrevPlayer");
-
-
   const navRight = document.getElementById("btnNextPlayer");
-
-
   if (navLeft) navLeft.style.display = amIHost ? "flex" : "none";
-
-
   if (navRight) navRight.style.display = amIHost ? "flex" : "none";
 
-
-  // Navigation Questions (Suivante / PrÃ©cÃ©dente)
-
-
+  // Navigation Questions (Suivante / Pr�c�dente)
   const nextQBtn = document.getElementById("btnNextCorrectionQ");
-
-
   const prevQBtn = document.getElementById("btnPrevCorrectionQ");
 
-
   if (nextQBtn) {
-
-
       nextQBtn.style.display = amIHost ? "block" : "none";
-
-
       nextQBtn.textContent = data.currentQIndex >= data.totalQ ? "Terminer la correction" : "Valider & Suivante >>";
-
-
   }
-
 
   // Bouton "Revenir" : Visible seulement si Host ET index > 1
-
-
   if (prevQBtn) {
-
-
       if (amIHost && data.currentQIndex > 1) {
-
-
           prevQBtn.style.display = "block";
-
-
       } else {
-
-
           prevQBtn.style.display = "none";
-
-
       }
-
-
   }
 
-
   // Message spectateur
-
-
   if (waitMsg) waitMsg.classList.toggle("hidden", amIHost);
-
-
 }
-
-
-// --- FONCTION 2 : CORRECTION PETIT BAC (IsolÃ©e) ---
-
 
 function handlePetitBacCorrection(data, container) {
 
@@ -9584,7 +9386,7 @@ async function runGameIntro(playerCount) {
     addLineBreak();
 
 
-    await sayPhrase("Il est temps de le découvrir...");
+    await sayPhrase("Il est temps de le découvrir !!");
 
 
     // Phase 3 : Final
@@ -9782,4 +9584,109 @@ function runGlobalVictoryAnim(winnerName) {
             state.rafId = requestAnimationFrame(frame);
         }());
     }
+
+    // REDIRECTION AUTOMATIQUE VERS LE LOBBY
+    setTimeout(() => {
+        // On recharge la page pour remettre le jeu à zéro proprement (retour accueil)
+        window.location.reload();
+    }, 18000); // 18 secondes (Animation 15s + 3s de délai)
+}
+
+
+// --- D?CLENCHEUR ANIMATION FINALE ---
+socket.on("playFinaleAnimation", (data) => {
+    runFinaleAnimation(data.player1, data.player2);
+});
+
+async function runFinaleAnimation(name1, name2) {
+    const layer = document.getElementById('animation-layer');
+    if (!layer) return;
+    layer.innerHTML = '';
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    // Initialisation des sons via Howl (coh?rent avec votre setup)
+    const sfxApparition = new Howl({ src: ['sons/apparition.mp3'], volume: 0.8 });
+    const sfxSuspens = new Howl({ src: ['sons/suspens.mp3'], volume: 0.4 });
+    const sfxTextYugi = new Howl({ src: ['sons/text.mp3'], volume: 0.5, loop: true });
+    const sfxYugiFinal = new Howl({ src: ['sons/yu_gi.mp3'], volume: 1.0 });
+
+    const bg = document.createElement('div');
+    bg.className = 'yugi-intro-container'; layer.appendChild(bg); 
+    
+    // 1. IMAGE DOS
+    const charDiv = document.createElement('div');
+    charDiv.className = 'yugi-char'; charDiv.style.backgroundImage = "url('yu_gi.png')";
+    bg.appendChild(charDiv); 
+    sfxApparition.play();
+    setTimeout(() => charDiv.classList.add('reveal'), 50);
+    await wait(2000);
+
+    // 2. IMAGE FACE
+    charDiv.style.transition = "none";
+    charDiv.style.backgroundImage = "url('yu_gi_0.png')";
+    sfxSuspens.play();
+    await wait(1500);
+
+    // 3. DIALOGUE (Utilisation des classes yugi-)
+    charDiv.style.backgroundImage = "url('yu_gi_sheet.png')";
+    charDiv.style.backgroundSize = "200% 200%";
+    charDiv.style.backgroundPosition = "0% 0%";
+
+    const diaBox = document.createElement('div');
+    diaBox.className = 'yugi-dialogue-box'; diaBox.style.marginTop = "20px"; 
+    const textElem = document.createElement('div');
+    textElem.className = 'yugi-dialogue-text'; diaBox.appendChild(textElem);
+    bg.appendChild(diaBox); 
+    setTimeout(() => diaBox.style.opacity = 1, 50);
+
+    async function sayYugiLine(text) {
+        sfxTextYugi.play();
+        charDiv.classList.add('yugi-speaking');
+        // Appel de votre fonction typeText existante en bas de client.js
+        await typeText(text, textElem, 30);
+        sfxTextYugi.stop();
+        charDiv.classList.remove('yugi-speaking');
+        charDiv.style.backgroundPosition = "0% 0%"; 
+        await wait(1000);
+    }
+
+    textElem.innerHTML = "";
+    await sayYugiLine(`${name1}, ${name2}, félicitations pour être parvenu jusqu'ici.`);
+    textElem.innerHTML += "<br>";
+    await sayYugiLine("Vous avez su tout au long des différentes épreuves tirer votre épingle du jeu.");
+    textElem.innerHTML = ""; 
+    await sayYugiLine("Mais dans un battle royale il ne peut y avoir qu'un gagnant.");
+    textElem.innerHTML += "<br>";
+    await sayYugiLine("Vous allez vous affronter dans une ultime épreuve.");
+    textElem.innerHTML += "<br>";
+    await sayYugiLine("Etes-vous prêt ?");
+
+    // 4. DUEL (Skip Frame 1)
+    await wait(500);
+    sfxSuspens.stop();
+    textElem.innerHTML = "";
+    charDiv.style.backgroundImage = "url('yu_gi_sheet_2.png')";
+    charDiv.style.backgroundPosition = "100% 0%"; 
+    sfxYugiFinal.play();
+    charDiv.classList.add('yugi-final-move');
+    textElem.style.textAlign = 'center';
+    await typeText("C'EST l'HEURE DU DUEEELLLL !!", textElem, 70);
+
+    // 5. SEQUENCE FINALE (2.5s)
+    await wait(200);
+    bg.innerHTML = ''; 
+    
+    const light = document.createElement('img');
+    light.src = 'lumiere.png'; light.className = 'yugi-light-full';
+    bg.appendChild(light);
+    setTimeout(() => light.classList.add('active'), 10);
+    
+    await wait(500);
+    const titre = document.createElement('img');
+    titre.src = 'titres/les_encheres.png'; titre.className = 'yugi-title-final';
+    bg.appendChild(titre);
+    setTimeout(() => titre.classList.add('zoom'), 50);
+
+    await wait(2500); 
+    layer.innerHTML = ''; 
 }
