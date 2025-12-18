@@ -1308,6 +1308,8 @@ function stopDrawAnimation() {
 function startDrawAnimation(finalCode, isHost) {
   stopDrawAnimation();
 
+  if (sfxTirage) sfxTirage.play(); 
+
   // Active le centrage pour mobile
   document.body.classList.add("drawing-active");
 
