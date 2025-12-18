@@ -1282,6 +1282,8 @@ function startDrawAnimation(finalCode, isHost) {
 
   stopDrawAnimation();
 
+  document.body.classList.add("drawing-active"); // <--- AJOUT : On force le centrage
+
 
   if (mainDrawing) mainDrawing.classList.remove("hidden");
 
@@ -1295,7 +1297,10 @@ function startDrawAnimation(finalCode, isHost) {
   if (mainPlaying) mainPlaying.classList.add("hidden");
 
 
-  if (!mainDrawing || !drawLogo || !drawGameLabel) return;
+  if (!mainDrawing || !drawLogo || !drawGameLabel) {
+    document.body.classList.remove("drawing-active");
+    return;
+  }
 
 
   // 1. Démarrage du son (On ne le coupe PLUS manuellement)
@@ -1386,6 +1391,8 @@ function startDrawAnimation(finalCode, isHost) {
 
 
       drawLogo.classList.remove("draw-logo-fullscreen");
+
+      document.body.classList.remove("drawing-active"); // <--- AJOUT : Retour au mode "anti têtes coupées"
 
 
       // On peut arrêter le son ici si tu veux qu'il s'arrête en changeant d'écran, 
@@ -9117,7 +9124,7 @@ function runEliminationSequence(players, onFinish) {
 
         // 2. Style : Jaune avec contour noir (Stroke)
         textEl.style.color = "#ffcc00"; // Jaune thématique
-        textEl.style.webkitTextStroke = "2px black"; // Contour noir de 2px
+        textEl.style.webkitTextStroke = "2px yellow"; // Contour noir de 2px
         textEl.style.textShadow = "none"; // On retire l'ombre pour que le contour soit bien net
         
         // 3. Texte : Pseudo + EST À TERRE

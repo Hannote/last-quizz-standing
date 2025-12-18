@@ -485,6 +485,14 @@
         overflow-y: auto; /* La s�curit� : si �a d�passe, on scrolle ! */
       }
 
+      /* Centrage forcé pour le tirage au sort sur mobile */
+      body.drawing-active {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding-top: 0 !important; /* On annule la marge de sécurité "anti-têtes coupées" */
+      }
+
       body.playing-mode .container {
         max-width: 1100px;
       }
