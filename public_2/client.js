@@ -1321,6 +1321,20 @@ function startDrawAnimation(finalCode, isHost) {
   let index = 0;
 
 
+  // On crée un conteneur invisible pour forcer le décodage immédiat par le GPU
+  let cacheContainer = document.getElementById("draw-cache-container");
+  if (!cacheContainer) {
+    cacheContainer = document.createElement('div');
+    cacheContainer.id = "draw-cache-container";
+    cacheContainer.style.display = 'none';
+    ALL_MINI_GAMES.forEach(code => {
+      const img = new Image();
+      img.src = miniGameCodeToLogoPath(code);
+      cacheContainer.appendChild(img);
+    });
+    document.body.appendChild(cacheContainer);
+  }
+
   // 2. Animation de mélange pendant 6.4 secondes exactement
 
 
@@ -1333,10 +1347,11 @@ function startDrawAnimation(finalCode, isHost) {
     index++;
 
 
-    drawLogo.src = miniGameCodeToLogoPath(code);
-
-
-    drawGameLabel.textContent = miniGameCodeToLabel(code);
+    // Utiliser requestAnimationFrame pour synchroniser avec le rafraîchissement de l'écran
+    requestAnimationFrame(() => {
+      drawLogo.src = miniGameCodeToLogoPath(code);
+      drawGameLabel.textContent = miniGameCodeToLabel(code);
+    });
 
 
   }, 100);
@@ -9119,28 +9134,33 @@ function runEliminationSequence(players, onFinish) {
     const textEl = document.getElementById("palierOverlayText");
     
     if (overlay && textEl) {
-        // 1. Animation qui reste visible
-        textEl.style.animation = "palierStay 0.5s ease-out forwards";
+        // 1. On utilise l'animation de zoom identique aux thèmes
+        textEl.style.animation = "palierZoomFade 1.5s ease-out forwards";
 
-        // 2. Style : Jaune avec contour noir (Stroke)
-        textEl.style.color = "#ffcc00"; // Jaune thématique
-        textEl.style.webkitTextStroke = "2px yellow"; // Contour noir de 2px
-        textEl.style.textShadow = "none"; // On retire l'ombre pour que le contour soit bien net
+        // 2. Style : On applique exactement les propriétés CSS des paliers
+        textEl.style.color = "#ffcc00"; // Jaune
+        textEl.style.textShadow = "0 0 16px rgba(255, 255, 0, 0.8)"; // Halo lumineux
+        textEl.style.webkitTextStroke = "0px"; // On retire tout contour noir
+        
+        // Taille adaptée mobile via clamp (identique au CSS)
+        textEl.style.fontSize = "clamp(2.5rem, 8vw, 5rem)";
+        textEl.style.fontWeight = "900";
         
         // 3. Texte : Pseudo + EST À TERRE
         textEl.innerHTML = `${loser.nickname}<br><span style="font-size: 0.8em;">EST À TERRE</span>`;
         
         overlay.classList.remove("hidden");
 
-        // 4. Durée de 3 secondes avant de cacher
+        // 4. Durée de 3.5 secondes pour laisser l'animation et le son se finir
         setTimeout(() => {
             overlay.classList.add("hidden");
             
-            // RESET des styles pour les prochains affichages (thèmes de questions)
+            // RESET des styles pour ne pas polluer les prochains thèmes
             textEl.style.animation = ""; 
             textEl.style.color = "";
-            textEl.style.webkitTextStroke = ""; // On nettoie le contour
             textEl.style.textShadow = "";
+            textEl.style.webkitTextStroke = "";
+            textEl.style.fontSize = "";
             
             if (onFinish) onFinish();
         }, 3500);
