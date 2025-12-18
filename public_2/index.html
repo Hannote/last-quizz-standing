@@ -6,6 +6,11 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0"
     />
+
+    <link rel="preload" as="image" href="intro_1.png">
+    <link rel="preload" as="image" href="intro_2.png">
+    <link rel="preload" as="image" href="intro_3.png">
+    <link rel="preload" as="image" href="last_quizz_standing.jpeg">
     <title>Last Quizz Standing - Lobby</title>
 
     <style>
@@ -790,6 +795,18 @@
         }
       }
 
+      @keyframes palierStay {
+        /* Apparition rapide en 0.5s sans jamais repartir */
+        0% {
+          opacity: 0;
+          transform: scale(0.5);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
         .leugtas-end-overlay {
           position: fixed;
           top: 0;
@@ -1428,30 +1445,6 @@
         line-height: 1.2;
         white-space: pre-wrap;
         margin: 0 20px;
-      }
-
-      /* --- CORRECTIF CENTRAGE TIRAGE AU SORT --- */
-
-      /* Force le centrage du body uniquement pendant le tirage */
-      body.drawing-mode {
-        align-items: center !important;
-        justify-content: center !important;
-        padding-top: 0 !important;
-      }
-
-      /* Sur mobile, on redonne de la hauteur à la zone de jeu
-         pendant le tirage pour que le logo soit au milieu de l'écran */
-      @media (max-width: 768px) {
-        body.drawing-mode .main-zone {
-          min-height: 70vh !important;
-          display: flex;
-          align-items: center;
-        }
-
-        /* On s'assure que l'overlay de tirage prend toute la place nécessaire */
-        body.drawing-mode .main-zone-overlay {
-          margin: auto !important;
-        }
       }
     </style>
       <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -2346,13 +2339,16 @@
 .yugi-dialogue-text { white-space: pre-wrap; line-height: 1.5; }
 
 .yugi-speaking { animation: yugiSpriteCycle 0.8s steps(1) infinite; }
-.yugi-final-move { animation: yugiDuelCycle 2s steps(1) infinite; }
+.yugi-final-move { 
+    /* forwards : force l'élément à rester sur la position de 100% une fois fini */
+    animation: yugiDuelCycle 1.5s steps(1) forwards; 
+}
 
 @keyframes yugiDuelCycle {
-  0% { background-position: 100% 0%; } 
-  33% { background-position: 0% 100%; } 
-  66% { background-position: 100% 100%; } 
-  100% { background-position: 100% 0%; }
+  0%   { background-position: 100% 0%; }   /* Frame 2 (Départ) */
+  33%  { background-position: 0% 100%; }   /* Frame 3 (Transition) */
+  66%  { background-position: 100% 100%; } /* Frame 4 (Pose finale bras levé) */
+  100% { background-position: 100% 100%; } /* Maintien de la Frame 4 jusqu'au bout */
 }
 @keyframes yugiSpriteCycle {
   0% { background-position: 0% 0%; } 25% { background-position: 100% 0%; }

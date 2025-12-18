@@ -7,6 +7,56 @@
 // + mini-jeu simple "Qui veut gagner des leugtas" (1 question locale)
 
 
+// ==========================================
+//    SYSTÈME DE PRÉCHARGEMENT D'IMAGES
+// ==========================================
+
+const PRIORITY_IMAGES = [
+  "intro_1.png", "intro_2.png", "intro_3.png",
+  "host_sheet.png", "host_shout.png",
+  "last_quizz_standing.jpeg",
+  "titres/blind_test.png",
+  "titres/le_bon_ordre.png",
+  "titres/le_faux_du_vrai.png",
+  "titres/le_petit_bac.png",
+  "titres/le_tour_du_monde.png",
+  "titres/les_encheres.png",
+  "titres/qui_suis_je.png",
+  "titres/qui_veut_gagner_des_leugtas.png"
+];
+
+const FINALE_IMAGES = [
+  "yu_gi.png", "yu_gi_0.png", "yu_gi_sheet.png", 
+  "yu_gi_sheet_2.png", "lumiere.png", "animateur.png"
+];
+
+/**
+ * Charge les images de manière séquentielle pour respecter l'ordre
+ * et saturer intelligemment la bande passante.
+ */
+async function preloadImagesSequentially(imageList) {
+  for (const src of imageList) {
+    try {
+      await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = src;
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+      console.log(`%c[Preloader] ${src} chargé`, "color: #2ecc71");
+    } catch (e) {
+      console.warn(`[Preloader] Erreur sur ${src}`, e);
+    }
+  }
+}
+
+// Lancement immédiat du chargement prioritaire
+preloadImagesSequentially(PRIORITY_IMAGES).then(() => {
+  console.log("%c[Preloader] Phase 1 (Intro/Jeux) terminée.", "font-weight: bold; color: #ffcc00");
+  // Une fois la priorité finie, on lance la finale en arrière-plan
+  preloadImagesSequentially(FINALE_IMAGES);
+});
+
 const socket = io();
 
 // Variable globale de sécurité (bloque la boucle Quitter -> Game Over)
@@ -45,6 +95,42 @@ const sfxTheme = new Howl({
 
 });
 
+const sfxElimination = new Howl({
+
+
+  src: ['sons/elimination.mp3'], 
+
+
+  volume: 0.8,
+
+
+  preload: true,
+
+
+  onload: () => console.log("🔊 Son d'élimination chargé."),
+
+
+  onloaderror: (id, err) => console.error("⚠️ Erreur audio élimination :", err)
+
+
+});
+
+
+
+
+const sfxFinJeu = new Howl({
+
+
+  src: ['sons/fin_jeu.mp3'],
+
+
+  volume: 0.7,
+
+
+  preload: true
+
+
+});
 
 const sfxReady = new Howl({
 
@@ -4377,9 +4463,6 @@ function updateGameStateUI(gs) {
   }
 
 
-  body.classList.toggle("drawing-mode", currentGameState.phase === "drawingGame");
-
-
   // Affiche ou masque le haut de la salle (code, joueurs, bac Ã  sable)
 
 
@@ -5927,44 +6010,24 @@ socket.on("leugtasTimerUpdate", ({ remainingSeconds, totalSeconds }) => {
 
 
 socket.on("leugtasEnd", () => {
-
-
   sfxLeugtasWin.stop();
-
-
   sfxLeugtasLose.stop();
-
-
   sfxLeugtasQuestion.stop();
-
-
-  // Masquage immédiat du jeu
-
-
   hideAllMiniGames();
-
-
   if (mainPlaying) mainPlaying.classList.add("hidden");
 
-
-  if (!leugtasEndOverlay) return;
-
-
-  leugtasEndOverlay.classList.remove("hidden");
-
-
-  setTimeout(() => {
-
-
-    leugtasEndOverlay.classList.add("hidden");
-
-
-  }, 3500);
-
-
+  runEliminationSequence(currentPlayersData, () => {
+      if (!leugtasEndOverlay) return;
+      
+      // --- D�CLENCHEMENT DU SON ---
+      sfxFinJeu.play();
+      
+      leugtasEndOverlay.classList.remove("hidden");
+      setTimeout(() => {
+        leugtasEndOverlay.classList.add("hidden");
+      }, 3500); 
+  });
 });
-
-
 socket.on("leugtasFeedback", () => {
 
 
@@ -6172,7 +6235,7 @@ socket.on("leugtasReveal", (data) => {
     if (!currentRoom) return;
 
 
-    const duration = isLastQuestion ? 4500 : 999999;
+    const duration = isLastQuestion ? 5000 : 999999;
 
 
     const title = isLastQuestion ? "CLASSEMENT FINAL" : "CLASSEMENT";
@@ -7108,104 +7171,48 @@ if (pbFinishGameBtn) {
 
 
 socket.on("leBonOrdreExit", () => {
-
-
-  // Masquage immédiat du jeu pour tous les jeux à correction
-
-
-  hideAllMiniGames();
-
-
-  if (mainPlaying) mainPlaying.classList.add("hidden");
-
-
-  if (leugtasEndOverlay) {
-
-
-    const logo = document.getElementById("leugtasEndLogo");
-
-
-    if (logo) {
-
-
-      let gameName = currentGameState.currentMiniGame || "le_bon_ordre";
-
-
-      if (gameName === "petit_bac" || gameName === "le_petit_bac") {
-
-
-        gameName = "le_petit_bac";
-
-
-      }
-
-
-      logo.src = `titres/${gameName}.png`;
-
-
+    hideAllMiniGames();
+    if (mainPlaying) mainPlaying.classList.add("hidden");
+runEliminationSequence(currentPlayersData, () => {
+    if (leugtasEndOverlay) {
+        // --- D�CLENCHEMENT DU SON ---
+        sfxFinJeu.play();
+        
+        const logo = document.getElementById("leugtasEndLogo");
+        if (logo) {
+            let gameName = currentGameState.currentMiniGame || "le_bon_ordre";
+            if (gameName === "petit_bac" || gameName === "le_petit_bac") {
+                gameName = "le_petit_bac";
+            }
+            // Correction de la syntaxe du chemin d'image
+            logo.src = `titres/${gameName}.png`;
+        }
+        leugtasEndOverlay.classList.remove("hidden");
+        setTimeout(() => {
+            leugtasEndOverlay.classList.add("hidden");
+        }, 3500); 
     }
-
-
-    leugtasEndOverlay.classList.remove("hidden");
-
-
-    setTimeout(() => {
-
-
-      leugtasEndOverlay.classList.add("hidden");
-
-
-    }, 3000);
-
-
-  }
-
-
 });
-
+});
 
 socket.on("fauxVraiEnd", () => {
-
-
-  // Masquage immédiat du jeu
-
-
   hideAllMiniGames();
-
-
   if (mainPlaying) mainPlaying.classList.add("hidden");
-
-
   if (fauxVraiContainer) fauxVraiContainer.classList.add("hidden");
-
-
-  // AJOUT : On masque le board pour avoir un fond propre
-
-
   if (scoreboard) scoreboard.classList.add("hidden");
 
+  runEliminationSequence(currentPlayersData, () => {
+      if (fauxVraiEndOverlay) {
+        // --- D�CLENCHEMENT DU SON ---
+        sfxFinJeu.play();
 
-  if (fauxVraiEndOverlay) {
-
-
-    fauxVraiEndOverlay.classList.remove("hidden");
-
-
-    setTimeout(() => {
-
-
-      fauxVraiEndOverlay.classList.add("hidden");
-
-
-    }, 3500);
-
-
-  }
-
-
+        fauxVraiEndOverlay.classList.remove("hidden");
+        setTimeout(() => {
+          fauxVraiEndOverlay.classList.add("hidden");
+        }, 3500);
+      }
+  });
 });
-
-
 // ==========================================
 
 
@@ -8557,77 +8564,34 @@ if (btnValidGame) {
 
 
 socket.on("playerEliminated", (data) => {
-
-
-  const overlay = document.getElementById("leugtasEndOverlay");
-
-
-  if (overlay) {
-
-
-    if (data.playerId === playerId) {
-
-
-        alert("VOUS AVEZ ÉTÉ ÉLIMINÉ !\n" + data.reason);
-
-
-        // ON A SUPPRIMÉ LA LIGNE GRAYSCALE ICI
-
-
-    } else {
-
-
-        const notif = document.createElement("div");
-
-
-        notif.style.position = "fixed";
-
-
-        notif.style.top = "20px";
-
-
-        notif.style.left = "50%";
-
-
-        notif.style.transform = "translateX(-50%)";
-
-
-        notif.style.background = "rgba(255, 0, 0, 0.9)";
-
-
-        notif.style.color = "white";
-
-
-        notif.style.padding = "20px";
-
-
-        notif.style.borderRadius = "10px";
-
-
-        notif.style.zIndex = "10000";
-
-
-        notif.style.fontWeight = "bold";
-
-
-        notif.style.fontSize = "1.5rem";
-
-
-        notif.innerText = `ÉLIMINATION : ${data.pseudo}`;
-
-
-        document.body.appendChild(notif);
-
-
-        setTimeout(() => notif.remove(), 4000);
-
-
-    }
-
-
+  // 1. Suppression de l'alerte pour le joueur concerné (éliminé ou sortant)
+  if (data.playerId === playerId) {
+      return; 
   }
 
+  // 2. Filtrage de la notification rouge pour les autres joueurs
+  const isAbandon = data.reason && data.reason.includes("Abandon");
 
+  if (isAbandon) {
+      const notif = document.createElement("div");
+      notif.style.position = "fixed";
+      notif.style.top = "20px";
+      notif.style.left = "50%";
+      notif.style.transform = "translateX(-50%)";
+      notif.style.background = "rgba(255, 0, 0, 0.9)";
+      notif.style.color = "white";
+      notif.style.padding = "20px";
+      notif.style.borderRadius = "10px";
+      notif.style.zIndex = "10000";
+      notif.style.fontWeight = "bold";
+      notif.style.fontSize = "1.5rem";
+      
+      // Message affiché uniquement en cas de départ volontaire
+      notif.innerText = `DISQUALIFICATION : ${data.pseudo} a quitté la partie !`;
+
+      document.body.appendChild(notif);
+      setTimeout(() => notif.remove(), 4000);
+  }
 });
 
 
@@ -8742,7 +8706,7 @@ socket.on("encheresCountdown", () => {
       textEl.style.fontSize = "";
 
 
-    }, 4000);
+    }, 3500);
 
 
   }
@@ -9121,6 +9085,62 @@ document.addEventListener("keydown", (e) => {
 
 
 });
+
+/**
+ * Affiche l'animation du joueur éliminé avec le message "EST À TERRE" et déclenche le son.
+ */
+function runEliminationSequence(players, onFinish) {
+    if (!players || players.length === 0) {
+        if (onFinish) onFinish();
+        return;
+    }
+
+    // 1. Identification du perdant (dernier du classement)
+    const sorted = [...players].sort((a, b) => {
+        if (a.score !== b.score) return a.score - b.score;
+        return (parseFloat(b.time) || 0) - (parseFloat(a.time) || 0);
+    });
+    const loser = sorted[0];
+
+    // 2. Déclenchement du son (Logique identique aux annonces de thèmes)
+    if (typeof sfxElimination !== 'undefined') {
+        sfxElimination.play();
+    }
+
+    // 3. Configuration de l'overlay visuel
+    const overlay = document.getElementById("palierOverlay");
+    const textEl = document.getElementById("palierOverlayText");
+    
+    if (overlay && textEl) {
+        // 1. Animation qui reste visible
+        textEl.style.animation = "palierStay 0.5s ease-out forwards";
+
+        // 2. Style : Jaune avec contour noir (Stroke)
+        textEl.style.color = "#ffcc00"; // Jaune thématique
+        textEl.style.webkitTextStroke = "2px black"; // Contour noir de 2px
+        textEl.style.textShadow = "none"; // On retire l'ombre pour que le contour soit bien net
+        
+        // 3. Texte : Pseudo + EST À TERRE
+        textEl.innerHTML = `${loser.nickname}<br><span style="font-size: 0.8em;">EST À TERRE</span>`;
+        
+        overlay.classList.remove("hidden");
+
+        // 4. Durée de 3 secondes avant de cacher
+        setTimeout(() => {
+            overlay.classList.add("hidden");
+            
+            // RESET des styles pour les prochains affichages (thèmes de questions)
+            textEl.style.animation = ""; 
+            textEl.style.color = "";
+            textEl.style.webkitTextStroke = ""; // On nettoie le contour
+            textEl.style.textShadow = "";
+            
+            if (onFinish) onFinish();
+        }, 3500);
+    } else {
+        if (onFinish) onFinish();
+    }
+}
 
 
 // ===============================
@@ -9664,32 +9684,45 @@ async function runFinaleAnimation(name1, name2) {
     textElem.innerHTML += "<br>";
     await sayYugiLine("Etes-vous prêt ?");
 
-    // 4. DUEL (Skip Frame 1)
+    // 4. DUEL (Lancement de l'animation)
     await wait(500);
     sfxSuspens.stop();
     textElem.innerHTML = "";
+    
+    // On définit l'image mais ON NE FORCE PAS la position en JS ici 
+    // pour laisser l'animation CSS prendre le contrôle total.
     charDiv.style.backgroundImage = "url('yu_gi_sheet_2.png')";
-    charDiv.style.backgroundPosition = "100% 0%"; 
-    sfxYugiFinal.play();
     charDiv.classList.add('yugi-final-move');
+    
+    sfxYugiFinal.play();
     textElem.style.textAlign = 'center';
+
+    // Le script attend que le texte finisse de s'écrire. 
+    // Pendant ce temps, l'animation CSS se fige sur la Frame 4 (forwards).
     await typeText("C'EST l'HEURE DU DUEEELLLL !!", textElem, 70);
 
-    // 5. SEQUENCE FINALE (2.5s)
-    await wait(200);
+    // 5. SEQUENCE FINALE 
+    // Petit temps de pause (200ms) pour que l'œil lise la ponctuation finale
+    await wait(200); 
+
+    // Cette ligne supprime TOUT le contenu de 'bg' (Perso + Case de texte) 
+    // Ils disparaissent donc exactement au même moment.
     bg.innerHTML = ''; 
     
     const light = document.createElement('img');
-    light.src = 'lumiere.png'; light.className = 'yugi-light-full';
+    light.src = 'lumiere.png'; 
+    light.className = 'yugi-light-full';
     bg.appendChild(light);
     setTimeout(() => light.classList.add('active'), 10);
     
     await wait(500);
     const titre = document.createElement('img');
-    titre.src = 'titres/les_encheres.png'; titre.className = 'yugi-title-final';
+    titre.src = 'titres/les_encheres.png'; 
+    titre.className = 'yugi-title-final';
     bg.appendChild(titre);
     setTimeout(() => titre.classList.add('zoom'), 50);
 
-    await wait(2500); 
+    await wait(3000); 
     layer.innerHTML = ''; 
 }
+

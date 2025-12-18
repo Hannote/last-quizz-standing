@@ -373,7 +373,7 @@ function nextFauxVrai(roomCode) {
 
     setTimeout(() => {
       endMiniGame(roomCode);
-    }, 2800);
+    }, 7000); // Augment� � 7s
 
     return;
   }
@@ -611,12 +611,11 @@ async function endLeugtasQuestion(roomCode, mini) {
     setTimeout(() => {
       activeMini.isRevealing = false;
       activeMini.finished = false;
-
       endMiniGame(roomCode);
-    }, 2000);
+    }, 7000); // Augment� � 7s pour laisser l'�limination se faire
   };
 
-  const waitTime = isLastQuestion ? 8500 : 5500;
+  const waitTime = isLastQuestion ? 7700 : 5500;
 
   if (mini.allAnsweredEarly) {
     await new Promise((res) => setTimeout(res, waitTime));
@@ -849,6 +848,14 @@ function sendCorrectionData(roomCode, targetSocket = null) {
   }
 
   const q = mini.questions[mini.correctionIndex];
+
+  // --- FIX : AJOUT DU GARDE-FOU ICI ---
+  if (!q) {
+      console.log(`[DEBUG] Correction termin�e ou index invalide (${mini.correctionIndex}). Annulation de l'envoi.`);
+      return; 
+  }
+  // ------------------------------------
+
   const history = mini.history[playerToCheck.playerId] || {};
   const answer =
     mini.type === "petit_bac"
@@ -2122,7 +2129,7 @@ io.on("connection", (socket) => {
     if (missingPlayer) {
       socket.emit(
         "errorMessage",
-        `Attention : Vous n'avez pas corrig� ${missingPlayer.pseudo} !`
+        `Attention : Vous n'avez pas corrigé ${missingPlayer.pseudo} !`
       );
       return;
     }
@@ -2151,9 +2158,10 @@ io.on("connection", (socket) => {
 
       setTimeout(() => {
         io.to(socket.roomCode).emit("leBonOrdreExit");
+        // On attend 7s (3s �limination + 3s logo + 1s s�curit�)
         setTimeout(() => {
           endMiniGame(socket.roomCode);
-        }, 3000);
+        }, 7000); 
       }, 5000);
     } else {
       sendCorrectionData(socket.roomCode);
@@ -2175,8 +2183,8 @@ io.on("connection", (socket) => {
       io.to(socket.roomCode).emit("leBonOrdreExit");
       setTimeout(() => {
         endMiniGame(socket.roomCode);
-      }, 3000);
-    }, 4500);
+      }, 7000); // Augment� � 7s
+    }, 5000);
   });
 
   // ==========================================
@@ -2514,15 +2522,13 @@ function syncPlayerWithGame(socket, room) {
     mini.finished &&
     ["qui_suis_je", "le_bon_ordre", "le_tour_du_monde", "blind_test", "petit_bac", "les_encheres"].includes(mini.type)
   ) {
-    if (typeof mini.correctionIndex !== "undefined") {
+    // --- FIX : ON AJOUTE LA V�RIFICATION DE L'INDEX ICI ---
+    if (typeof mini.correctionIndex !== "undefined" && mini.correctionIndex < mini.questions.length) {
       sendCorrectionData(room.roomCode, socket);
     } else {
-      // Écrans de fin d'attente
-      if (mini.type === "petit_bac") socket.emit("petitBacEnd");
-      else if (mini.type === "blind_test") socket.emit("blindTestEnd");
-      else if (mini.type === "le_tour_du_monde") socket.emit("leTourDuMondeEnd");
-      else if (mini.type === "le_bon_ordre") socket.emit("leBonOrdreEnd");
-      else if (mini.type === "qui_suis_je") socket.emit("quiSuisJeEnd");
+      // Si l'index est hors limites, cela signifie que le jeu est fini 
+      // et qu'on attend juste la transition (tes 7-8 secondes de battement).
+      console.log("[DEBUG] Joueur reconnect� pendant la transition finale. Pas de correction � envoyer.");
     }
     return;
   }
@@ -2654,3 +2660,7 @@ function resetRoundStats(room) {
     p.roundTime = 0;
   });
 }
+
+
+
+
