@@ -59,6 +59,30 @@ preloadImagesSequentially(PRIORITY_IMAGES).then(() => {
 
 const socket = io();
 
+// Conteneur invisible pour forcer le décodage des logos par le GPU
+function initGpuLogoCacheOnce() {
+  if (!document.body) return;
+  if (document.getElementById("gpu-cache-logos")) return;
+
+  const globalCacheContainer = document.createElement('div');
+  globalCacheContainer.id = "gpu-cache-logos";
+  globalCacheContainer.style.display = 'none';
+  POSSIBLE_MINI_GAMES.forEach(code => {
+    const img = new Image();
+    img.src = miniGameCodeToLogoPath(code);
+    globalCacheContainer.appendChild(img);
+  });
+  document.body.appendChild(globalCacheContainer);
+}
+
+Promise.resolve().then(() => {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initGpuLogoCacheOnce, { once: true });
+  } else {
+    initGpuLogoCacheOnce();
+  }
+});
+
 // Variable globale de sécurité (bloque la boucle Quitter -> Game Over)
 let isQuitting = false;
 
@@ -272,6 +296,8 @@ const sfxTirage = new Howl({
 
 });
 
+let sfxTirageFinal = null;
+
 
 const sfxLumiere = new Howl({ src: ['sons/lumiere.mp3'], volume: 1.0 });
 const sfxPas = new Howl({ src: ['sons/pas.mp3'], volume: 1.0 });
@@ -395,6 +421,8 @@ const ALL_MINI_GAMES = [
 
 
 ];
+
+const POSSIBLE_MINI_GAMES = ALL_MINI_GAMES;
 
 
 // ===============================
@@ -1278,162 +1306,67 @@ function stopDrawAnimation() {
 
 
 function startDrawAnimation(finalCode, isHost) {
-
-
   stopDrawAnimation();
 
-  document.body.classList.add("drawing-active"); // <--- AJOUT : On force le centrage
-
+  // Active le centrage pour mobile
+  document.body.classList.add("drawing-active");
 
   if (mainDrawing) mainDrawing.classList.remove("hidden");
-
-
-  // On cache explicitement les règles pour éviter le conflit
-
-
-  if (mainRules) mainRules.classList.add("hidden");
-
-
-  if (mainPlaying) mainPlaying.classList.add("hidden");
-
-
-  if (!mainDrawing || !drawLogo || !drawGameLabel) {
-    document.body.classList.remove("drawing-active");
-    return;
+  if (drawLogo) {
+    drawLogo.classList.remove("draw-logo-fullscreen");
+    drawLogo.src = "";
   }
+  if (drawGameLabel) drawGameLabel.textContent = "Tirage en cours...";
 
-
-  // 1. Démarrage du son (On ne le coupe PLUS manuellement)
-
-
-  sfxTirage.play();
-
-
-  drawLogo.classList.remove("draw-logo-fullscreen");
-
-
-  drawLogo.style.transform = "";
-
-
-  const list = [...ALL_MINI_GAMES];
-
-
+  const list = [...POSSIBLE_MINI_GAMES].sort(() => Math.random() - 0.5);
   let index = 0;
+  let isShuffling = true; // Flag pour empêcher les mises à jour après l'arrêt
 
-
-  // On crée un conteneur invisible pour forcer le décodage immédiat par le GPU
-  let cacheContainer = document.getElementById("draw-cache-container");
-  if (!cacheContainer) {
-    cacheContainer = document.createElement('div');
-    cacheContainer.id = "draw-cache-container";
-    cacheContainer.style.display = 'none';
-    ALL_MINI_GAMES.forEach(code => {
-      const img = new Image();
-      img.src = miniGameCodeToLogoPath(code);
-      cacheContainer.appendChild(img);
-    });
-    document.body.appendChild(cacheContainer);
-  }
-
-  // 2. Animation de mélange pendant 6.4 secondes exactement
-
-
+  // Défilement rapide des logos
   drawAnimationInterval = setInterval(() => {
-
+    if (!isShuffling) return; // Sécurité anti-écrasement du résultat
 
     const code = list[index % list.length];
-
-
     index++;
 
-
-    // Utiliser requestAnimationFrame pour synchroniser avec le rafraîchissement de l'écran
     requestAnimationFrame(() => {
-      drawLogo.src = miniGameCodeToLogoPath(code);
-      drawGameLabel.textContent = miniGameCodeToLabel(code);
+      if (!isShuffling) return;
+      if (drawLogo) drawLogo.src = miniGameCodeToLogoPath(code);
+      if (drawGameLabel) drawGameLabel.textContent = miniGameCodeToLabel(code);
     });
-
-
   }, 100);
 
-
-  // 3. À 6400ms (6.4s) : Fin du mélange, Apparition du logo final et Début du Zoom
-
-
+  // Fin de l'animation après 6.4 secondes
   drawAnimationTimeout = setTimeout(() => {
+    isShuffling = false; // On bloque immédiatement les mises à jour aléatoires
 
+    if (drawAnimationInterval) {
+      clearInterval(drawAnimationInterval);
+      drawAnimationInterval = null;
+    }
 
-    clearInterval(drawAnimationInterval);
+    // --- FORCE L'AFFICHAGE DU RÉSULTAT RÉEL ---
+    // On synchronise avec le prochain frame pour être sûr que c'est le dernier mot
+    requestAnimationFrame(() => {
+      if (drawLogo) drawLogo.src = miniGameCodeToLogoPath(finalCode);
+      if (drawGameLabel) drawGameLabel.textContent = miniGameCodeToLabel(finalCode);
 
+      // On lance le zoom seulement APRÈS avoir affiché le bon logo
+      if (drawLogo) drawLogo.classList.add("draw-logo-fullscreen");
+    });
 
-    drawAnimationInterval = null;
-
-
-    // NOTE : On ne coupe PAS le son sfxTirage ici, il continue.
-
-
-    // Affichage du vrai logo gagnant
-
-
-    drawLogo.src = miniGameCodeToLogoPath(finalCode);
-
-
-    drawGameLabel.textContent = miniGameCodeToLabel(finalCode);
-
-
-    // Lancement du zoom (durée CSS réglée à 0.9s)
-
-
-    setTimeout(() => {
-
-
-        drawLogo.classList.add("draw-logo-fullscreen");
-
-
-    }, 50); // Petit délai technique pour assurer la transition
-
-
-    // 4. Calcul du temps restant :
-
-
-    // Zoom (0.9s) + Pause statique (2s) = 2.9s d'attente avant la suite
-
+    if (sfxTirage) sfxTirage.stop();
+    if (sfxTirageFinal) sfxTirageFinal.play();
 
     drawAnimationFinalTimeout = setTimeout(() => {
-
-
-      // Nettoyage
-
-
-      drawLogo.classList.remove("draw-logo-fullscreen");
-
-      document.body.classList.remove("drawing-active"); // <--- AJOUT : Retour au mode "anti têtes coupées"
-
-
-      // On peut arrêter le son ici si tu veux qu'il s'arrête en changeant d'écran, 
-
-
-      // ou le laisser finir naturellement. Par sécurité, on le stop ici pour la phase de règles.
-
-
-      sfxTirage.stop();
-
+      if (drawLogo) drawLogo.classList.remove("draw-logo-fullscreen");
+      document.body.classList.remove("drawing-active");
 
       if (isHost) {
-
-
         socket.emit("drawingFinished");
-
-
       }
-
-
-    }, 2900); // 900ms (zoom) + 2000ms (pause)
-
-
-  }, 6400); // 6.4 secondes de tirage
-
-
+    }, 2900);
+  }, 6400);
 }
 
 
@@ -9134,15 +9067,15 @@ function runEliminationSequence(players, onFinish) {
     const textEl = document.getElementById("palierOverlayText");
     
     if (overlay && textEl) {
-        // 1. On utilise l'animation de zoom identique aux thèmes
-        textEl.style.animation = "palierZoomFade 1.5s ease-out forwards";
+        // 1. Animation : On utilise palierStay (0% -> 100%) pour que le texte RESTE fixe
+        textEl.style.animation = "palierStay 0.6s ease-out forwards";
 
-        // 2. Style : On applique exactement les propriétés CSS des paliers
-        textEl.style.color = "#ffcc00"; // Jaune
+        // 2. Style visuel identique aux thèmes (Palier 1, 2, etc.)
+        textEl.style.color = "#ffcc00"; // Jaune thématique
         textEl.style.textShadow = "0 0 16px rgba(255, 255, 0, 0.8)"; // Halo lumineux
-        textEl.style.webkitTextStroke = "0px"; // On retire tout contour noir
+        textEl.style.webkitTextStroke = "0px"; // On retire le contour noir pour l'effet néon
         
-        // Taille adaptée mobile via clamp (identique au CSS)
+        // Taille fluide adaptée au mobile (clamp)
         textEl.style.fontSize = "clamp(2.5rem, 8vw, 5rem)";
         textEl.style.fontWeight = "900";
         
@@ -9151,11 +9084,11 @@ function runEliminationSequence(players, onFinish) {
         
         overlay.classList.remove("hidden");
 
-        // 4. Durée de 3.5 secondes pour laisser l'animation et le son se finir
+        // 4. On laisse le message affiché pendant 3.5s avant de passer à la suite
         setTimeout(() => {
             overlay.classList.add("hidden");
             
-            // RESET des styles pour ne pas polluer les prochains thèmes
+            // RESET des styles pour ne pas impacter les prochains affichages de thèmes
             textEl.style.animation = ""; 
             textEl.style.color = "";
             textEl.style.textShadow = "";
