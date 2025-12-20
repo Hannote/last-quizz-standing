@@ -1357,8 +1357,8 @@ function startDrawAnimation(finalCode, isHost) {
       if (drawLogo) drawLogo.classList.add("draw-logo-fullscreen");
     });
 
-    if (sfxTirage) sfxTirage.stop();
-    if (sfxTirageFinal) sfxTirageFinal.play();
+    // if (sfxTirage) sfxTirage.stop();
+    // if (sfxTirageFinal) sfxTirageFinal.play();
 
     drawAnimationFinalTimeout = setTimeout(() => {
       if (drawLogo) drawLogo.classList.remove("draw-logo-fullscreen");
