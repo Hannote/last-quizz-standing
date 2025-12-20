@@ -73,22 +73,100 @@ const fauxVraiRaw = JSON.parse(
 const fauxVraiThemes = fauxVraiRaw.themes || [];
 const fauxVraiQuestions = fauxVraiRaw.questions || [];
 
-function pickLeugtasQuestionsByPaliers() {
-  const result = [];
+// ============================================================
+//   SYSTÈME DE MÉMOIRE (PERSISTENCE DES QUESTIONS JOUÉES)
+// ============================================================
 
+const DATA_DIR =
+  process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, "data");
+
+// Création du dossier data s'il n'existe pas
+if (!fs.existsSync(DATA_DIR)) {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  } catch (e) {
+    console.log("Info: Dossier data déjà existant ou impossible à créer.");
+  }
+}
+
+const HISTORY_FILE = path.join(DATA_DIR, "played_questions_history.json");
+
+// 1. Lire l'historique
+function getPlayedHistory() {
+  if (!fs.existsSync(HISTORY_FILE)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
+  } catch (e) {
+    return {};
+  }
+}
+
+// 2. Sauvegarder l'historique
+function savePlayedHistory(history) {
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+  } catch (e) {
+    console.error("Erreur sauvegarde historique:", e);
+  }
+}
+
+// 3. Récupérer les questions NON jouées
+function getUnusedQuestions(allQuestions, gameName) {
+  const history = getPlayedHistory();
+  const playedIds = history[gameName] || [];
+  return allQuestions.filter((q) => !playedIds.includes(q.id));
+}
+
+// 4. Marquer des questions comme jouées
+function markQuestionsAsPlayed(questionsObjArray, gameName) {
+  const history = getPlayedHistory();
+  if (!history[gameName]) history[gameName] = [];
+
+  questionsObjArray.forEach((q) => {
+    // On gère aussi les objets simples comme {id: "A"} pour le Petit Bac
+    if (q.id && !history[gameName].includes(q.id)) {
+      history[gameName].push(q.id);
+    }
+  });
+  savePlayedHistory(history);
+}
+
+// 5. Reset forcé d'un jeu spécifique
+function resetGameHistory(gameName) {
+  const history = getPlayedHistory();
+  history[gameName] = [];
+  savePlayedHistory(history);
+  console.log(`[RESET] Historique vidé pour : ${gameName}`);
+}
+
+function pickLeugtasQuestionsByPaliers() {
+  let available = getUnusedQuestions(LEUGTAS_QUESTIONS, "leugtas");
+  
+  // Vérif: A-t-on au moins une question pour chaque palier (1 à 8) ?
+  let missing = false;
+  for (let p = 1; p <= 8; p++) {
+    if (!available.some(q => q.theme_id === "palier_" + p)) {
+      missing = true;
+      break;
+    }
+  }
+
+  if (missing) {
+    resetGameHistory("leugtas");
+    available = LEUGTAS_QUESTIONS; // On repart sur le full set
+  }
+
+  const result = [];
   for (let p = 1; p <= 8; p++) {
     const theme = "palier_" + p;
-    const pool = LEUGTAS_QUESTIONS.filter((q) => q.theme_id === theme);
-
-    if (!pool.length) {
-      console.error("Aucune question trouvée pour", theme);
-      return null;
-    }
-
+    const pool = available.filter((q) => q.theme_id === theme);
+    if (pool.length === 0) return null; // Sécurité
+    
     const index = Math.floor(Math.random() * pool.length);
     result.push(pool[index]);
   }
 
+  markQuestionsAsPlayed(result, "leugtas");
   return result;
 }
 
@@ -204,28 +282,38 @@ function startFauxVrai(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
 
-  // Helper pour piocher N questions aléatoires dans un pool spécifique
+  let available = getUnusedQuestions(fauxVraiQuestions, "faux_vrai");
+
+  // Définition des pools par thème
+  const getPool = (list, tid) => list.filter(q => q.themeId === tid);
+  const getMixedPool = (list) => list.filter(q => [2, 5, 9].includes(q.themeId));
+
+  // Vérification des Quotas : 2(Id1), 1(Id4), 1(Id6), 2(Id8), 1(Mixte)
+  const ok1 = getPool(available, 1).length >= 2;
+  const ok4 = getPool(available, 4).length >= 1;
+  const ok6 = getPool(available, 6).length >= 1;
+  const ok8 = getPool(available, 8).length >= 2;
+  const okMix = getMixedPool(available).length >= 1;
+
+  if (!ok1 || !ok4 || !ok6 || !ok8 || !okMix) {
+    resetGameHistory("faux_vrai");
+    available = fauxVraiQuestions;
+  }
+
   const pickFromPool = (pool, count) => {
     return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
   };
 
-  // 1. Filtrage par groupes de thèmes selon les quotas demandés
-  const poolId1 = fauxVraiQuestions.filter(q => q.themeId === 1);
-  const poolId4 = fauxVraiQuestions.filter(q => q.themeId === 4);
-  const poolId6 = fauxVraiQuestions.filter(q => q.themeId === 6);
-  const poolId8 = fauxVraiQuestions.filter(q => q.themeId === 8);
-  const poolMixed = fauxVraiQuestions.filter(q => [2, 5, 9].includes(q.themeId));
-
-  // 2. Sélection des questions par quota
   const selected = [
-    ...pickFromPool(poolId1, 2),    // 2 questions Enfance/Dessins animés
-    ...pickFromPool(poolId4, 1),    // 1 question Musique
-    ...pickFromPool(poolId6, 1),    // 1 question Cinéma
-    ...pickFromPool(poolId8, 2),    // 2 questions Sport
-    ...pickFromPool(poolMixed, 1)   // 1 question Santé/Fake News/Animaux
+    ...pickFromPool(getPool(available, 1), 2),
+    ...pickFromPool(getPool(available, 4), 1),
+    ...pickFromPool(getPool(available, 6), 1),
+    ...pickFromPool(getPool(available, 8), 2),
+    ...pickFromPool(getMixedPool(available), 1)
   ];
 
-  // 3. Mélange final pour que l'ordre des thèmes soit aléatoire durant la partie
+  markQuestionsAsPlayed(selected, "faux_vrai");
+
   const finalQuestions = selected.sort(() => Math.random() - 0.5);
 
   room.mini = {
@@ -708,15 +796,29 @@ function pickRandomLeugtasQuestion(options = {}) {
 }
 
 function pickLeBonOrdreQuestions() {
+  let available = getUnusedQuestions(LE_BON_ORDRE_QUESTIONS, "le_bon_ordre");
+
+  // Vérif: A-t-on au moins une question dispo pour CHAQUE thème requis ?
+  const isDeckComplete = LE_BON_ORDRE_THEMES.every(theme => {
+    return available.some(q => q.theme_id === theme.id);
+  });
+
+  if (!isDeckComplete) {
+    resetGameHistory("le_bon_ordre");
+    available = LE_BON_ORDRE_QUESTIONS;
+  }
+
   const selectedQuestions = [];
   LE_BON_ORDRE_THEMES.forEach((theme) => {
-    const pool = LE_BON_ORDRE_QUESTIONS.filter((q) => q.theme_id === theme.id);
+    const pool = available.filter((q) => q.theme_id === theme.id);
     if (pool.length > 0) {
       const randomQ = pool[Math.floor(Math.random() * pool.length)];
-      randomQ.themeName = theme.name;
-      selectedQuestions.push(randomQ);
+      const qClone = { ...randomQ, themeName: theme.name };
+      selectedQuestions.push(qClone);
     }
   });
+  
+  markQuestionsAsPlayed(selectedQuestions, "le_bon_ordre");
   return selectedQuestions.sort(() => Math.random() - 0.5);
 }
 
@@ -913,17 +1015,32 @@ function sendCorrectionData(roomCode, targetSocket = null) {
 
 // --- BLIND TEST HELPERS ---
 function pickBlindTestQuestions() {
-  const tvPool = BLIND_TEST_QUESTIONS.filter(
-    (q) => q.theme_id === "television" || q.theme_id === "television_g"
-  );
-  const musicPool = BLIND_TEST_QUESTIONS.filter(
-    (q) => q.theme_id === "musique" || q.theme_id === "music"
-  );
+  let available = getUnusedQuestions(BLIND_TEST_QUESTIONS, "blind_test");
 
-  const selectedTV = tvPool.sort(() => 0.5 - Math.random()).slice(0, 2);
-  const selectedMusic = musicPool.sort(() => 0.5 - Math.random()).slice(0, 6);
-  
-  const rawGameSet = [...selectedTV, ...selectedMusic].sort(() => 0.5 - Math.random());
+  const tvPool = available.filter(q => ["television", "television_g"].includes(q.theme_id));
+  const musicPool = available.filter(q => ["musique", "music"].includes(q.theme_id));
+
+  // On veut 2 TV et 6 Musique
+  if (tvPool.length < 2 || musicPool.length < 6) {
+    resetGameHistory("blind_test");
+    // On recharge tout depuis le JSON original
+    const allTv = BLIND_TEST_QUESTIONS.filter(q => ["television", "television_g"].includes(q.theme_id));
+    const allMusic = BLIND_TEST_QUESTIONS.filter(q => ["musique", "music"].includes(q.theme_id));
+    
+    var rawGameSet = [
+        ...allTv.sort(() => 0.5 - Math.random()).slice(0, 2),
+        ...allMusic.sort(() => 0.5 - Math.random()).slice(0, 6)
+    ].sort(() => 0.5 - Math.random());
+    
+    markQuestionsAsPlayed(rawGameSet, "blind_test");
+  } else {
+    var rawGameSet = [
+        ...tvPool.sort(() => 0.5 - Math.random()).slice(0, 2),
+        ...musicPool.sort(() => 0.5 - Math.random()).slice(0, 6)
+    ].sort(() => 0.5 - Math.random());
+    
+    markQuestionsAsPlayed(rawGameSet, "blind_test");
+  }
 
   return rawGameSet.map(q => {
     const theme = BLIND_TEST_THEMES.find((th) => th.id === q.theme_id);
@@ -931,9 +1048,9 @@ function pickBlindTestQuestions() {
       ...q,
       themeName: theme ? theme.name : "Thème inconnu",
       text: q.question,               
-      audio: q.audio_question,        // Mappe audio_question vers audio
-      reponse: q.reponse_texte,       // Mappe reponse_texte vers reponse
-      answer: q.reponse_texte,        // Sécurité pour le client
+      audio: q.audio_question,        
+      reponse: q.reponse_texte,       
+      answer: q.reponse_texte,        
       image: q.image_reponse
     };
   });
@@ -1022,15 +1139,29 @@ function endBlindTestQuestion(roomCode) {
 
 // --- LE TOUR DU MONDE HELPERS ---
 function pickLeTourDuMondeQuestions() {
+  let available = getUnusedQuestions(TOUR_MONDE_QUESTIONS, "le_tour_du_monde");
+
+  // Vérif: CHAQUE thème (continent) doit avoir du stock
+  const isDeckComplete = TOUR_MONDE_THEMES.every(theme => {
+    return available.some(q => q.themeId === theme.id);
+  });
+
+  if (!isDeckComplete) {
+    resetGameHistory("le_tour_du_monde");
+    available = TOUR_MONDE_QUESTIONS;
+  }
+
   const selectedQuestions = [];
   TOUR_MONDE_THEMES.forEach((theme) => {
-    const pool = TOUR_MONDE_QUESTIONS.filter((q) => q.themeId === theme.id);
+    const pool = available.filter((q) => q.themeId === theme.id);
     if (pool.length > 0) {
       const randomQ = pool[Math.floor(Math.random() * pool.length)];
-      randomQ.themeName = theme.nom;
-      selectedQuestions.push(randomQ);
+      const qClone = { ...randomQ, themeName: theme.nom };
+      selectedQuestions.push(qClone);
     }
   });
+
+  markQuestionsAsPlayed(selectedQuestions, "le_tour_du_monde");
   return selectedQuestions.sort(() => Math.random() - 0.5);
 }
 
@@ -1117,8 +1248,18 @@ function endLeTourDuMondeQuestion(roomCode) {
 
 // --- QUI SUIS-JE HELPERS ---
 function pickQuiSuisJeQuestions() {
-  const shuffled = [...QUI_SUIS_JE_QUESTIONS].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, 8);
+  let available = getUnusedQuestions(QUI_SUIS_JE_QUESTIONS, "qui_suis_je");
+
+  if (available.length < 8) {
+    resetGameHistory("qui_suis_je");
+    available = QUI_SUIS_JE_QUESTIONS;
+  }
+
+  const shuffled = [...available].sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, 8);
+
+  markQuestionsAsPlayed(selected, "qui_suis_je");
+  return selected;
 }
 
 function sendQuiSuisJeQuestion(roomCode) {
@@ -1204,8 +1345,26 @@ function startPetitBac(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
   const gs = room.gameState;
+  
+  // Gestion mémoire des lettres
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const letter = alphabet[Math.floor(Math.random() * alphabet.length)];
+  const history = getPlayedHistory();
+  const playedLetters = history["petit_bac"] || [];
+  
+  // On ne garde que les lettres jamais jouées
+  let availableLetters = alphabet.split('').filter(l => !playedLetters.includes(l));
+  
+  // Si toutes les lettres ont été jouées, on reset
+  if (availableLetters.length === 0) {
+      resetGameHistory("petit_bac");
+      availableLetters = alphabet.split('');
+  }
+
+  // Tirage au sort
+  const letter = availableLetters[Math.floor(Math.random() * availableLetters.length)];
+  
+  // On enregistre la lettre comme jouée (on simule un objet {id: letter} pour notre fonction)
+  markQuestionsAsPlayed([{id: letter}], "petit_bac");
 
   gs.currentMiniGameState = {
     type: "petit_bac",
@@ -1221,14 +1380,12 @@ function startPetitBac(roomCode) {
     gradingDetails: {}
   };
 
-  // 1. On envoie l'info (déclenche l'animation lettre chez le client)
   io.to(roomCode).emit("petitBacStart", {
     letter,
     categories: PETIT_BAC_CATEGORIES,
     duration: 120
   });
 
-  // 2. On attend 2.5 secondes (fin de l'animation) AVANT de lancer le timer
   setTimeout(() => {
     startPetitBacTimer(room);
   }, 2500);
@@ -2218,6 +2375,7 @@ io.on("connection", (socket) => {
     }
     if (mini.timer) mini.timer.running = false;
 
+    // -- Calcul du thème gagnant --
     const activePlayers = room.players.filter((p) => !p.eliminated && !p.isSpectator);
     activePlayers.forEach((p) => {
       if (!mini.playerVotes[p.playerId]) {
@@ -2232,8 +2390,25 @@ io.on("connection", (socket) => {
       selectedThemeId = votes[Math.floor(Math.random() * votes.length)];
     }
 
-    const pool = ENCHERES_QUESTIONS.filter((q) => q.theme_id === selectedThemeId);
+    // -- GESTION MÉMOIRE ENCHÈRES --
+    // On cherche les questions non jouées pour CE thème
+    let available = getUnusedQuestions(ENCHERES_QUESTIONS, "les_encheres");
+    let pool = available.filter((q) => q.theme_id === selectedThemeId);
+
+    // Si plus de questions pour ce thème, on reset TOUT le jeu des enchères
+    if (pool.length === 0) {
+        resetGameHistory("les_encheres");
+        // Et on reprend le stock complet pour ce thème
+        pool = ENCHERES_QUESTIONS.filter((q) => q.theme_id === selectedThemeId);
+    }
+
+    // Sélection de la question
     const question = pool[Math.floor(Math.random() * pool.length)] || ENCHERES_QUESTIONS[0];
+    
+    // On marque la question comme jouée
+    markQuestionsAsPlayed([question], "les_encheres");
+    // ------------------------------
+
     mini.question = question;
 
     io.to(room.roomCode).emit("encheresThemeAnim", {
@@ -2267,20 +2442,15 @@ io.on("connection", (socket) => {
           amount: winningBid
         });
 
-        // 1. On attend 5s (Réduit de 1s) que les joueurs lisent le vainqueur
         setTimeout(() => {
-          // 2. On lance l'animation de décompte (4s)
           io.to(room.roomCode).emit("encheresCountdown");
-
           setTimeout(() => {
-            // 3. On démarre vraiment le jeu
             startEncheresCollection(room.roomCode);
           }, 4000);
-
         }, 5000);
       });
     }, 3500);
-  }
+}
 
   function startLesEncheres(roomCode) {
     const room = rooms[roomCode];
