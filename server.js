@@ -7,6 +7,82 @@ const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
+
+// ============================================================
+//   SYSTÈME DE MÉMOIRE (PERSISTENCE DES QUESTIONS JOUÉES)
+// ============================================================
+
+// 1. Définition intelligente du dossier
+// Par défaut, on se met en mode "Local" (sur ton ordi)
+let DATA_DIR = path.join(__dirname, "data"); 
+
+// On vérifie si un Volume Railway est monté à la racine "/data"
+if (fs.existsSync("/data")) {
+    DATA_DIR = "/data";
+    console.log("[STORAGE] Mode Railway détecté : Utilisation du volume sécurisé /data");
+} else {
+    console.log("[STORAGE] Mode Local : Utilisation du dossier ./data");
+}
+
+// 2. Création du dossier local si besoin (sur ton ordi uniquement)
+if (DATA_DIR !== "/data" && !fs.existsSync(DATA_DIR)){
+    try {
+        fs.mkdirSync(DATA_DIR, { recursive: true });
+    } catch(e) {
+        console.log("Info: Impossible de créer le dossier data local.");
+    }
+}
+
+const HISTORY_FILE = path.join(DATA_DIR, "played_questions_history.json");
+
+// 3. Lire l'historique
+function getPlayedHistory() {
+  if (!fs.existsSync(HISTORY_FILE)) return {};
+  try {
+    return JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
+  } catch (e) {
+    return {};
+  }
+}
+
+// 4. Sauvegarder l'historique
+function savePlayedHistory(history) {
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+  } catch (e) {
+    console.error("Erreur sauvegarde historique:", e);
+  }
+}
+
+// 5. Récupérer les questions NON jouées
+function getUnusedQuestions(allQuestions, gameName) {
+  const history = getPlayedHistory();
+  const playedIds = history[gameName] || [];
+  return allQuestions.filter(q => !playedIds.includes(q.id));
+}
+
+// 6. Marquer des questions comme jouées
+function markQuestionsAsPlayed(questionsObjArray, gameName) {
+  const history = getPlayedHistory();
+  if (!history[gameName]) history[gameName] = [];
+
+  questionsObjArray.forEach(q => {
+    if (q.id && !history[gameName].includes(q.id)) {
+      history[gameName].push(q.id);
+    }
+  });
+  savePlayedHistory(history);
+}
+
+// 7. Reset forcé d'un jeu spécifique
+function resetGameHistory(gameName) {
+  const history = getPlayedHistory();
+  history[gameName] = [];
+  savePlayedHistory(history);
+  console.log(`[RESET] Historique vidé pour : ${gameName}`);
+}
+
+
 const leBonOrdreData = require(
   path.join(__dirname, "public_2", "le_bon_ordre", "le_bon_ordre.json")
 );
@@ -41,18 +117,16 @@ const quiSuisJeData = require(
 );
 const QUI_SUIS_JE_QUESTIONS = quiSuisJeData.questions || [];
 
-// --- AJOUTER EN HAUT AVEC LES REQUIRE ---
-// Charge le JSON des enchères (structure supposée public_2/les_encheres/les_encheres.json)
-// Si le dossier n'existe pas, vérifie le chemin exact.
+// --- CHARGEMENT DES DONN?ES MANQUANTES ---
+
+// 1. LES ENCH?RES
 const lesEncheresData = require(
   path.join(__dirname, "public_2", "les_encheres", "les_encheres.json")
 );
 const ENCHERES_QUESTIONS = lesEncheresData.questions || [];
 const ENCHERES_THEMES = lesEncheresData.themes || [];
 
-// ===============================
-//   CHARGEMENT JSON LEUGTAS
-// ===============================
+// 2. QUI VEUT GAGNER DES LEUGTAS
 const leugtasData = require(
   path.join(
     __dirname,
@@ -61,9 +135,9 @@ const leugtasData = require(
     "qui_veut_gagner_des_leugtas.json"
   )
 );
-
 const LEUGTAS_QUESTIONS = leugtasData.questions || [];
 
+// 3. LE FAUX DU VRAI
 const fauxVraiRaw = JSON.parse(
   fs.readFileSync(
     path.join(__dirname, "public_2", "le_faux_du_vrai", "le_faux_du_vrai.json"),
@@ -73,71 +147,6 @@ const fauxVraiRaw = JSON.parse(
 const fauxVraiThemes = fauxVraiRaw.themes || [];
 const fauxVraiQuestions = fauxVraiRaw.questions || [];
 
-// ============================================================
-//   SYSTÈME DE MÉMOIRE (PERSISTENCE DES QUESTIONS JOUÉES)
-// ============================================================
-
-const DATA_DIR =
-  process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, "data");
-
-// Création du dossier data s'il n'existe pas
-if (!fs.existsSync(DATA_DIR)) {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  } catch (e) {
-    console.log("Info: Dossier data déjà existant ou impossible à créer.");
-  }
-}
-
-const HISTORY_FILE = path.join(DATA_DIR, "played_questions_history.json");
-
-// 1. Lire l'historique
-function getPlayedHistory() {
-  if (!fs.existsSync(HISTORY_FILE)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
-  } catch (e) {
-    return {};
-  }
-}
-
-// 2. Sauvegarder l'historique
-function savePlayedHistory(history) {
-  try {
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
-  } catch (e) {
-    console.error("Erreur sauvegarde historique:", e);
-  }
-}
-
-// 3. Récupérer les questions NON jouées
-function getUnusedQuestions(allQuestions, gameName) {
-  const history = getPlayedHistory();
-  const playedIds = history[gameName] || [];
-  return allQuestions.filter((q) => !playedIds.includes(q.id));
-}
-
-// 4. Marquer des questions comme jouées
-function markQuestionsAsPlayed(questionsObjArray, gameName) {
-  const history = getPlayedHistory();
-  if (!history[gameName]) history[gameName] = [];
-
-  questionsObjArray.forEach((q) => {
-    // On gère aussi les objets simples comme {id: "A"} pour le Petit Bac
-    if (q.id && !history[gameName].includes(q.id)) {
-      history[gameName].push(q.id);
-    }
-  });
-  savePlayedHistory(history);
-}
-
-// 5. Reset forcé d'un jeu spécifique
-function resetGameHistory(gameName) {
-  const history = getPlayedHistory();
-  history[gameName] = [];
-  savePlayedHistory(history);
-  console.log(`[RESET] Historique vidé pour : ${gameName}`);
-}
 
 function pickLeugtasQuestionsByPaliers() {
   let available = getUnusedQuestions(LEUGTAS_QUESTIONS, "leugtas");
@@ -2814,9 +2823,31 @@ function syncPlayerWithGame(socket, room) {
   }
 }
 
+
+
 // ===============================
 //     START SERVER
 // ===============================
+// ==========================================
+//   ADMINISTRATION & DEBUG (M?MOIRE)
+// ==========================================
+
+app.get("/admin/memory/view", (req, res) => {
+  const history = getPlayedHistory();
+  res.json(history);
+});
+
+app.get("/admin/memory/reset-all", (req, res) => {
+  savePlayedHistory({});
+  res.send("<h1>Succ?s</h1><p>Tout l'historique des questions a ?t? effac?.</p>");
+});
+
+app.get("/admin/memory/reset/:game", (req, res) => {
+  const game = req.params.game;
+  resetGameHistory(game);
+  res.send(`<h1>Succ?s</h1><p>Historique effac? pour : <strong>${game}</strong></p>`);
+});
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log("Serveur lanc� sur le port", PORT);
