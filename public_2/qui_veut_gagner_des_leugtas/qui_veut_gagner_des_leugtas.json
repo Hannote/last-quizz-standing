@@ -203,30 +203,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 8,
-      "theme_id": "palier_1",
-      "question": "Quelle boisson est traditionnellement faite à partir de lait ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Coca-Cola"
-        },
-        {
-          "id": "B",
-          "text": "Jus d’orange"
-        },
-        {
-          "id": "C",
-          "text": "Lait chocolaté"
-        },
-        {
-          "id": "D",
-          "text": "Thé noir"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
       "id": 9,
       "theme_id": "palier_1",
       "question": "Quel pays est célèbre pour ses pyramides ?",
@@ -419,30 +395,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 17,
-      "theme_id": "palier_1",
-      "question": "Dans Les Simpsons, de quelle couleur est la peau des habitants ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Jaune"
-        },
-        {
-          "id": "B",
-          "text": "Verte"
-        },
-        {
-          "id": "C",
-          "text": "Bleue"
-        },
-        {
-          "id": "D",
-          "text": "Rose"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
       "id": 18,
       "theme_id": "palier_1",
       "question": "Dans Naruto, quelle est la couleur de la tenue de Naruto ?",
@@ -587,30 +539,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 24,
-      "theme_id": "palier_1",
-      "question": "Quel est l’océan à l’ouest de l’Europe ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Pacifique"
-        },
-        {
-          "id": "B",
-          "text": "Indien"
-        },
-        {
-          "id": "C",
-          "text": "Atlantique"
-        },
-        {
-          "id": "D",
-          "text": "Arctique"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
       "id": 25,
       "theme_id": "palier_1",
       "question": "Quelle est la capitale du Japon ?",
@@ -635,54 +563,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 26,
-      "theme_id": "palier_1",
-      "question": "Quelle équipe est surnommée les Bleus ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Italie"
-        },
-        {
-          "id": "B",
-          "text": "France"
-        },
-        {
-          "id": "C",
-          "text": "Allemagne"
-        },
-        {
-          "id": "D",
-          "text": "Espagne"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 27,
-      "theme_id": "palier_1",
-      "question": "Quel métal porte le symbole Fe ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Fer"
-        },
-        {
-          "id": "B",
-          "text": "Argent"
-        },
-        {
-          "id": "C",
-          "text": "Or"
-        },
-        {
-          "id": "D",
-          "text": "Plomb"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
       "id": 28,
       "theme_id": "palier_1",
       "question": "Quel pays a remporté la Coupe du Monde 1998 ?",
@@ -705,54 +585,6 @@
         }
       ],
       "correct_answer_id": "B"
-    },
-    {
-      "id": 29,
-      "theme_id": "palier_1",
-      "question": "En NBA, quel joueur est surnommé King James ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Durant"
-        },
-        {
-          "id": "B",
-          "text": "James"
-        },
-        {
-          "id": "C",
-          "text": "Bryant"
-        },
-        {
-          "id": "D",
-          "text": "Jordan"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 30,
-      "theme_id": "palier_1",
-      "question": "Combien de joueurs par équipe au football ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "9"
-        },
-        {
-          "id": "B",
-          "text": "10"
-        },
-        {
-          "id": "C",
-          "text": "11"
-        },
-        {
-          "id": "D",
-          "text": "12"
-        }
-      ],
-      "correct_answer_id": "C"
     },
     {
       "id": 31,
@@ -923,30 +755,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 38,
-      "theme_id": "palier_1",
-      "question": "Quel manga shonen met en scène le pirate Monkey D. Luffy ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Naruto"
-        },
-        {
-          "id": "B",
-          "text": "Bleach"
-        },
-        {
-          "id": "C",
-          "text": "Attack on Titan"
-        },
-        {
-          "id": "D",
-          "text": "One Piece"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
       "id": 39,
       "theme_id": "palier_1",
       "question": "Quelle est la couleur du soleil dans les schémas conventionnels ?",
@@ -972,7 +780,7 @@
     },
     {
       "id": 40,
-      "theme_id": "palier_1",
+      "theme_id": "palier_2",
       "question": "Qui a découvert l'Amérique en 1492 ?",
       "answers": [
         {
@@ -1062,102 +870,6 @@
         {
           "id": "D",
           "text": "Pokémon Émeraude"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 44,
-      "theme_id": "palier_1",
-      "question": "Combien de temps dure une heure ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "30 minutes"
-        },
-        {
-          "id": "B",
-          "text": "120 minutes"
-        },
-        {
-          "id": "C",
-          "text": "3600 secondes"
-        },
-        {
-          "id": "D",
-          "text": "60 minutes"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 45,
-      "theme_id": "palier_1",
-      "question": "Quel liquide est symbolisé par H2​O ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "L'huile"
-        },
-        {
-          "id": "B",
-          "text": "Le lait"
-        },
-        {
-          "id": "C",
-          "text": "L'air"
-        },
-        {
-          "id": "D",
-          "text": "L'eau"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 46,
-      "theme_id": "palier_1",
-      "question": "Quel animal miaule ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Chien"
-        },
-        {
-          "id": "B",
-          "text": "Chat"
-        },
-        {
-          "id": "C",
-          "text": "Cheval"
-        },
-        {
-          "id": "D",
-          "text": "Vache"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 47,
-      "theme_id": "palier_1",
-      "question": "Combien y a-t-il de jours dans une semaine ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "5"
-        },
-        {
-          "id": "B",
-          "text": "7"
-        },
-        {
-          "id": "C",
-          "text": "8"
-        },
-        {
-          "id": "D",
-          "text": "10"
         }
       ],
       "correct_answer_id": "B"
@@ -1257,54 +969,6 @@
         }
       ],
       "correct_answer_id": "B"
-    },
-    {
-      "id": 52,
-      "theme_id": "palier_1",
-      "question": "Quel fruit est jaune ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Fraise"
-        },
-        {
-          "id": "B",
-          "text": "Banane"
-        },
-        {
-          "id": "C",
-          "text": "Pomme"
-        },
-        {
-          "id": "D",
-          "text": "Raisin noir"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 53,
-      "theme_id": "palier_1",
-      "question": "Quelle saison est la plus chaude ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Hiver"
-        },
-        {
-          "id": "B",
-          "text": "Printemps"
-        },
-        {
-          "id": "C",
-          "text": "Été"
-        },
-        {
-          "id": "D",
-          "text": "Automne"
-        }
-      ],
-      "correct_answer_id": "C"
     },
     {
       "id": 54,
@@ -1427,30 +1091,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 59,
-      "theme_id": "palier_2",
-      "question": "Quel pays possède la capitale Ankara ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Iran"
-        },
-        {
-          "id": "B",
-          "text": "Grèce"
-        },
-        {
-          "id": "C",
-          "text": "Turquie"
-        },
-        {
-          "id": "D",
-          "text": "Chypre"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
       "id": 60,
       "theme_id": "palier_2",
       "question": "Dans \"The Legend of Zelda\", comment s’appelle le héros principal ?",
@@ -1523,78 +1163,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 63,
-      "theme_id": "palier_2",
-      "question": "Dans quelle série trouve-t-on le personnage de Sheldon Cooper ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Friends"
-        },
-        {
-          "id": "B",
-          "text": "The Big Bang Theory"
-        },
-        {
-          "id": "C",
-          "text": "How I Met Your Mother"
-        },
-        {
-          "id": "D",
-          "text": "Scrubs"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 64,
-      "theme_id": "palier_2",
-      "question": "Quelle mer borde le sud de la France ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Mer Noire"
-        },
-        {
-          "id": "B",
-          "text": "Mer Rouge"
-        },
-        {
-          "id": "C",
-          "text": "Mer Méditerranée"
-        },
-        {
-          "id": "D",
-          "text": "Mer du Nord"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 65,
-      "theme_id": "palier_2",
-      "question": "Quelle est la monnaie utilisée aux États-Unis ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Dollar"
-        },
-        {
-          "id": "B",
-          "text": "Yen"
-        },
-        {
-          "id": "C",
-          "text": "Euro"
-        },
-        {
-          "id": "D",
-          "text": "Livre"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
       "id": 66,
       "theme_id": "palier_2",
       "question": "Qui a peint la Joconde ?",
@@ -1643,30 +1211,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 68,
-      "theme_id": "palier_2",
-      "question": "Dans \"One Piece\", quel est le rêve de Luffy ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Devenir Hokage"
-        },
-        {
-          "id": "B",
-          "text": "Devenir le Seigneur des Pirates"
-        },
-        {
-          "id": "C",
-          "text": "Sauver la Terre"
-        },
-        {
-          "id": "D",
-          "text": "Retrouver son frère"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 69,
       "theme_id": "palier_2",
       "question": "Quelle planète est la plus proche du Soleil ?",
@@ -1686,30 +1230,6 @@
         {
           "id": "D",
           "text": "Terre"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 70,
-      "theme_id": "palier_2",
-      "question": "Quel pays a remporté la Coupe du Monde 2018 ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Allemagne"
-        },
-        {
-          "id": "B",
-          "text": "Brésil"
-        },
-        {
-          "id": "C",
-          "text": "France"
-        },
-        {
-          "id": "D",
-          "text": "Espagne"
         }
       ],
       "correct_answer_id": "C"
@@ -1835,30 +1355,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 77,
-      "theme_id": "palier_2",
-      "question": "Lequel de ces jeux est un FPS ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "FIFA"
-        },
-        {
-          "id": "B",
-          "text": "Overwatch"
-        },
-        {
-          "id": "C",
-          "text": "The Sims"
-        },
-        {
-          "id": "D",
-          "text": "Civilization VI"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 78,
       "theme_id": "palier_2",
       "question": "Dans Assassin’s Creed II, quel est le prénom du héros ?",
@@ -1893,7 +1389,7 @@
         },
         {
           "id": "B",
-          "text": "Marge"
+          "text": "Jane"
         },
         {
           "id": "C",
@@ -1905,54 +1401,6 @@
         }
       ],
       "correct_answer_id": "A"
-    },
-    {
-      "id": 80,
-      "theme_id": "palier_2",
-      "question": "Dans Breaking Bad, quel est le vrai prénom de Heisenberg ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Walter"
-        },
-        {
-          "id": "B",
-          "text": "Hank"
-        },
-        {
-          "id": "C",
-          "text": "Saul"
-        },
-        {
-          "id": "D",
-          "text": "Gus"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 81,
-      "theme_id": "palier_2",
-      "question": "Dans GTA San Andreas, comment s’appelle le frère de CJ ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Ryder"
-        },
-        {
-          "id": "B",
-          "text": "Big Smoke"
-        },
-        {
-          "id": "C",
-          "text": "Sweet"
-        },
-        {
-          "id": "D",
-          "text": "Lamar"
-        }
-      ],
-      "correct_answer_id": "C"
     },
     {
       "id": 82,
@@ -1974,54 +1422,6 @@
         {
           "id": "D",
           "text": "Isobu"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 83,
-      "theme_id": "palier_2",
-      "question": "Dans Naruto, qui est le maître de Sasuke au début ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Kakashi"
-        },
-        {
-          "id": "B",
-          "text": "Jiraiya"
-        },
-        {
-          "id": "C",
-          "text": "Orochimaru"
-        },
-        {
-          "id": "D",
-          "text": "Iruka"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 84,
-      "theme_id": "palier_2",
-      "question": "Dans One Piece, quel est le nom complet de Zoro ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Zoro Roronoa"
-        },
-        {
-          "id": "B",
-          "text": "Roronoa Zoro"
-        },
-        {
-          "id": "C",
-          "text": "Zoro D. Roronoa"
-        },
-        {
-          "id": "D",
-          "text": "Zoro Swordsman"
         }
       ],
       "correct_answer_id": "B"
@@ -2069,7 +1469,7 @@
         },
         {
           "id": "D",
-          "text": "Crystal"
+          "text": "Crystal vision"
         }
       ],
       "correct_answer_id": "A"
@@ -2109,42 +1509,18 @@
         },
         {
           "id": "B",
-          "text": "Rasengan"
+          "text": "Suiton"
         },
         {
           "id": "C",
-          "text": "Amaterasu"
+          "text": "Mangekyo Sharingan"
         },
         {
           "id": "D",
-          "text": "Byakugou"
+          "text": "Kamui"
         }
       ],
       "correct_answer_id": "A"
-    },
-    {
-      "id": 89,
-      "theme_id": "palier_2",
-      "question": "Quel scientifique a formulé les lois du mouvement ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Galilée"
-        },
-        {
-          "id": "B",
-          "text": "Newton"
-        },
-        {
-          "id": "C",
-          "text": "Einstein"
-        },
-        {
-          "id": "D",
-          "text": "Kepler"
-        }
-      ],
-      "correct_answer_id": "B"
     },
     {
       "id": 90,
@@ -2171,32 +1547,8 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 91,
-      "theme_id": "palier_2",
-      "question": "Quelle est la capitale de l’Argentine ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Quito"
-        },
-        {
-          "id": "B",
-          "text": "Lima"
-        },
-        {
-          "id": "C",
-          "text": "Buenos Aires"
-        },
-        {
-          "id": "D",
-          "text": "Bogotá"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
       "id": 92,
-      "theme_id": "palier_2",
+      "theme_id": "palier_5",
       "question": "Quel organe sécrète l’adrénaline ?",
       "answers": [
         {
@@ -2205,7 +1557,7 @@
         },
         {
           "id": "B",
-          "text": "Pancréas"
+          "text": "Coeur"
         },
         {
           "id": "C",
@@ -2214,30 +1566,6 @@
         {
           "id": "D",
           "text": "Hypophyse"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 93,
-      "theme_id": "palier_2",
-      "question": "Dans Game of Thrones, qui est la mère des dragons ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Cersei"
-        },
-        {
-          "id": "B",
-          "text": "Arya"
-        },
-        {
-          "id": "C",
-          "text": "Daenerys"
-        },
-        {
-          "id": "D",
-          "text": "Ygritte"
         }
       ],
       "correct_answer_id": "C"
@@ -2265,30 +1593,6 @@
         }
       ],
       "correct_answer_id": "C"
-    },
-    {
-      "id": 95,
-      "theme_id": "palier_2",
-      "question": "Dans Naruto, qui possède le Byakugan ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Uchiha"
-        },
-        {
-          "id": "B",
-          "text": "Hyuga"
-        },
-        {
-          "id": "C",
-          "text": "Senju"
-        },
-        {
-          "id": "D",
-          "text": "Nara"
-        }
-      ],
-      "correct_answer_id": "B"
     },
     {
       "id": 96,
@@ -2387,61 +1691,13 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 100,
-      "theme_id": "palier_2",
-      "question": "Combien de joueurs sur le terrain en NBA (une équipe) ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "4"
-        },
-        {
-          "id": "B",
-          "text": "5"
-        },
-        {
-          "id": "C",
-          "text": "6"
-        },
-        {
-          "id": "D",
-          "text": "7"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 101,
-      "theme_id": "palier_2",
-      "question": "Quel sport utilise un tatami ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Tennis"
-        },
-        {
-          "id": "B",
-          "text": "Lutte"
-        },
-        {
-          "id": "C",
-          "text": "Foot"
-        },
-        {
-          "id": "D",
-          "text": "Escrime"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 102,
       "theme_id": "palier_2",
       "question": "Quel joueur NBA est surnommé 'Black Mamba' ?",
       "answers": [
         {
           "id": "A",
-          "text": "Jordan"
+          "text": "Paul Pierce"
         },
         {
           "id": "B",
@@ -2449,18 +1705,18 @@
         },
         {
           "id": "C",
-          "text": "LeBron"
+          "text": "Tracy Mcgrady"
         },
         {
           "id": "D",
-          "text": "Iverson"
+          "text": "Allen Iverson"
         }
       ],
       "correct_answer_id": "B"
     },
     {
       "id": 103,
-      "theme_id": "palier_2",
+      "theme_id": "palier_4",
       "question": "Quel est l'élément principal dans le diamant ?",
       "answers": [
         {
@@ -2509,19 +1765,19 @@
     {
       "id": 105,
       "theme_id": "palier_2",
-      "question": "Comment appelle-t-on un regroupement d'étoiles et de gaz ?",
+      "question": "Comment appelle-t-on un regroupement d'étoiles, de gaz et de planètes ?",
       "answers": [
         {
           "id": "A",
-          "text": "Un astéroïde"
+          "text": "Filament cosmique"
         },
         {
           "id": "B",
-          "text": "Une planète"
+          "text": "Une nébuleuse"
         },
         {
           "id": "C",
-          "text": "Un trou noir"
+          "text": "Nuage moléculaire géant"
         },
         {
           "id": "D",
@@ -2555,32 +1811,8 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 107,
-      "theme_id": "palier_3",
-      "question": "Dans quelle série américaine suit-on des survivants après une apocalypse zombie ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Lost"
-        },
-        {
-          "id": "B",
-          "text": "Breaking Bad"
-        },
-        {
-          "id": "C",
-          "text": "The Walking Dead"
-        },
-        {
-          "id": "D",
-          "text": "The Wire"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
       "id": 108,
-      "theme_id": "palier_3",
+      "theme_id": "palier_2",
       "question": "Quel film met en scène le personnage de Neo ?",
       "answers": [
         {
@@ -2651,30 +1883,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 111,
-      "theme_id": "palier_3",
-      "question": "Dans \"Naruto\", qui est le rival principal de Naruto ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Kakashi"
-        },
-        {
-          "id": "B",
-          "text": "Sasuke"
-        },
-        {
-          "id": "C",
-          "text": "Neji"
-        },
-        {
-          "id": "D",
-          "text": "Gaara"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 112,
       "theme_id": "palier_3",
       "question": "En quelle année a eu lieu le débarquement de Normandie ?",
@@ -2697,30 +1905,6 @@
         }
       ],
       "correct_answer_id": "C"
-    },
-    {
-      "id": 113,
-      "theme_id": "palier_3",
-      "question": "Quel est le plus long fleuve du monde ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Amazone"
-        },
-        {
-          "id": "B",
-          "text": "Nil"
-        },
-        {
-          "id": "C",
-          "text": "Yangtsé"
-        },
-        {
-          "id": "D",
-          "text": "Mississippi"
-        }
-      ],
-      "correct_answer_id": "A"
     },
     {
       "id": 114,
@@ -2771,30 +1955,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 116,
-      "theme_id": "palier_3",
-      "question": "Quel est le symbole chimique du sodium ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "So"
-        },
-        {
-          "id": "B",
-          "text": "Na"
-        },
-        {
-          "id": "C",
-          "text": "Sa"
-        },
-        {
-          "id": "D",
-          "text": "Nd"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 117,
       "theme_id": "palier_3",
       "question": "Quelle ville américaine est surnommée \"The Big Apple\" ?",
@@ -2805,11 +1965,11 @@
         },
         {
           "id": "B",
-          "text": "Miami"
+          "text": "Philadelphia"
         },
         {
           "id": "C",
-          "text": "Los Angeles"
+          "text": "Boston"
         },
         {
           "id": "D",
@@ -2837,7 +1997,7 @@
         },
         {
           "id": "D",
-          "text": "Rogue One"
+          "text": "Star Wars III"
         }
       ],
       "correct_answer_id": "B"
@@ -2861,79 +2021,7 @@
         },
         {
           "id": "D",
-          "text": "Espagne"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 120,
-      "theme_id": "palier_4",
-      "question": "Dans \"One Piece\", comment s’appelle l’épée légendaire de Mihawk ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Durandal"
-        },
-        {
-          "id": "B",
-          "text": "Yoru"
-        },
-        {
-          "id": "C",
-          "text": "Sandai Kitetsu"
-        },
-        {
-          "id": "D",
-          "text": "Shusui"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 121,
-      "theme_id": "palier_3",
-      "question": "Quel est le principal gaz de l’air que nous respirons ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Oxygène"
-        },
-        {
-          "id": "B",
-          "text": "Azote"
-        },
-        {
-          "id": "C",
-          "text": "Hydrogène"
-        },
-        {
-          "id": "D",
-          "text": "Hélium"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 122,
-      "theme_id": "palier_3",
-      "question": "Quel film montre un rêve dans le rêve d’un rêve ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Memento"
-        },
-        {
-          "id": "B",
-          "text": "Inception"
-        },
-        {
-          "id": "C",
-          "text": "Shutter Island"
-        },
-        {
-          "id": "D",
-          "text": "Tenet"
+          "text": "Empire Austro - Hongrois"
         }
       ],
       "correct_answer_id": "B"
@@ -2958,54 +2046,6 @@
         {
           "id": "D",
           "text": "Traité de Paris"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 124,
-      "theme_id": "palier_3",
-      "question": "Dans \"Hunter x Hunter\", comment s’appelle la technique énergétique utilisée par les combattants ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Chakra"
-        },
-        {
-          "id": "B",
-          "text": "Nen"
-        },
-        {
-          "id": "C",
-          "text": "Ki"
-        },
-        {
-          "id": "D",
-          "text": "Mana"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 125,
-      "theme_id": "palier_3",
-      "question": "Dans Dragon Ball Z, quel est le nom du nuage de Goku ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Nimbus"
-        },
-        {
-          "id": "B",
-          "text": "Kinto’un"
-        },
-        {
-          "id": "C",
-          "text": "Fluffy"
-        },
-        {
-          "id": "D",
-          "text": "Senzu"
         }
       ],
       "correct_answer_id": "B"
@@ -3041,7 +2081,7 @@
       "answers": [
         {
           "id": "A",
-          "text": "Aizen"
+          "text": "Tôsen"
         },
         {
           "id": "B",
@@ -3053,7 +2093,7 @@
         },
         {
           "id": "D",
-          "text": "Zaraki"
+          "text": "Shunsui"
         }
       ],
       "correct_answer_id": "C"
@@ -3141,7 +2181,7 @@
         },
         {
           "id": "B",
-          "text": "Scar"
+          "text": "Conrad"
         },
         {
           "id": "C",
@@ -3149,7 +2189,7 @@
         },
         {
           "id": "D",
-          "text": "Mustang"
+          "text": "Joel"
         }
       ],
       "correct_answer_id": "A"
@@ -3203,30 +2243,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 134,
-      "theme_id": "palier_3",
-      "question": "Dans Naruto Shippuden, qui tue Itachi ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Naruto"
-        },
-        {
-          "id": "B",
-          "text": "Sasuke"
-        },
-        {
-          "id": "C",
-          "text": "Kakashi"
-        },
-        {
-          "id": "D",
-          "text": "Pain"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 135,
       "theme_id": "palier_3",
       "question": "Quel est le plus haut sommet du monde ?",
@@ -3251,30 +2267,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 136,
-      "theme_id": "palier_3",
-      "question": "Quelle est la molécule principale du sel de table ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "NaCl"
-        },
-        {
-          "id": "B",
-          "text": "CH4"
-        },
-        {
-          "id": "C",
-          "text": "NC6"
-        },
-        {
-          "id": "D",
-          "text": "KCl"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
       "id": 137,
       "theme_id": "palier_3",
       "question": "Dans GTA Vice City, quel est le prénom du héros ?",
@@ -3297,30 +2289,6 @@
         }
       ],
       "correct_answer_id": "B"
-    },
-    {
-      "id": 138,
-      "theme_id": "palier_3",
-      "question": "Dans Hunter x Hunter, quel est le nom du frère de Killua ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Illumi"
-        },
-        {
-          "id": "B",
-          "text": "Milluki"
-        },
-        {
-          "id": "C",
-          "text": "Alluka"
-        },
-        {
-          "id": "D",
-          "text": "Kalluto"
-        }
-      ],
-      "correct_answer_id": "A"
     },
     {
       "id": 139,
@@ -3395,30 +2363,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 142,
-      "theme_id": "palier_3",
-      "question": "Dans Hunter x Hunter, quel est le chef de la Brigade Fantôme ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Uvogin"
-        },
-        {
-          "id": "B",
-          "text": "Nobunaga"
-        },
-        {
-          "id": "C",
-          "text": "Feitan"
-        },
-        {
-          "id": "D",
-          "text": "Chrollo"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
       "id": 143,
       "theme_id": "palier_3",
       "question": "Quel pays a inventé la démocratie ?",
@@ -3429,7 +2373,7 @@
         },
         {
           "id": "B",
-          "text": "France"
+          "text": "Macédoine"
         },
         {
           "id": "C",
@@ -3437,130 +2381,10 @@
         },
         {
           "id": "D",
-          "text": "Italie"
+          "text": "Rome"
         }
       ],
       "correct_answer_id": "C"
-    },
-    {
-      "id": 144,
-      "theme_id": "palier_3",
-      "question": "Quel est le nom du traité ayant mis fin à la Première Guerre mondiale ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Traité de Rome"
-        },
-        {
-          "id": "B",
-          "text": "Traité de Versailles"
-        },
-        {
-          "id": "C",
-          "text": "Traité de Paris"
-        },
-        {
-          "id": "D",
-          "text": "Traité de Moscou"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 145,
-      "theme_id": "palier_3",
-      "question": "Dans quel pays se trouve la ville de São Paulo ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Argentine"
-        },
-        {
-          "id": "B",
-          "text": "Brésil"
-        },
-        {
-          "id": "C",
-          "text": "Mexique"
-        },
-        {
-          "id": "D",
-          "text": "Portugal"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 146,
-      "theme_id": "palier_3",
-      "question": "Dans Naruto, quelle technique utilise Minato ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Rasengan"
-        },
-        {
-          "id": "B",
-          "text": "Amaterasu"
-        },
-        {
-          "id": "C",
-          "text": "Chidori"
-        },
-        {
-          "id": "D",
-          "text": "Susanoo"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 147,
-      "theme_id": "palier_3",
-      "question": "Dans GTA San Andreas, qui est le meilleur ami de CJ ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Ryder"
-        },
-        {
-          "id": "B",
-          "text": "Sweet"
-        },
-        {
-          "id": "C",
-          "text": "Big Smoke"
-        },
-        {
-          "id": "D",
-          "text": "OG Loc"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 148,
-      "theme_id": "palier_3",
-      "question": "Dans South Park, qui est le plus intelligent du groupe ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Cartman"
-        },
-        {
-          "id": "B",
-          "text": "Kyle"
-        },
-        {
-          "id": "C",
-          "text": "Stan"
-        },
-        {
-          "id": "D",
-          "text": "Butters"
-        }
-      ],
-      "correct_answer_id": "B"
     },
     {
       "id": 149,
@@ -3621,7 +2445,7 @@
         },
         {
           "id": "B",
-          "text": "Le Nuage de Magellan"
+          "text": "Ursa Minor"
         },
         {
           "id": "C",
@@ -3629,7 +2453,7 @@
         },
         {
           "id": "D",
-          "text": "La Galaxie d'Etoiles"
+          "text": "Sagittarius"
         }
       ],
       "correct_answer_id": "C"
@@ -3659,30 +2483,6 @@
       "correct_answer_id": "D"
     },
     {
-      "id": 153,
-      "theme_id": "palier_3",
-      "question": "Comment appelle-t-on la ligne imaginaire qui sépare la Terre en hémisphère Nord et Sud ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Le Tropique du Cancer"
-        },
-        {
-          "id": "B",
-          "text": "L'équateur"
-        },
-        {
-          "id": "C",
-          "text": "Le Méridien de Greenwich"
-        },
-        {
-          "id": "D",
-          "text": "Le Cercle Arctique"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 154,
       "theme_id": "palier_3",
       "question": "Qui était surnommé le \"Roi Soleil\" ?",
@@ -3702,30 +2502,6 @@
         {
           "id": "D",
           "text": "Louis XIV"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 155,
-      "theme_id": "palier_3",
-      "question": "Dans quel jeu vidéo le personnage de Kratos est-il le protagoniste ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Assassin's Creed"
-        },
-        {
-          "id": "B",
-          "text": "Devil May Cry"
-        },
-        {
-          "id": "C",
-          "text": "Halo"
-        },
-        {
-          "id": "D",
-          "text": "God of War"
         }
       ],
       "correct_answer_id": "D"
@@ -3785,15 +2561,15 @@
       "answers": [
         {
           "id": "A",
-          "text": "Le blaireau"
+          "text": "Le cerf"
         },
         {
           "id": "B",
-          "text": "Le serpent"
+          "text": "Le chevreuil"
         },
         {
           "id": "C",
-          "text": "Le corbeau"
+          "text": "L'aigle"
         },
         {
           "id": "D",
@@ -3852,7 +2628,7 @@
     },
     {
       "id": 161,
-      "theme_id": "palier_3",
+      "theme_id": "palier_2",
       "question": "Quelle est la couleur que l'on obtient en mélangeant du bleu et du jaune ?",
       "answers": [
         {
@@ -3873,78 +2649,6 @@
         }
       ],
       "correct_answer_id": "C"
-    },
-    {
-      "id": 162,
-      "theme_id": "palier_3",
-      "question": "Quelle grande civilisation est connue pour avoir construit les pyramides de Gizeh ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "La civilisation grecque"
-        },
-        {
-          "id": "B",
-          "text": "La civilisation romaine"
-        },
-        {
-          "id": "C",
-          "text": "La civilisation égyptienne"
-        },
-        {
-          "id": "D",
-          "text": "La civilisation inca"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 163,
-      "theme_id": "palier_4",
-      "question": "Dans \"Hunter x Hunter\", quel est le nom du père de Gon ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Ging"
-        },
-        {
-          "id": "B",
-          "text": "Hisoka"
-        },
-        {
-          "id": "C",
-          "text": "Kite"
-        },
-        {
-          "id": "D",
-          "text": "Leorio"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 164,
-      "theme_id": "palier_4",
-      "question": "Quelle loi détermine la relation entre tension, résistance et intensité ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Loi de Newton"
-        },
-        {
-          "id": "B",
-          "text": "Loi d'Ohm"
-        },
-        {
-          "id": "C",
-          "text": "Loi de Coulomb"
-        },
-        {
-          "id": "D",
-          "text": "Loi de Faraday"
-        }
-      ],
-      "correct_answer_id": "B"
     },
     {
       "id": 165,
@@ -3969,54 +2673,6 @@
         }
       ],
       "correct_answer_id": "B"
-    },
-    {
-      "id": 166,
-      "theme_id": "palier_4",
-      "question": "Quel est le processus cellulaire qui produit de l'énergie sous forme d'ATP ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Photosynthèse"
-        },
-        {
-          "id": "B",
-          "text": "Respiration cellulaire"
-        },
-        {
-          "id": "C",
-          "text": "Osmose"
-        },
-        {
-          "id": "D",
-          "text": "Mitose"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 167,
-      "theme_id": "palier_4",
-      "question": "Dans quelle ville se déroule la série \"Stranger Things\" ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Hawkins"
-        },
-        {
-          "id": "B",
-          "text": "Riverdale"
-        },
-        {
-          "id": "C",
-          "text": "Sunnydale"
-        },
-        {
-          "id": "D",
-          "text": "Smallville"
-        }
-      ],
-      "correct_answer_id": "A"
     },
     {
       "id": 168,
@@ -4091,54 +2747,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 171,
-      "theme_id": "palier_4",
-      "question": "Dans \"Attack on Titan\", quelle division porte des capes vertes ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Garnison"
-        },
-        {
-          "id": "B",
-          "text": "Police militaire"
-        },
-        {
-          "id": "C",
-          "text": "Brigade d’Entraînement"
-        },
-        {
-          "id": "D",
-          "text": "Bataillon d’Exploration"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 172,
-      "theme_id": "palier_4",
-      "question": "Dans \"Bleach\", quel est le nom de l'épée d’Ichigo ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Zangetsu"
-        },
-        {
-          "id": "B",
-          "text": "Senbonzakura"
-        },
-        {
-          "id": "C",
-          "text": "Tensaibi"
-        },
-        {
-          "id": "D",
-          "text": "Kyōka Suigetsu"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
       "id": 173,
       "theme_id": "palier_4",
       "question": "Dans \"Game of Thrones\", quel est le nom du continent où se trouve Winterfell ?",
@@ -4158,30 +2766,6 @@
         {
           "id": "D",
           "text": "Braavos"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 174,
-      "theme_id": "palier_4",
-      "question": "Quel pays a pour capitale Varsovie ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Hongrie"
-        },
-        {
-          "id": "B",
-          "text": "Pologne"
-        },
-        {
-          "id": "C",
-          "text": "Roumanie"
-        },
-        {
-          "id": "D",
-          "text": "Ukraine"
         }
       ],
       "correct_answer_id": "B"
@@ -4235,30 +2819,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 177,
-      "theme_id": "palier_4",
-      "question": "Quel est le symbole chimique du potassium ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "P"
-        },
-        {
-          "id": "B",
-          "text": "Po"
-        },
-        {
-          "id": "C",
-          "text": "K"
-        },
-        {
-          "id": "D",
-          "text": "Pt"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
       "id": 178,
       "theme_id": "palier_4",
       "question": "Dans \"Attack on Titan\", quel est le nom de la forteresse où vivent les humains ?",
@@ -4283,37 +2843,13 @@
       "correct_answer_id": "D"
     },
     {
-      "id": 179,
-      "theme_id": "palier_4",
-      "question": "Dans \"Breaking Bad\", quel est le nom de l’avocat véreux ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Saul Goodman"
-        },
-        {
-          "id": "B",
-          "text": "Gus Fring"
-        },
-        {
-          "id": "C",
-          "text": "Hank Schrader"
-        },
-        {
-          "id": "D",
-          "text": "Mike Ehrmantraut"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
       "id": 180,
       "theme_id": "palier_4",
       "question": "Quel est l’organe responsable de la filtration du sang ?",
       "answers": [
         {
           "id": "A",
-          "text": "Poumons"
+          "text": "Foie"
         },
         {
           "id": "B",
@@ -4331,30 +2867,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 181,
-      "theme_id": "palier_4",
-      "question": "Quelle molécule contient l’information génétique ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "ARN"
-        },
-        {
-          "id": "B",
-          "text": "ADN"
-        },
-        {
-          "id": "C",
-          "text": "ATP"
-        },
-        {
-          "id": "D",
-          "text": "ARNm"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 182,
       "theme_id": "palier_4",
       "question": "Dans Assassin’s Creed IV, quel est le métier d’Edward Kenway ?",
@@ -4369,83 +2881,11 @@
         },
         {
           "id": "C",
-          "text": "Agriculteur"
+          "text": "Marine"
         },
         {
           "id": "D",
           "text": "Chasseur de primes"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 183,
-      "theme_id": "palier_4",
-      "question": "Dans AC Mirage, où se déroule l’histoire ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Bagdad"
-        },
-        {
-          "id": "B",
-          "text": "Damas"
-        },
-        {
-          "id": "C",
-          "text": "Le Caire"
-        },
-        {
-          "id": "D",
-          "text": "Istanbul"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 184,
-      "theme_id": "palier_4",
-      "question": "Dans Assassin’s Creed Valhalla, comment s’appelle le héros ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Ivar"
-        },
-        {
-          "id": "B",
-          "text": "Eivor"
-        },
-        {
-          "id": "C",
-          "text": "Sigurd"
-        },
-        {
-          "id": "D",
-          "text": "Harald"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 185,
-      "theme_id": "palier_4",
-      "question": "Dans Bleach, quel est le vrai pouvoir d’Aizen ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Hypnose totale"
-        },
-        {
-          "id": "B",
-          "text": "Illusion sonore"
-        },
-        {
-          "id": "C",
-          "text": "Contrôle mental"
-        },
-        {
-          "id": "D",
-          "text": "Énergie noire"
         }
       ],
       "correct_answer_id": "A"
@@ -4473,30 +2913,6 @@
         }
       ],
       "correct_answer_id": "B"
-    },
-    {
-      "id": 187,
-      "theme_id": "palier_4",
-      "question": "Dans Kingdom, qui est l’allié principal de Xin ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Cheng Jiao"
-        },
-        {
-          "id": "B",
-          "text": "Wang Ben"
-        },
-        {
-          "id": "C",
-          "text": "Qiang Lei"
-        },
-        {
-          "id": "D",
-          "text": "Lian Po"
-        }
-      ],
-      "correct_answer_id": "C"
     },
     {
       "id": 188,
@@ -4569,30 +2985,6 @@
         }
       ],
       "correct_answer_id": "C"
-    },
-    {
-      "id": 191,
-      "theme_id": "palier_4",
-      "question": "Dans One Piece, quel est le fruit de Brook ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Hana Hana"
-        },
-        {
-          "id": "B",
-          "text": "Yomi Yomi"
-        },
-        {
-          "id": "C",
-          "text": "Mera Mera"
-        },
-        {
-          "id": "D",
-          "text": "Suke Suke"
-        }
-      ],
-      "correct_answer_id": "B"
     },
     {
       "id": 192,
@@ -4787,102 +3179,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 200,
-      "theme_id": "palier_4",
-      "question": "Dans Game of Thrones, quel roi meurt lors d’un banquet ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Robert"
-        },
-        {
-          "id": "B",
-          "text": "Renly"
-        },
-        {
-          "id": "C",
-          "text": "Joffrey"
-        },
-        {
-          "id": "D",
-          "text": "Stannis"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 201,
-      "theme_id": "palier_4",
-      "question": "Dans Breaking Bad, qui dirige Los Pollos Hermanos ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Hank"
-        },
-        {
-          "id": "B",
-          "text": "Tuco"
-        },
-        {
-          "id": "C",
-          "text": "Gus Fring"
-        },
-        {
-          "id": "D",
-          "text": "Marco"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 202,
-      "theme_id": "palier_4",
-      "question": "Dans Friends, comment s'appelle la sœur jumelle de Phoebe ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Ursula"
-        },
-        {
-          "id": "B",
-          "text": "Emily"
-        },
-        {
-          "id": "C",
-          "text": "Erica"
-        },
-        {
-          "id": "D",
-          "text": "Karen"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 203,
-      "theme_id": "palier_4",
-      "question": "Dans The Wire, quel personnage est célèbre pour siffler ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Stringer Bell"
-        },
-        {
-          "id": "B",
-          "text": "Avon"
-        },
-        {
-          "id": "C",
-          "text": "Omar"
-        },
-        {
-          "id": "D",
-          "text": "Daniels"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
       "id": 204,
       "theme_id": "palier_4",
       "question": "Quel est le plus long fleuve d’Europe ?",
@@ -4929,30 +3225,6 @@
         }
       ],
       "correct_answer_id": "A"
-    },
-    {
-      "id": 206,
-      "theme_id": "palier_4",
-      "question": "En chimie, quel est le pH d'une solution neutre à 25∘C ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "0"
-        },
-        {
-          "id": "B",
-          "text": "14"
-        },
-        {
-          "id": "C",
-          "text": "1"
-        },
-        {
-          "id": "D",
-          "text": "7"
-        }
-      ],
-      "correct_answer_id": "D"
     },
     {
       "id": 207,
@@ -5027,56 +3299,8 @@
       "correct_answer_id": "D"
     },
     {
-      "id": 210,
-      "theme_id": "palier_4",
-      "question": "Quel acteur a incarné le rôle de Jack Dawson dans le film Titanic de 1997 ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Brad Pitt"
-        },
-        {
-          "id": "B",
-          "text": "Matt Damon"
-        },
-        {
-          "id": "C",
-          "text": "Tom Cruise"
-        },
-        {
-          "id": "D",
-          "text": "Leonardo DiCaprio"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 211,
-      "theme_id": "palier_4",
-      "question": "Dans la série Breaking Bad, quel est le nom du produit stupéfiant fabriqué par Walter White ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Red Crystal"
-        },
-        {
-          "id": "B",
-          "text": "White Powder"
-        },
-        {
-          "id": "C",
-          "text": "Green Mist"
-        },
-        {
-          "id": "D",
-          "text": "Blue Sky"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
       "id": 212,
-      "theme_id": "palier_4",
+      "theme_id": "palier_3",
       "question": "Qu'est-ce que le PIB mesure ?",
       "answers": [
         {
@@ -5085,11 +3309,11 @@
         },
         {
           "id": "B",
-          "text": "Le niveau de pollution"
+          "text": "La balance commerciale d'un pays"
         },
         {
           "id": "C",
-          "text": "Le taux de chômage"
+          "text": "Le taux de croissance"
         },
         {
           "id": "D",
@@ -5097,54 +3321,6 @@
         }
       ],
       "correct_answer_id": "D"
-    },
-    {
-      "id": 213,
-      "theme_id": "palier_4",
-      "question": "Dans My Hero Academia, quel est le pouvoir du héros principal, Izuku Midoriya ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Le Bâton Magique"
-        },
-        {
-          "id": "B",
-          "text": "L'Explosion"
-        },
-        {
-          "id": "C",
-          "text": "La Télékinésie"
-        },
-        {
-          "id": "D",
-          "text": "One For All"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 214,
-      "theme_id": "palier_5",
-      "question": "Dans \"Fullmetal Alchemist\", quel est le nom du principe interdisant de créer quelque chose à partir de rien ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Loi du marché"
-        },
-        {
-          "id": "B",
-          "text": "L'échange équivalent"
-        },
-        {
-          "id": "C",
-          "text": "Code de transmutation"
-        },
-        {
-          "id": "D",
-          "text": "Loi de Conservation"
-        }
-      ],
-      "correct_answer_id": "B"
     },
     {
       "id": 215,
@@ -5225,7 +3401,7 @@
       "answers": [
         {
           "id": "A",
-          "text": "Athènes"
+          "text": "Byzance"
         },
         {
           "id": "B",
@@ -5329,35 +3505,11 @@
         },
         {
           "id": "C",
-          "text": "Scar"
+          "text": "Enric"
         },
         {
           "id": "D",
-          "text": "Hohenheim"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 223,
-      "theme_id": "palier_5",
-      "question": "Quelle est la formule chimique de l’ammoniac ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "NH3"
-        },
-        {
-          "id": "B",
-          "text": "CH4"
-        },
-        {
-          "id": "C",
-          "text": "H2O2"
-        },
-        {
-          "id": "D",
-          "text": "CO"
+          "text": "Heymans"
         }
       ],
       "correct_answer_id": "A"
@@ -5435,54 +3587,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 227,
-      "theme_id": "palier_5",
-      "question": "Quel est l’organe responsable de la filtration du sang ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Poumons"
-        },
-        {
-          "id": "B",
-          "text": "Cœur"
-        },
-        {
-          "id": "C",
-          "text": "Reins"
-        },
-        {
-          "id": "D",
-          "text": "Pancréas"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 228,
-      "theme_id": "palier_5",
-      "question": "Dans la série \"The Wire\", dans quelle ville se déroule l’intrigue principale ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Chicago"
-        },
-        {
-          "id": "B",
-          "text": "Baltimore"
-        },
-        {
-          "id": "C",
-          "text": "Los Angeles"
-        },
-        {
-          "id": "D",
-          "text": "New York"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 229,
       "theme_id": "palier_5",
       "question": "Quel physicien a proposé la théorie de la relativité restreinte ?",
@@ -5541,7 +3645,7 @@
         },
         {
           "id": "B",
-          "text": "Rodrigo"
+          "text": "Fabio Diesenove"
         },
         {
           "id": "C",
@@ -5549,34 +3653,10 @@
         },
         {
           "id": "D",
-          "text": "Altair"
+          "text": "Enzo dal Fianco"
         }
       ],
       "correct_answer_id": "A"
-    },
-    {
-      "id": 232,
-      "theme_id": "palier_5",
-      "question": "Dans Breaking Bad, quel cartel domine le sud ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Juarez"
-        },
-        {
-          "id": "B",
-          "text": "Tijuana"
-        },
-        {
-          "id": "C",
-          "text": "Salamanca"
-        },
-        {
-          "id": "D",
-          "text": "Los Pollos"
-        }
-      ],
-      "correct_answer_id": "C"
     },
     {
       "id": 233,
@@ -5603,32 +3683,8 @@
       "correct_answer_id": "A"
     },
     {
-      "id": 234,
-      "theme_id": "palier_5",
-      "question": "Dans GTA V, comment s’appelle le fils de Michael ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Trevor"
-        },
-        {
-          "id": "B",
-          "text": "Jimmy"
-        },
-        {
-          "id": "C",
-          "text": "Franklin"
-        },
-        {
-          "id": "D",
-          "text": "Lewis"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 235,
-      "theme_id": "palier_5",
+      "theme_id": "palier_4",
       "question": "Dans SnK, quel Titan possède Eren ?",
       "answers": [
         {
@@ -5646,30 +3702,6 @@
         {
           "id": "D",
           "text": "Charrette"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 236,
-      "theme_id": "palier_5",
-      "question": "Dans Far Cry 3, quel personnage prononce la phrase « Savez-vous définir la folie ? »",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Hoyt"
-        },
-        {
-          "id": "B",
-          "text": "Vaas"
-        },
-        {
-          "id": "C",
-          "text": "Citra"
-        },
-        {
-          "id": "D",
-          "text": "Jason"
         }
       ],
       "correct_answer_id": "B"
@@ -5723,30 +3755,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 239,
-      "theme_id": "palier_5",
-      "question": "Dans Hunter x Hunter, quelle créature attaque NGL ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Chimera Ants"
-        },
-        {
-          "id": "B",
-          "text": "Dragons Rouges"
-        },
-        {
-          "id": "C",
-          "text": "Golems"
-        },
-        {
-          "id": "D",
-          "text": "Titans"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
       "id": 240,
       "theme_id": "palier_5",
       "question": "Quel pays a déclenché la guerre des Malouines ?",
@@ -5765,34 +3773,10 @@
         },
         {
           "id": "D",
-          "text": "Pérou"
+          "text": "Royaume Uni"
         }
       ],
       "correct_answer_id": "A"
-    },
-    {
-      "id": 241,
-      "theme_id": "palier_5",
-      "question": "Dans The Wire, qui tue Stringer Bell ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Avon"
-        },
-        {
-          "id": "B",
-          "text": "Omar"
-        },
-        {
-          "id": "C",
-          "text": "Marlo"
-        },
-        {
-          "id": "D",
-          "text": "Brother Mouzone"
-        }
-      ],
-      "correct_answer_id": "D"
     },
     {
       "id": 242,
@@ -5821,23 +3805,23 @@
     {
       "id": 243,
       "theme_id": "palier_5",
-      "question": "Quel pilote F1 est mort en 1994 à Imola ?",
+      "question": "Sur quel circuit Senna a t-il perdu la vie en 1994 ?",
       "answers": [
         {
           "id": "A",
-          "text": "Lauda"
+          "text": "Monza"
         },
         {
           "id": "B",
-          "text": "Senna"
+          "text": "Imola"
         },
         {
           "id": "C",
-          "text": "Villeneuve"
+          "text": "Spa - Francorchamps"
         },
         {
           "id": "D",
-          "text": "Bianchi"
+          "text": "Pescara"
         }
       ],
       "correct_answer_id": "B"
@@ -5845,7 +3829,7 @@
     {
       "id": 244,
       "theme_id": "palier_5",
-      "question": "Qui a le record du décathlon ?",
+      "question": "Qui détient le record du monde de décathlon ?",
       "answers": [
         {
           "id": "A",
@@ -5934,30 +3918,6 @@
         {
           "id": "D",
           "text": "Minecraft"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 248,
-      "theme_id": "palier_5",
-      "question": "Dans le manga Fullmetal Alchemist, quel est le nom du pays où se déroule l'histoire ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Xing"
-        },
-        {
-          "id": "B",
-          "text": "Drachma"
-        },
-        {
-          "id": "C",
-          "text": "Aerugo"
-        },
-        {
-          "id": "D",
-          "text": "Amestris"
         }
       ],
       "correct_answer_id": "D"
@@ -6059,54 +4019,6 @@
       "correct_answer_id": "D"
     },
     {
-      "id": 253,
-      "theme_id": "palier_5",
-      "question": "De quel État des États-Unis Barack Obama a-t-il été sénateur avant d'être président ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Californie"
-        },
-        {
-          "id": "B",
-          "text": "Texas"
-        },
-        {
-          "id": "C",
-          "text": "New York"
-        },
-        {
-          "id": "D",
-          "text": "Illinois"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 254,
-      "theme_id": "palier_5",
-      "question": "Quel est le nom du principal antagoniste dans le film The Dark Knight (2008) ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Le Pingouin"
-        },
-        {
-          "id": "B",
-          "text": "Double-Face"
-        },
-        {
-          "id": "C",
-          "text": "Le Joker"
-        },
-        {
-          "id": "D",
-          "text": "Bane"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
       "id": 255,
       "theme_id": "palier_5",
       "question": "Comment appelle-t-on le phénomène où les ondes sonores reviennent après avoir frappé un obstacle ?",
@@ -6132,7 +4044,7 @@
     },
     {
       "id": 256,
-      "theme_id": "palier_5",
+      "theme_id": "palier_4",
       "question": "Qui est l'auteur du célèbre pamphlet J'accuse...! en 1898, en lien avec l'affaire Dreyfus ?",
       "answers": [
         {
@@ -6203,30 +4115,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 259,
-      "theme_id": "palier_5",
-      "question": "Dans le domaine de la musique, que signifie l'abréviation \"BPM\" ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Basse Pression Musicale"
-        },
-        {
-          "id": "B",
-          "text": "Battements Par Minute"
-        },
-        {
-          "id": "C",
-          "text": "Blues, Pop, Musique"
-        },
-        {
-          "id": "D",
-          "text": "Basses Profondes et Mélodie"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 260,
       "theme_id": "palier_6",
       "question": "Quel boxeur a été champion dans 8 catégories ?",
@@ -6253,7 +4141,7 @@
     {
       "id": 261,
       "theme_id": "palier_6",
-      "question": "Qui entraîne l'équipe de France de handball historique ?",
+      "question": "Qui entraîne l'équipe de France de handball nommé Les Experts ?",
       "answers": [
         {
           "id": "A",
@@ -6261,11 +4149,11 @@
         },
         {
           "id": "B",
-          "text": "Dinart"
+          "text": "Lathoud"
         },
         {
           "id": "C",
-          "text": "Karabatic"
+          "text": "Constantini"
         },
         {
           "id": "D",
@@ -6299,32 +4187,8 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 263,
-      "theme_id": "palier_6",
-      "question": "Dans \"One Piece\", quel est le nom du fruit du démon de Trafalgar Law ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Gomu Gomu no Mi"
-        },
-        {
-          "id": "B",
-          "text": "Ope Ope no Mi"
-        },
-        {
-          "id": "C",
-          "text": "Hie Hie no Mi"
-        },
-        {
-          "id": "D",
-          "text": "Yami Yami no Mi"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 264,
-      "theme_id": "palier_6",
+      "theme_id": "palier_7",
       "question": "Quel physicien a énoncé le principe d'incertitude ?",
       "answers": [
         {
@@ -6348,7 +4212,7 @@
     },
     {
       "id": 265,
-      "theme_id": "palier_6",
+      "theme_id": "palier_7",
       "question": "Quel pays possède la plus grande superficie forestière au monde ?",
       "answers": [
         {
@@ -6443,54 +4307,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 269,
-      "theme_id": "palier_6",
-      "question": "Dans \"Death Note\", quel est le nom du shinigami qui accompagne Light ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Rem"
-        },
-        {
-          "id": "B",
-          "text": "Ryuk"
-        },
-        {
-          "id": "C",
-          "text": "Ruel"
-        },
-        {
-          "id": "D",
-          "text": "Near"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 270,
-      "theme_id": "palier_6",
-      "question": "Quelle loi physique décrit la relation entre pression, volume et température d’un gaz parfait ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Loi de Boyle-Mariotte"
-        },
-        {
-          "id": "B",
-          "text": "Loi d’Ohm"
-        },
-        {
-          "id": "C",
-          "text": "Loi de Planck"
-        },
-        {
-          "id": "D",
-          "text": "Loi de Snell-Descartes"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
       "id": 271,
       "theme_id": "palier_6",
       "question": "Quelle rivière traverse la ville de Budapest ?",
@@ -6515,56 +4331,8 @@
       "correct_answer_id": "A"
     },
     {
-      "id": 272,
-      "theme_id": "palier_6",
-      "question": "Dans Death Note, quel enquêteur remplace L ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Near"
-        },
-        {
-          "id": "B",
-          "text": "Mello"
-        },
-        {
-          "id": "C",
-          "text": "Aizawa"
-        },
-        {
-          "id": "D",
-          "text": "Matsuda"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 273,
-      "theme_id": "palier_6",
-      "question": "Dans GTA IV, qui trahit Niko ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Roman"
-        },
-        {
-          "id": "B",
-          "text": "Dimitri"
-        },
-        {
-          "id": "C",
-          "text": "Packie"
-        },
-        {
-          "id": "D",
-          "text": "Darko"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 274,
-      "theme_id": "palier_6",
+      "theme_id": "palier_5",
       "question": "Dans GTA V, quel personnage survit dans TOUS les scénarios ?",
       "answers": [
         {
@@ -6582,30 +4350,6 @@
         {
           "id": "D",
           "text": "Lamar"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 275,
-      "theme_id": "palier_6",
-      "question": "Dans Naruto, qui est le Sage des Six Chemins ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Madara"
-        },
-        {
-          "id": "B",
-          "text": "Indra"
-        },
-        {
-          "id": "C",
-          "text": "Hagoromo"
-        },
-        {
-          "id": "D",
-          "text": "Hashirama"
         }
       ],
       "correct_answer_id": "C"
@@ -6636,7 +4380,7 @@
     },
     {
       "id": 277,
-      "theme_id": "palier_6",
+      "theme_id": "palier_7",
       "question": "Quel scientifique est à l’origine de la mécanique quantique ?",
       "answers": [
         {
@@ -6657,30 +4401,6 @@
         }
       ],
       "correct_answer_id": "B"
-    },
-    {
-      "id": 278,
-      "theme_id": "palier_6",
-      "question": "Dans Death Note, qui reçoit le deuxième carnet ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Near"
-        },
-        {
-          "id": "B",
-          "text": "Misa"
-        },
-        {
-          "id": "C",
-          "text": "L"
-        },
-        {
-          "id": "D",
-          "text": "Teru Mikami"
-        }
-      ],
-      "correct_answer_id": "D"
     },
     {
       "id": 279,
@@ -6705,54 +4425,6 @@
         }
       ],
       "correct_answer_id": "A"
-    },
-    {
-      "id": 280,
-      "theme_id": "palier_6",
-      "question": "Dans The Wire, qui dirige le service Major Crimes ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "McNulty"
-        },
-        {
-          "id": "B",
-          "text": "Daniels"
-        },
-        {
-          "id": "C",
-          "text": "Rawls"
-        },
-        {
-          "id": "D",
-          "text": "Marlo"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 281,
-      "theme_id": "palier_6",
-      "question": "Dans Naruto, qui maîtrise le Susanoo parfait ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Sasuke"
-        },
-        {
-          "id": "B",
-          "text": "Itachi"
-        },
-        {
-          "id": "C",
-          "text": "Madara"
-        },
-        {
-          "id": "D",
-          "text": "Obito"
-        }
-      ],
-      "correct_answer_id": "C"
     },
     {
       "id": 282,
@@ -6803,30 +4475,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 284,
-      "theme_id": "palier_6",
-      "question": "Dans quel pays se situe la cité antique de Pétra ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Israël"
-        },
-        {
-          "id": "B",
-          "text": "Jordanie"
-        },
-        {
-          "id": "C",
-          "text": "Égypte"
-        },
-        {
-          "id": "D",
-          "text": "Turquie"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 285,
       "theme_id": "palier_6",
       "question": "Quelle île abrite le volcan Eyjafjallajökull ?",
@@ -6841,11 +4489,11 @@
         },
         {
           "id": "C",
-          "text": "Irlande"
+          "text": "Haiti"
         },
         {
           "id": "D",
-          "text": "Svalbard"
+          "text": "Vanuatu"
         }
       ],
       "correct_answer_id": "A"
@@ -6889,11 +4537,11 @@
         },
         {
           "id": "C",
-          "text": "1945"
+          "text": "1959"
         },
         {
           "id": "D",
-          "text": "1970"
+          "text": "1961"
         }
       ],
       "correct_answer_id": "A"
@@ -7068,7 +4716,7 @@
     },
     {
       "id": 295,
-      "theme_id": "palier_6",
+      "theme_id": "palier_5",
       "question": "En génétique, que signifie l'acronyme ADN ?",
       "answers": [
         {
@@ -7097,15 +4745,15 @@
       "answers": [
         {
           "id": "A",
-          "text": "Pyrrhus"
+          "text": "Hannon"
         },
         {
           "id": "B",
-          "text": "Vercingétorix"
+          "text": "Himilcon"
         },
         {
           "id": "C",
-          "text": "Scipion l'Africain"
+          "text": "Magon le Carthaginois"
         },
         {
           "id": "D",
@@ -7121,7 +4769,7 @@
       "answers": [
         {
           "id": "A",
-          "text": "Rosalind Franklin"
+          "text": "Marguerite Perey"
         },
         {
           "id": "B",
@@ -7129,7 +4777,7 @@
         },
         {
           "id": "C",
-          "text": "Barbara McClintock"
+          "text": "Ada Yonath"
         },
         {
           "id": "D",
@@ -7140,7 +4788,7 @@
     },
     {
       "id": 298,
-      "theme_id": "palier_6",
+      "theme_id": "palier_4",
       "question": "Quel est le nom de la période historique entre la chute de l'Empire Romain d'Occident et la découverte de l'Amérique ?",
       "answers": [
         {
@@ -7169,7 +4817,7 @@
       "answers": [
         {
           "id": "A",
-          "text": "God Save the Queen"
+          "text": "Hymn of The Free"
         },
         {
           "id": "B",
@@ -7177,11 +4825,11 @@
         },
         {
           "id": "C",
-          "text": "Rule, Britannia"
+          "text": "Lberty's Call"
         },
         {
           "id": "D",
-          "text": "La Marseillaise"
+          "text": "The Striped Flag"
         }
       ],
       "correct_answer_id": "B"
@@ -7331,30 +4979,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 306,
-      "theme_id": "palier_6",
-      "question": "Quel métal précieux est mesuré en carats ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "L'argent"
-        },
-        {
-          "id": "B",
-          "text": "Le platine"
-        },
-        {
-          "id": "C",
-          "text": "L'or"
-        },
-        {
-          "id": "D",
-          "text": "Le palladium"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
       "id": 307,
       "theme_id": "palier_6",
       "question": "De quelle couleur est la boîte noire des avions ?",
@@ -7427,30 +5051,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 312,
-      "theme_id": "palier_7",
-      "question": "Quel est le nom du satellite naturel de Pluton ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Titan"
-        },
-        {
-          "id": "B",
-          "text": "Charon"
-        },
-        {
-          "id": "C",
-          "text": "Io"
-        },
-        {
-          "id": "D",
-          "text": "Europe"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 313,
       "theme_id": "palier_7",
       "question": "Dans \"The Last of Us\", comment s'appelle le champignon responsable de l'infection ?",
@@ -7499,30 +5099,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 315,
-      "theme_id": "palier_7",
-      "question": "Quelle série est considérée comme l’une des premières grandes séries américaines modernes (âge d’or) ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Lost"
-        },
-        {
-          "id": "B",
-          "text": "The Wire"
-        },
-        {
-          "id": "C",
-          "text": "Breaking Bad"
-        },
-        {
-          "id": "D",
-          "text": "The Sopranos"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
       "id": 316,
       "theme_id": "palier_7",
       "question": "Quel fleuve traverse Bagdad ?",
@@ -7547,54 +5123,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 317,
-      "theme_id": "palier_7",
-      "question": "Quelle est la formule chimique du méthane ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "C2H6"
-        },
-        {
-          "id": "B",
-          "text": "CH4"
-        },
-        {
-          "id": "C",
-          "text": "C3H8"
-        },
-        {
-          "id": "D",
-          "text": "C4H10"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 318,
-      "theme_id": "palier_7",
-      "question": "Dans \"Berserk\", quel est le nom de l'épée de Guts ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Red Slayer"
-        },
-        {
-          "id": "B",
-          "text": "Dragonslayer"
-        },
-        {
-          "id": "C",
-          "text": "Nightkiller"
-        },
-        {
-          "id": "D",
-          "text": "Titanblade"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 320,
       "theme_id": "palier_7",
       "question": "Quel pays a brièvement été une république soviétique en 1919 ?",
@@ -7614,78 +5142,6 @@
         {
           "id": "D",
           "text": "Belgique"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 321,
-      "theme_id": "palier_7",
-      "question": "Dans AC Rogue, quel est le nom du héros ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Shay"
-        },
-        {
-          "id": "B",
-          "text": "Haytham"
-        },
-        {
-          "id": "C",
-          "text": "Connor"
-        },
-        {
-          "id": "D",
-          "text": "Edward"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
-      "id": 322,
-      "theme_id": "palier_7",
-      "question": "Dans Naruto, qui crée l’Edo Tensei ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Orochimaru"
-        },
-        {
-          "id": "B",
-          "text": "Kabuto"
-        },
-        {
-          "id": "C",
-          "text": "Hashirama"
-        },
-        {
-          "id": "D",
-          "text": "Tobirama"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 323,
-      "theme_id": "palier_7",
-      "question": "Dans SnK, quel Titan possède Ymir ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Mâchoire"
-        },
-        {
-          "id": "B",
-          "text": "Charrette"
-        },
-        {
-          "id": "C",
-          "text": "Assaillant"
-        },
-        {
-          "id": "D",
-          "text": "Marteau"
         }
       ],
       "correct_answer_id": "A"
@@ -7811,30 +5267,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 329,
-      "theme_id": "palier_7",
-      "question": "Dans Assassin’s Creed Unity, quel personnage trahit Arno ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Germain"
-        },
-        {
-          "id": "B",
-          "text": "Bellec"
-        },
-        {
-          "id": "C",
-          "text": "Elise"
-        },
-        {
-          "id": "D",
-          "text": "Mirabeau"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 330,
       "theme_id": "palier_7",
       "question": "Quelle étoile est la plus proche du système solaire ?",
@@ -7865,11 +5297,11 @@
       "answers": [
         {
           "id": "A",
-          "text": "Le Mont Fuji"
+          "text": "West Maui Mountains"
         },
         {
           "id": "B",
-          "text": "Le Vésuve"
+          "text": "Haleakala"
         },
         {
           "id": "C",
@@ -7902,30 +5334,6 @@
         {
           "id": "D",
           "text": "Jules César"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 333,
-      "theme_id": "palier_7",
-      "question": "Dans le manga Hunter x Hunter, quel est le type de Nen le plus rare, généralement attribué aux manipulateurs et aux spécialistes ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "L'Amélioration"
-        },
-        {
-          "id": "B",
-          "text": "L'Émission"
-        },
-        {
-          "id": "C",
-          "text": "La Manipulation"
-        },
-        {
-          "id": "D",
-          "text": "La Spécialisation"
         }
       ],
       "correct_answer_id": "D"
@@ -7974,30 +5382,6 @@
         {
           "id": "D",
           "text": "Le Suriname"
-        }
-      ],
-      "correct_answer_id": "D"
-    },
-    {
-      "id": 336,
-      "theme_id": "palier_7",
-      "question": "Dans le jeu Final Fantasy VII, quel est le nom du principal antagoniste ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Kefka Palazzo"
-        },
-        {
-          "id": "B",
-          "text": "Caius Ballad"
-        },
-        {
-          "id": "C",
-          "text": "Seymour Guado"
-        },
-        {
-          "id": "D",
-          "text": "Sephiroth"
         }
       ],
       "correct_answer_id": "D"
@@ -8099,32 +5483,8 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 341,
-      "theme_id": "palier_7",
-      "question": "Quel est le nom de la plus ancienne université au monde encore en activité ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Université d'Oxford"
-        },
-        {
-          "id": "B",
-          "text": "Université d'Al-Azhar"
-        },
-        {
-          "id": "C",
-          "text": "Université Al Quaraouiyine"
-        },
-        {
-          "id": "D",
-          "text": "Université de Bologne"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
       "id": 342,
-      "theme_id": "palier_5",
+      "theme_id": "palier_4",
       "question": "Quel film d'animation des studios Pixar a été le premier à être entièrement réalisé par ordinateur ?",
       "answers": [
         {
@@ -8148,7 +5508,7 @@
     },
     {
       "id": 343,
-      "theme_id": "palier_7",
+      "theme_id": "palier_8",
       "question": "Quel est le nom du dernier empereur d'Occident, déposé en 476 après J.-C. ?",
       "answers": [
         {
@@ -8412,7 +5772,7 @@
     },
     {
       "id": 354,
-      "theme_id": "palier_6",
+      "theme_id": "palier_5",
       "question": "Quel est le nom du pigment qui donne leur couleur verte aux plantes ?",
       "answers": [
         {
@@ -8433,6 +5793,30 @@
         }
       ],
       "correct_answer_id": "C"
+    },
+    {
+      "id": 164,
+      "theme_id": "palier_7",
+      "question": "Quelle loi détermine la relation entre tension, résistance et intensité ?",
+      "answers": [
+        {
+          "id": "A",
+          "text": "Loi de Newton"
+        },
+        {
+          "id": "B",
+          "text": "Loi d'Ohm"
+        },
+        {
+          "id": "C",
+          "text": "Loi de Coulomb"
+        },
+        {
+          "id": "D",
+          "text": "Loi de Faraday"
+        }
+      ],
+      "correct_answer_id": "B"
     },
     {
       "id": 355,
@@ -8483,54 +5867,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 357,
-      "theme_id": "palier_8",
-      "question": "À quoi correspond la vitesse d’un son à 20°C dans l’air ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "150 m/s"
-        },
-        {
-          "id": "B",
-          "text": "250 m/s"
-        },
-        {
-          "id": "C",
-          "text": "340 m/s"
-        },
-        {
-          "id": "D",
-          "text": "420 m/s"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 358,
-      "theme_id": "palier_8",
-      "question": "Quel est l’océan où se trouve la fosse des Mariannes ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Atlantique"
-        },
-        {
-          "id": "B",
-          "text": "Pacifique"
-        },
-        {
-          "id": "C",
-          "text": "Indien"
-        },
-        {
-          "id": "D",
-          "text": "Arctique"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
       "id": 359,
       "theme_id": "palier_8",
       "question": "De quel empire provient l’écriture cunéiforme ?",
@@ -8577,102 +5913,6 @@
         }
       ],
       "correct_answer_id": "A"
-    },
-    {
-      "id": 361,
-      "theme_id": "palier_8",
-      "question": "Quel est le nom du premier film d’animation japonais sorti en 1945 ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Hakujaden"
-        },
-        {
-          "id": "B",
-          "text": "Momotarō Umi no Shinpei"
-        },
-        {
-          "id": "C",
-          "text": "Nausicaä"
-        },
-        {
-          "id": "D",
-          "text": "Tetsuwan Atomu"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 362,
-      "theme_id": "palier_8",
-      "question": "Quelle particule est échangée lors de l’interaction forte ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Photon"
-        },
-        {
-          "id": "B",
-          "text": "Gluon"
-        },
-        {
-          "id": "C",
-          "text": "Boson W"
-        },
-        {
-          "id": "D",
-          "text": "Neutrino"
-        }
-      ],
-      "correct_answer_id": "B"
-    },
-    {
-      "id": 363,
-      "theme_id": "palier_8",
-      "question": "Quel pays possède la plus ancienne université en activité du monde ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Italie"
-        },
-        {
-          "id": "B",
-          "text": "France"
-        },
-        {
-          "id": "C",
-          "text": "Maroc"
-        },
-        {
-          "id": "D",
-          "text": "Égypte"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 364,
-      "theme_id": "palier_8",
-      "question": "Dans \"Elden Ring\", quel est le nom du personnage considéré comme le plus difficile du jeu ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Godrick"
-        },
-        {
-          "id": "B",
-          "text": "Malenia"
-        },
-        {
-          "id": "C",
-          "text": "Radahn"
-        },
-        {
-          "id": "D",
-          "text": "Morgott"
-        }
-      ],
-      "correct_answer_id": "B"
     },
     {
       "id": 365,
@@ -8766,30 +6006,6 @@
         {
           "id": "D",
           "text": "Callisto"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 369,
-      "theme_id": "palier_8",
-      "question": "Dans Kingdom, qui est le meilleur stratège de Qin ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Moubu"
-        },
-        {
-          "id": "B",
-          "text": "Kanki"
-        },
-        {
-          "id": "C",
-          "text": "Shouheikun"
-        },
-        {
-          "id": "D",
-          "text": "Ouki"
         }
       ],
       "correct_answer_id": "C"
@@ -8988,7 +6204,7 @@
     },
     {
       "id": 378,
-      "theme_id": "palier_8",
+      "theme_id": "palier_7",
       "question": "Quel est le nom de la principale couche de la Terre (entre la croûte et le noyau) ?",
       "answers": [
         {
@@ -9107,30 +6323,6 @@
       "correct_answer_id": "B"
     },
     {
-      "id": 383,
-      "theme_id": "palier_8",
-      "question": "Quel est le nom de l'amiral qui commandait la flotte japonaise à l'attaque de Pearl Harbor ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Isoroku Yamamoto"
-        },
-        {
-          "id": "B",
-          "text": "Hideki Tojo"
-        },
-        {
-          "id": "C",
-          "text": "Mitsuo Fuchida"
-        },
-        {
-          "id": "D",
-          "text": "Chūichi Nagumo"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
       "id": 384,
       "theme_id": "palier_8",
       "question": "Quel président américain est connu pour le programme \"New Deal\" ?",
@@ -9203,30 +6395,6 @@
       "correct_answer_id": "C"
     },
     {
-      "id": 387,
-      "theme_id": "palier_8",
-      "question": "Dans le calendrier républicain français, quel mois correspond au mois de septembre ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Vendémiaire"
-        },
-        {
-          "id": "B",
-          "text": "Brumaire"
-        },
-        {
-          "id": "C",
-          "text": "Thermidor"
-        },
-        {
-          "id": "D",
-          "text": "Fructidor"
-        }
-      ],
-      "correct_answer_id": "A"
-    },
-    {
       "id": 388,
       "theme_id": "palier_8",
       "question": "Quel est le nom donné au phénomène lumineux créé par des aurores polaires ?",
@@ -9249,30 +6417,6 @@
         }
       ],
       "correct_answer_id": "A"
-    },
-    {
-      "id": 389,
-      "theme_id": "palier_8",
-      "question": "Quel compositeur a écrit l'opéra \"Carmen\" ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "Giacomo Puccini"
-        },
-        {
-          "id": "B",
-          "text": "Giuseppe Verdi"
-        },
-        {
-          "id": "C",
-          "text": "Georges Bizet"
-        },
-        {
-          "id": "D",
-          "text": "Richard Wagner"
-        }
-      ],
-      "correct_answer_id": "C"
     },
     {
       "id": 390,
@@ -9438,30 +6582,6 @@
         {
           "id": "D",
           "text": "Le Honduras"
-        }
-      ],
-      "correct_answer_id": "C"
-    },
-    {
-      "id": 397,
-      "theme_id": "palier_8",
-      "question": "Qui est considéré comme le père de la boxe anglaise moderne ?",
-      "answers": [
-        {
-          "id": "A",
-          "text": "John Sullivan"
-        },
-        {
-          "id": "B",
-          "text": "Jack Dempsey"
-        },
-        {
-          "id": "C",
-          "text": "James Corbett"
-        },
-        {
-          "id": "D",
-          "text": "Jack Johnson"
         }
       ],
       "correct_answer_id": "C"

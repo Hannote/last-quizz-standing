@@ -204,17 +204,33 @@ function startFauxVrai(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
 
-  const QUESTIONS_PER_GAME = 7;
+  // Helper pour piocher N questions aléatoires dans un pool spécifique
+  const pickFromPool = (pool, count) => {
+    return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
+  };
 
-  const shuffled = [...fauxVraiQuestions].sort(() => Math.random() - 0.5);
-  const selected = shuffled.slice(
-    0,
-    Math.min(QUESTIONS_PER_GAME, shuffled.length)
-  );
+  // 1. Filtrage par groupes de thèmes selon les quotas demandés
+  const poolId1 = fauxVraiQuestions.filter(q => q.themeId === 1);
+  const poolId4 = fauxVraiQuestions.filter(q => q.themeId === 4);
+  const poolId6 = fauxVraiQuestions.filter(q => q.themeId === 6);
+  const poolId8 = fauxVraiQuestions.filter(q => q.themeId === 8);
+  const poolMixed = fauxVraiQuestions.filter(q => [2, 5, 9].includes(q.themeId));
+
+  // 2. Sélection des questions par quota
+  const selected = [
+    ...pickFromPool(poolId1, 2),    // 2 questions Enfance/Dessins animés
+    ...pickFromPool(poolId4, 1),    // 1 question Musique
+    ...pickFromPool(poolId6, 1),    // 1 question Cinéma
+    ...pickFromPool(poolId8, 2),    // 2 questions Sport
+    ...pickFromPool(poolMixed, 1)   // 1 question Santé/Fake News/Animaux
+  ];
+
+  // 3. Mélange final pour que l'ordre des thèmes soit aléatoire durant la partie
+  const finalQuestions = selected.sort(() => Math.random() - 0.5);
 
   room.mini = {
     type: "faux_vrai",
-    list: selected,
+    list: finalQuestions,
     index: 0,
     answers: {},
     timer: null

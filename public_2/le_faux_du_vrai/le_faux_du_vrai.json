@@ -58,7 +58,7 @@
         "Buzz pense d’abord être un vrai ranger de l’espace.",
         "Les jouets parlent aux humains quand ils ont confiance.",
         "Le propriétaire des jouets s’appelle Andy.",
-        "Rex est un T-REX en jouet."
+        "Zigzag est un chien jouet avec un ressort dans le corps"
       ],
       "indexFausse": 2,
       "id": 2,
@@ -143,68 +143,16 @@
       "themeId": 1
     },
     {
-      "question": "Quelle affirmation sur les Teletubbies est fausse ?",
-      "affirmations": [
-        "Tinky Winky est violet.",
-        "Po est rouge.",
-        "Laa-Laa est jaune.",
-        "Les Teletubbies ont été créés à l’origine pour promouvoir une marque de céréales pour enfants.",
-        "Ils vivent dans une maison dans la colline."
-      ],
-      "indexFausse": 3,
-      "id": 9,
-      "themeId": 1
-    },
-    {
-      "question": "Quelle affirmation sur Scooby-Doo est fausse ?",
-      "affirmations": [
-        "Scooby-Doo est un grand danois.",
-        "Sammy est son meilleur ami.",
-        "La Mystery Machine est un van bleu et vert.",
-        "Les monstres sont presque toujours réels.",
-        "Fred, Daphné et Véra font partie de l’équipe."
-      ],
-      "indexFausse": 3,
-      "id": 10,
-      "themeId": 1
-    },
-    {
-      "question": "Laquelle est fausse à propos de Dora l'exploratrice ?",
-      "affirmations": [
-        "Chipeur s’appelle Swiper en anglais.",
-        "Babouche porte des bottes bleues qui lui valent son nom.",
-        "Le Sac à dos peut parler et interagir avec Dora.",
-        "Dora parle toujours uniquement français.",
-        "La carte parle et chante."
-      ],
-      "indexFausse": 3,
-      "id": 11,
-      "themeId": 1
-    },
-    {
       "question": "Laquelle est fausse au sujet des Totally Spies ?",
       "affirmations": [
         "Elles travaillent pour le WOOHP et Jerry est leur supérieur",
         "Le WOOHP est basé en Californie, sous un centre commercial",
         "Jerry a un frère jumeau qui tente de saboter le WOOHP",
-        "Elles combattent des extraterrestres dans chaque épisode.",
+        "Alex porte la combinaison verte.",
         "Elles vivent à Beverly Hills."
       ],
       "indexFausse": 3,
       "id": 12,
-      "themeId": 1
-    },
-    {
-      "question": "Quelle affirmation à propos de Code Lyoko est fausse ?",
-      "affirmations": [
-        "Les héros combattent XANA.",
-        "Ils se virtualisent pour atteindre Lyoko.",
-        "Odd est le plus sérieux du groupe.",
-        "Aelita est liée à Lyoko.",
-        "Ulrich utilise un sabre."
-      ],
-      "indexFausse": 2,
-      "id": 13,
       "themeId": 1
     },
     {
@@ -239,7 +187,7 @@
         "Flash McQueen est une voiture de course.",
         "Martin est une dépanneuse rouillée.",
         "Doc Hudson est une porshe.",
-        "Toutes les voitures ont une bouche sur le capot.",
+        "Luigi vend des pneus à Radiator - Spring.",
         "La ville de Radiator Springs est située sur l’ancienne Route 66."
       ],
       "indexFausse": 2,
@@ -250,7 +198,7 @@
       "question": "Une seule affirmation sur Shrek est fausse. Laquelle ?",
       "affirmations": [
         "Le premier film Shrek est adapté d’un livre illustré de William Steig.",
-        "Le personnage du roi Harold apparaît dès le premier film Shrek.",
+        "Le personnage du roi Harold apparaît lors du premier film.",
         "Lord Farquaad règne sur la cité de Duloc.",
         "Dans les suites, Dragon et l’Âne ont des bébés hybrides appelés des « dronkeys ».",
         "En version originale, Shrek parle avec un accent écossais."
@@ -262,7 +210,7 @@
     {
       "question": "Une seule affirmation sur les Schtroumpfs est fausse. Laquelle ?",
       "affirmations": [
-        "Les Schtroumpfs ont été créés par Peyo dans une histoire de Johan et Pirlouit.",
+        "Le chien de gargamel se nomme Azraël.",
         "Leur langage consiste souvent à remplacer des mots par « schtroumpf ».",
         "La Schtroumpfette a été créée par Gargamel avant d’être transformée par le Grand Schtroumpf.",
         "Le Grand Schtroumpf est le seul du village à porter un bonnet et un pantalon rouges.",
@@ -273,26 +221,13 @@
       "themeId": 1
     },
     {
-      "question": "Laquelle de ces affirmations sur les contes est fausse ?",
-      "affirmations": [
-        "Dans certaines versions des frères Grimm, les demi-sœurs de Cendrillon se coupent des morceaux de pied pour entrer dans la chaussure.",
-        "Dans plusieurs versions, la Belle au bois dormant est plongée dans un sommeil de cent ans.",
-        "Dans le conte original d’Hansel et Gretel, la sorcière est décrite comme aveugle, ce qui explique plusieurs de ses maladresses.",
-        "Dans Raiponce, un prince grimpe à la tour en s’aidant des longs cheveux de la jeune fille.",
-        "La Petite Sirène d’Andersen a une fin beaucoup plus tragique que l’adaptation de Disney."
-      ],
-      "indexFausse": 2,
-      "id": 19,
-      "themeId": 1
-    },
-    {
       "question": "Laquelle concernant Bob l’Éponge est fausse ?",
       "affirmations": [
         "Bob l’Éponge habite dans un ananas sous la mer, à Bikini Bottom.",
         "Il travaille comme cuisinier au Crabe Croustillant pour Monsieur Krabs.",
         "Plankton veut voler la recette du pâté de crabe.",
-        "Officiellement, Carlo (Squidward) est un calmar et non une pieuvre.",
-        "Patrick Étoile vit sous un rocher non loin de la maison de Bob."
+        "Officiellement, Carlo est un calmar et non une pieuvre.",
+        "Bob a un escargot nommé Gary."
       ],
       "indexFausse": 3,
       "id": 20,
@@ -312,19 +247,6 @@
       "themeId": 1
     },
     {
-      "question": "Laquelle sur les Muppets est fausse ?",
-      "affirmations": [
-        "Les Muppets ont été créés par le marionnettiste Jim Henson.",
-        "Kermit la grenouille est l’un des personnages principaux.",
-        "Le Muppet Show est à l’origine une série avec des marionnettes et des invités.",
-        "Miss Piggy apparaît à la fois dans la série télé et dans plusieurs films.",
-        "Les Muppets ont toujours été une série d’animation dessinée image par image."
-      ],
-      "indexFausse": 4,
-      "id": 22,
-      "themeId": 1
-    },
-    {
       "question": "Quelle affirmation sur Yu-Gi-Oh! est fausse ?",
       "affirmations": [
         "Pegasus est lié à l’Oeil du Millénium.",
@@ -341,8 +263,8 @@
       "question": "Quelle affirmation sur Foot 2 Rue est fausse ?",
       "affirmations": [
         "Tag est le capitaine des Bleus.",
-        "Les matchs se jouent souvent dans des terrains urbains improvisés.",
-        "La Fédé organise les grands tournois de foot de rue.",
+        "Requin est le capitaine de l'équipe Requins du port.",
+        "Fédé et Chrono organise les grands tournois de foot de rue.",
         "Jeremy est le gardien des Bleus.",
         "Les équipes disposent d’un coach assigné par la fédération pour chaque match."
       ],
@@ -354,9 +276,9 @@
       "question": "Dans Galactik Football, quelle affirmation sur le Flu est fausse ?",
       "affirmations": [
         "Le Flu est une énergie mystérieuse liée à chaque planète.",
-        "Certains Flus donnent des capacités physiques accrues.",
-        "La maîtrise du Flu peut s’améliorer avec l’entraînement.",
-        "Tous les joueurs d’une même équipe possèdent toujours exactement le même Flu.",
+        "Les lightnings sont la meilleure équipe du monde.",
+        "D'jok est le fils du célèbre pirta Sonny Black Bones.",
+        "Une équipe doit être composé uniquement de joueurs possédant le même Flu.",
         "Le Souffle est le Flu associé aux Snow Kids."
       ],
       "indexFausse": 3,
@@ -390,19 +312,6 @@
       "themeId": 1
     },
     {
-      "question": "Quelle affirmation sur Shin-Chan est fausse ?",
-      "affirmations": [
-        "Les parents de Shin-Chan se nomment Hiroshi et Misae.",
-        "Il a une tendance à imiter les adultes de façon exagérée.",
-        "Nevado est le chien de la famille.",
-        "La famille vit dans la ville de Kasukabe.",
-        "Shin-Chan est enfant unique."
-      ],
-      "indexFausse": 4,
-      "id": 28,
-      "themeId": 1
-    },
-    {
       "question": "Quelle affirmation sur La Cour De Récré est fausse?",
       "affirmations": [
         "T.J. est considéré comme le leader du groupe.",
@@ -421,7 +330,7 @@
         "Carl est sujet à de nombreuses allergies.",
         "Sheen est obsédé par le super-héros UltraLord.",
         "Nick est l’élève populaire du collège.",
-        "La majorité des inventions de Jimmy sont conçues avec l'aide d’une équipe de chercheurs locaux.",
+        "Quand Jimmy réfléchit il aime bien dire Cerveau en explosion !!.",
         "Goddard est son chien-robot multifonction."
       ],
       "indexFausse": 3,
@@ -435,7 +344,7 @@
         "Kikuchi est présenté comme l’un des élèves les plus intelligents.",
         "La classe d’Onizuka est initialement hostile envers lui.",
         "Onizuka a une longue expérience de l’enseignement avant d’obtenir ce poste.",
-        "Il cherche à comprendre les motivations profondes de chaque élève."
+        "La voiture de rêve du proviseur est une Cresta."
       ],
       "indexFausse": 3,
       "id": 31,
@@ -474,7 +383,7 @@
         "Helga cache ses véritables sentiments envers Arnold.",
         "Gerald est le cousin d’Arnold et vit dans la même maison que lui.",
         "Phoebe est la meilleure amie de Helga.",
-        "La série se déroule dans un environnement urbain inspiré de plusieurs grandes villes."
+        "La série se déroule dans un environnement urbain inspiré de New York."
       ],
       "indexFausse": 2,
       "id": 34,
@@ -520,25 +429,12 @@
       "themeId": 1
     },
     {
-      "question": "Quelle affirmation sur Oggy et les Cafards est fausse ?",
-      "affirmations": [
-        "Oggy est un chat bleu vivant dans une maison tranquille.",
-        "Dee Dee, Joey et Marky sont les trois cafards principaux de la série.",
-        "Jack est un chat qui agit comme le voisin calme et raisonnable d’Oggy.",
-        "Les cafards volent constamment la nourriture d’Oggy.",
-        "Chaque cafard a une personnalité distincte et identifiable."
-      ],
-      "indexFausse": 2,
-      "id": 38,
-      "themeId": 1
-    },
-    {
       "question": "Quelle affirmation sur Le Bus Magique est fausse ?",
       "affirmations": [
         "Madame Frizzle emmène sa classe dans des excursions éducatives fantastiques.",
         "Le bus peut se transformer pour explorer différents environnements.",
-        "Arnold est souvent le plus réticent à participer aux aventures.",
-        "Les élèves apprennent des notions scientifiques au fil des voyages.",
+        "Arnaud dit souvent J'aurais mieux fait de rester chez moi aujourd'hui.",
+        "Mlle Bille-En-Tête est accompagnée de son caméléon Lise.",
         "Le bus fonctionne uniquement grâce à un réacteur nucléaire miniaturisé."
       ],
       "indexFausse": 4,
@@ -564,8 +460,8 @@
         "Les Zinzins occupent un manoir en se cachant des humains.",
         "Les extraterrestres tentent souvent de quitter la Terre sans succès.",
         "Candy se montre souvent anxieux et sensible.",
-        "Bud utilise parfois sa naïveté pour sortir d’une situation compliquée.",
-        "Étno possède un appareil permettant de se téléporter instantanément dans n’importe quel pays."
+        "Etno s'exprime avec un accent anglais.",
+        "Bud est de couleur verte."
       ],
       "indexFausse": 4,
       "id": 41,
@@ -582,19 +478,6 @@
       ],
       "indexFausse": 1,
       "id": 42,
-      "themeId": 1
-    },
-    {
-      "question": "Quelle affirmation sur La Famille Delajungle est fausse ?",
-      "affirmations": [
-        "Eliza Delajungle peut communiquer avec les animaux.",
-        "La famille voyage dans des régions du monde pour filmer la vie sauvage.",
-        "Debbie, la sœur d’Eliza, partage son enthousiasme pour les animaux.",
-        "Nigel possède des capacités physiques exceptionnelles qu’il utilise pour sauver des animaux.",
-        "Donnie, l’enfant sauvage, a été recueilli par la famille."
-      ],
-      "indexFausse": 3,
-      "id": 43,
       "themeId": 1
     },
     {
@@ -733,7 +616,7 @@
         "La salive contient des enzymes qui commencent à digérer les aliments dès la bouche.",
         "Les intestins d’un adulte peuvent mesurer plus de 7 mètres au total.",
         "Le ventre peut gargouiller même quand l’estomac n’est pas vide.",
-        "Le foie ne peut jamais se régénérer, même partiellement.",
+        "Le foie ne peut pas se régénérer, même partiellement.",
         "Les milliards de bactéries intestinales influencent notre santé."
       ],
       "indexFausse": 3,
@@ -760,7 +643,7 @@
         "Les ongles poussent souvent plus vite sur la main dominante.",
         "Un adulte respire en moyenne plusieurs dizaines de milliers de fois par jour.",
         "Le cœur peut accélérer simplement en imaginant un effort physique.",
-        "Tous les êtres humains ont exactement la même fréquence respiratoire au repos."
+        "Les êtres humains ont exactement la même fréquence respiratoire au repos."
       ],
       "indexFausse": 4,
       "id": 56,
@@ -791,201 +674,6 @@
       "indexFausse": 4,
       "id": 58,
       "themeId": 2
-    },
-    {
-      "question": "Quelle affirmation étonnante est fausse ?",
-      "affirmations": [
-        "Cléopâtre a vécu plus près de l’invention de l’iPhone que de la construction des pyramides.",
-        "Les Romains utilisaient de l’urine comme produit de nettoyage.",
-        "La Grande Muraille de Chine servait aussi à collecter des taxes.",
-        "Les gladiateurs buvaient parfois un mélange de vinaigre et de cendres.",
-        "Les pharaons se faisaient enterrer systématiquement avec des chats momifiés."
-      ],
-      "indexFausse": 0,
-      "id": 59,
-      "themeId": 3
-    },
-    {
-      "question": "Trouve l'affirmation fausse !",
-      "affirmations": [
-        "Il a existé un empereur romain qui a nommé son cheval consul.",
-        "Les Vikings utilisaient un liquide fluorescent pour repérer leurs navires la nuit.",
-        "Les Vikings entretenaient une excellente hygiène pour l’époque.",
-        "Les sagas scandinaves racontent des batailles contre des berserkers.",
-        "Les casques vikings à cornes n'ont jamais été utilisés en combat."
-      ],
-      "indexFausse": 1,
-      "id": 60,
-      "themeId": 3
-    },
-    {
-      "question": "Quelle affirmation étonnante est fausse ?",
-      "affirmations": [
-        "Un samouraï pouvait être légalement autorisé à tuer un paysan qui manquait de respect.",
-        "Certains samouraïs pratiquaient l’écriture de poèmes avant un combat.",
-        "Les ninjas utilisaient aussi des codes basés sur des nœuds de corde.",
-        "Les ninjas portaient principalement du bleu foncé pour se fondre dans la foule.",
-        "Les samouraïs utilisaient des épées en bronze jusque tard au Moyen Âge."
-      ],
-      "indexFausse": 4,
-      "id": 61,
-      "themeId": 3
-    },
-    {
-      "question": "Laquelle de ces affirmations est fausse ?",
-      "affirmations": [
-        "Le drapeau du Paraguay a un recto et un verso différents.",
-        "La ville de Londres a eu un rhinocéros comme animal officiel au XVIIIe siècle.",
-        "L’Écosse a eu une licorne comme symbole national officiel.",
-        "Le Pérou a eu un explorateur français comme chef militaire pendant une guerre.",
-        "L’Australie a failli avoir des chameaux comme moyen de transport officiel."
-      ],
-      "indexFausse": 1,
-      "id": 62,
-      "themeId": 3
-    },
-    {
-      "question": "Laquelle est inventée ?",
-      "affirmations": [
-        "La Chine ancienne utilisait parfois des pierres chaudes comme monnaie locale.",
-        "En Russie, les barbes ont été taxées pendant plusieurs décennies.",
-        "Il a existé des soldes annuelles pour libérer certains prisonniers en Europe médiévale.",
-        "La Pologne a un jour élu un roi suédois sans qu’il l’ait demandé.",
-        "Des cités médiévales interdisaient les chaussures à semelles trop bruyantes."
-      ],
-      "indexFausse": 0,
-      "id": 63,
-      "themeId": 3
-    },
-    {
-      "question": "Quelle affirmation étonnante est fausse ?",
-      "affirmations": [
-        "Les pirates élisaient souvent leur capitaine démocratiquement.",
-        "Les corsaires étaient officiellement autorisés à attaquer d’autres navires.",
-        "Les pirates utilisaient des drapeaux différents selon leur humeur du jour.",
-        "Certains pirates tenaient des comptes précis et répartissaient équitablement les gains.",
-        "Des pirates utilisaient des instruments de musique pour coordonner les assauts."
-      ],
-      "indexFausse": 2,
-      "id": 64,
-      "themeId": 3
-    },
-    {
-      "question": "Lequel de ces faits est faux ?",
-      "affirmations": [
-        "Des armées médiévales se servaient de ruches comme armes de siège.",
-        "Certains villages imposaient une taxe sur les célibataires.",
-        "Des tribunaux jugeaient des insectes pour destruction de récoltes.",
-        "Une bataille antique aurait été arrêtée à cause d’une grippe sévère.",
-        "Le premier ticket de métro parisien était imprimé sur du cuir."
-      ],
-      "indexFausse": 4,
-      "id": 65,
-      "themeId": 3
-    },
-    {
-      "question": "Quelle affirmation est fausse ?",
-      "affirmations": [
-        "Les sumériens utilisaient déjà des contrats écrits il y a 4 000 ans.",
-        "Les Égyptiens pratiquaient la correspondance administrative par papyrus.",
-        "Il existait des bibliothèques publiques en Mésopotamie.",
-        "Les Assyriens faisaient parfois payer une taxe sur la pluie.",
-        "Les archers anglais du Moyen Âge trempaient leurs flèches dans du sel pour les rendre plus tranchantes."
-      ],
-      "indexFausse": 3,
-      "id": 66,
-      "themeId": 3
-    },
-    {
-      "question": "Quelle affirmation étonnante est fausse ?",
-      "affirmations": [
-        "À Athènes, on pouvait être puni pour avoir été un mauvais hôte.",
-        "À Rome, il était interdit d’être trop parfumé dans certaines assemblées.",
-        "Au Moyen Âge, certains villages interdisaient de remuer les casseroles la nuit.",
-        "En Chine, il fut interdit à la noblesse de porter des vêtements jaunes.",
-        "En Perse antique, il était obligatoire de sourire devant un noble."
-      ],
-      "indexFausse": 4,
-      "id": 67,
-      "themeId": 3
-    },
-    {
-      "question": "Quelle affirmation étonnante est fausse ?",
-      "affirmations": [
-        "Les chevaliers médiévaux utilisaient parfois des arbalètes miniatures pour la chasse.",
-        "Certains chevaliers voyageaient avec leur propre cuisinier.",
-        "Les tournois pouvaient être interrompus par des questions de protocole.",
-        "Les arbalètes étaient interdites contre les chrétiens à un moment donné.",
-        "Tous les chevaliers portaient une armure complète en permanence."
-      ],
-      "indexFausse": 4,
-      "id": 68,
-      "themeId": 3
-    },
-    {
-      "question": "Quel fait surprenant est inventé ?",
-      "affirmations": [
-        "Un roi anglais a interdit de manger du pudding pendant plusieurs années.",
-        "Les Romains faisaient des cartes météorologiques pour préparer certaines batailles.",
-        "Certains généraux fabriquaient de faux éléphants en bois pour intimider l’ennemi.",
-        "Les Perses employaient des messagers capables de courir plus de 150 km en une journée.",
-        "Une bataille antique a été repoussée à cause d’un concours de poésie."
-      ],
-      "indexFausse": 1,
-      "id": 69,
-      "themeId": 3
-    },
-    {
-      "question": "Quelle affirmation est inventée ?",
-      "affirmations": [
-        "Un roi grec a introduit un impôt sur les mensonges publics.",
-        "Un pharaon a organisé une expédition entière pour ramener des arbres.",
-        "Un empereur chinois a interdit certains instruments de musique jugés trop tristes.",
-        "Une cité médiévale a interdit les miroirs pour éviter la vanité.",
-        "Une province romaine a nommé un enfant de 12 ans gouverneur militaire."
-      ],
-      "indexFausse": 0,
-      "id": 70,
-      "themeId": 3
-    },
-    {
-      "question": "Quelle affirmation est inventée ?",
-      "affirmations": [
-        "A Venise une guerre fût déclenchée à cause d'un sceau en bois",
-        "Un roi du Moyen Âge possédait un livre de recettes exclusivement à base d’or.",
-        "Il existait des concours pour la meilleure moustache dans certaines armées impériales.",
-        "Des astronomes mayas prédisaient les éclipses avec précision.",
-        "Une ville a offert un fromage géant en cadeau diplomatique au XVIIIe siècle."
-      ],
-      "indexFausse": 1,
-      "id": 71,
-      "themeId": 3
-    },
-    {
-      "question": "Quelle affirmation est fausse ?",
-      "affirmations": [
-        "Des armées ont utilisé des chats peints pour effrayer l’ennemi.",
-        "Des cités médiévales organisaient des fêtes pour fêter la fin de l’hiver.",
-        "Certaines batailles se sont déroulées sous des tempêtes de sable en Europe.",
-        "Un roi italien a un jour interdit les bottes trop brillantes.",
-        "Les Anciens Égyptiens utilisaient parfois des scarabées vivants comme bijoux."
-      ],
-      "indexFausse": 2,
-      "id": 72,
-      "themeId": 3
-    },
-    {
-      "question": "Quel fait est inventé ?",
-      "affirmations": [
-        "Le premier distributeur automatique connu distribuait de l’eau bénite.",
-        "Il existait des médecins de cour spécialisés dans l’interprétation des rêves.",
-        "Un empereur romain a créé une loterie impériale gratuite.",
-        "Certaines villes médiévales imposaient une amende aux gens trop silencieux lors des banquets.",
-        "Une reine européenne avait un service de détectives spécialisés en astrologie."
-      ],
-      "indexFausse": 3,
-      "id": 73,
-      "themeId": 3
     },
     {
       "question": "Quelle affirmation sur Booba est fausse ?",
@@ -1019,7 +707,7 @@
         "Il a fait partie du collectif L’Entourage.",
         "Il a été membre du groupe 1995.",
         "Son premier album solo s’intitule Les Étoiles Vagabondes.",
-        "Il a joué dans le film Five.",
+        "Il a fait un feat avec Damso sur le son Tricheur.",
         "Il a sorti l’album Cyborg sans annonce préalable."
       ],
       "indexFausse": 2,
@@ -1055,11 +743,11 @@
     {
       "question": "Quelle affirmation sur Jul est fausse ?",
       "affirmations": [
-        "Il a interprêté son propre rôle dans le film a Toute épreuve",
+        "En 2021 il est devenu actionnaire minoritaire de l'Olympique de Marseille",
         "Il a créé le label D’Or et de Platine.",
         "Son premier album s’intitule Dans ma paranoïa.",
         "Il a sorti 24 albums depuis le début de sa carrière",
-        "Il est à l'initiative du projet 13’Organisé."
+        "Il a featé avec Ninho sur le son Jusqu'à minuit."
       ],
       "indexFausse": 0,
       "id": 79,
@@ -1094,10 +782,10 @@
     {
       "question": "Quelle affirmation sur Niska est fausse ?",
       "affirmations": [
-        "Il s’est fait connaître du grand public avec Réseaux.",
+        "Il s’est fait connaître du grand public avec son freestyle PSG.",
         "Il est originaire d’Évry.",
         "Son premier album s’intitule Zifukoro.",
-        "Il a sorti un duo avec Gims intitulé La même.",
+        "Il est originaire de Ivry-sur-Seine.",
         "Il a collaboré avec Gradur sur le titre Zoum."
       ],
       "indexFausse": 3,
@@ -1123,7 +811,7 @@
         "Il a fait partie du collectif Mafia K’1 Fry.",
         "Il a ramené Frank Ribery dans le clip du son Fais-moi la passe",
         "Il n'a jamais eu de disque de diamant",
-        "La fierté des nôtres est l'album qui s'est le mieux écoulé avec 330 000 ventes.",
+        "Il a collaboré avec Pharrel Williams sur la bande original du film Taxi 3.",
         "Il a sorti un smartphone R500 by Rohff"
       ],
       "indexFausse": 1,
@@ -1137,7 +825,7 @@
         "Il a sorti 5 volets des mixtapes Capitale du Crime",
         "Dans l'album CDCC, il a featé avec Childish Gambino sur le titre Juice",
         "Il a été juré dans l’émission Popstars.",
-        "Il a collaboré avec Zaho sur le titre Ma meilleure."
+        "Il a crée une marque de vêtement Street Swagg."
       ],
       "indexFausse": 2,
       "id": 85,
@@ -1162,7 +850,7 @@
         "Il a sorti un album intitulé 'Royalty & Power' en 2005.",
         "Il a investi dans la plateforme Tidal.",
         "Il a cofondé Roc-A-Fella Records.",
-        "Il a possédé une part des Brooklyn Nets.",
+        "Il a été actionnaire des Brooklyn Nets.",
         "Il a participé au développement de la marque de champagne Armand de Brignac."
       ],
       "indexFausse": 0,
@@ -1180,19 +868,6 @@
       ],
       "indexFausse": 0,
       "id": 88,
-      "themeId": 4
-    },
-    {
-      "question": "Quelle affirmation sur Kendrick Lamar est fausse ?",
-      "affirmations": [
-        "Il est originaire d’Oakland.",
-        "Il a utilisé le nom de scène K.Dot au début de sa carrière.",
-        "Son album 'good kid, m.A.A.d city' est sorti en 2012.",
-        "Il a remporté un prix Pulitzer pour l’album 'DAMN.'.",
-        "Il a participé à la bande originale du film 'Black Panther'."
-      ],
-      "indexFausse": 0,
-      "id": 89,
       "themeId": 4
     },
     {
@@ -1215,23 +890,10 @@
         "Il s’est fait connaître avec le morceau 'White Iverson'.",
         "Il a interprété 'Sunflower' avec Swae Lee pour 'Spider-Man: Into the Spider-Verse'.",
         "Il a sorti l’album 'Beerbongs & Bentleys'.",
-        "Il a grandi en partie au Texas."
+        "Il est originaire du Texas."
       ],
       "indexFausse": 0,
       "id": 91,
-      "themeId": 4
-    },
-    {
-      "question": "Quelle affirmation sur J. Cole est fausse ?",
-      "affirmations": [
-        "Il a grandi à Fayetteville, en Caroline du Nord.",
-        "Il a été le premier artiste signé sur le label GOOD Music de Kanye West.",
-        "Il a sorti l’album '2014 Forest Hills Drive'.",
-        "Il a créé le label Dreamville.",
-        "Il produit lui-même une partie importante de ses instrumentales."
-      ],
-      "indexFausse": 1,
-      "id": 92,
       "themeId": 4
     },
     {
@@ -1291,25 +953,12 @@
       "affirmations": [
         "Son single 'Hustlin'' a fortement contribué à le faire connaître.",
         "Son premier album s’intitule 'Port of Miami'.",
-        "Il a sorti un album commun entier avec Jay-Z intitulé 'Miami Empire'.",
+        "Il a sorti un album commun avec Flo-Rida intitulé 'Miami Empire'.",
         "Avant le rap, il a travaillé comme gardien de prison.",
         "Il a publié un livre autobiographique intitulé 'Hurricanes'."
       ],
       "indexFausse": 2,
       "id": 97,
-      "themeId": 4
-    },
-    {
-      "question": "Quelle affirmation sur T.I. est fausse ?",
-      "affirmations": [
-        "Il est originaire d’Atlanta.",
-        "Il est considéré comme l’un des pionniers de la trap.",
-        "Son premier grand album s’intitule 'King of the South City'.",
-        "Il a collaboré avec Rihanna sur 'Live Your Life'.",
-        "Il a un label nommé Grand Hustle."
-      ],
-      "indexFausse": 2,
-      "id": 98,
       "themeId": 4
     },
     {
@@ -1357,7 +1006,7 @@
         "Il est originaire de Long Beach, en Californie.",
         "Il a sorti son premier album solo 'Doggystyle' dans les années 90.",
         "Il a sorti un album reggae sous le nom 'Snoop Lion'.",
-        "Il a été président de Death Row Records dans les années 90.",
+        "Il a brièvement été président de Death Row Records dans les années 90.",
         "Il a joué un rôle dans le film 'Starsky & Hutch'."
       ],
       "indexFausse": 3,
@@ -1388,32 +1037,6 @@
       ],
       "indexFausse": 4,
       "id": 104,
-      "themeId": 4
-    },
-    {
-      "question": "Quelle affirmation sur Ludacris est fausse ?",
-      "affirmations": [
-        "Il est apparu dans la franchise 'Fast & Furious'.",
-        "Il a sorti l’album 'Word of Mouf'.",
-        "Il est présent sur le titre 'Yeah!' d’Usher.",
-        "Il a joué dans le film 'Crash'.",
-        "Il a sorti un album acoustique intitulé 'Soul & Stripes'."
-      ],
-      "indexFausse": 4,
-      "id": 105,
-      "themeId": 4
-    },
-    {
-      "question": "Quelle affirmation sur The Game est fausse ?",
-      "affirmations": [
-        "Il est originaire de Compton.",
-        "Son premier grand album s’intitule 'The Documentary'.",
-        "Il a collaboré avec 50 Cent sur 'Hate It or Love It'.",
-        "Il a été initialement signé chez Aftermath, le label de Dr. Dre.",
-        "Il a sorti un album entièrement produit par Eminem intitulé 'After the Documentary'."
-      ],
-      "indexFausse": 4,
-      "id": 106,
       "themeId": 4
     },
     {
@@ -1458,23 +1081,10 @@
     {
       "question": "Quelle affirmation sur Futurama est fausse ?",
       "affirmations": [
-        "Leela intègre un monastère qui a juré de ne plus jamais voyager dans l’espace.",
         "Sur la planète des Amazones géantes, la peine capitale est le « snu-snu ».",
-        "Bender se fait passer pour une femelle robot lors des Jeux Olympiques.",
-        "Fry sort avec un robot ayant l’apparence de Lucy Liu.",
-        "Zoidberg retourne sur sa planète natale pour participer à un rituel d’accouplement."
-      ],
-      "indexFausse": 0,
-      "id": 110,
-      "themeId": 1
-    },
-    {
-      "question": "Quelle affirmation sur Futurama est fausse ?",
-      "affirmations": [
-        "Hermes perd temporairement son poste à Planet Express à cause d’un audit bureaucratique.",
         "Bender fonctionne grâce à un cœur nucléaire qui doit être remplacé chaque année",
         "Un clone plus jeune du professeur, Cubert, vit avec l’équipe de Planet Express.",
-        "Scruffy est le concierge discret que l’on voit rarement.",
+        "Bender se fait passer pour une femelle robot lors des Jeux Olympiques.",
         "Le professeur Farnsworth a plus de 150 ans."
       ],
       "indexFausse": 1,
@@ -1495,26 +1105,13 @@
       "themeId": 1
     },
     {
-      "question": "Quelle affirmation sur Futurama est fausse ?",
-      "affirmations": [
-        "Bender adore voler et revendre des objets qu’il trouve.",
-        "Il fait parfois partie de la Mafia des robots.",
-        "Il lui est déjà arrivé de jurer d’arrêter de boire, ce qui a failli le faire « planter ».",
-        "Il devient chef d’un culte robotique qui vénère un gigantesque robot-planète nommé Unicron.",
-        "Il a déjà été vénéré comme un dieu par une minuscule civilisation."
-      ],
-      "indexFausse": 3,
-      "id": 113,
-      "themeId": 1
-    },
-    {
       "question": "Quelle affirmation sur South Park est fausse ?",
       "affirmations": [
         "Cartman hérite d'un parc d'attractions et refuse d'y laisser entrer les enfants.",
         "Mr. Hankey apparaît comme l'esprit de Noël de la ville.",
         "Les enfants rencontrent un chasseur nommé 'Jimbo', l'oncle de Stan.",
         "Cartman devient maire de South Park pendant toute une demi-saison.",
-        "Big Gay Al dirige un camp très accueillant pour animaux perdus."
+        "Barbara Streisand devient un monstre géant semant la panique."
       ],
       "indexFausse": 3,
       "id": 114,
@@ -1523,21 +1120,8 @@
     {
       "question": "Quelle affirmation sur South Park est fausse ?",
       "affirmations": [
-        "Cartman se déguise en robot pour piéger Butters.",
-        "Barbara Streisand devient un monstre géant semant la panique.",
-        "L'école est régulièrement fermée à cause d'alertes liées à Skuzzlebutt.",
-        "Chef chante souvent pour donner des conseils aux enfants.",
-        "Randy est un géologue qui travaille pour une agence gouvernementale."
-      ],
-      "indexFausse": 2,
-      "id": 115,
-      "themeId": 1
-    },
-    {
-      "question": "Quelle affirmation sur South Park est fausse ?",
-      "affirmations": [
         "Terrance & Phillip deviennent enseignants remplaçants pour un trimestre.",
-        "Cartman force Kyle à choisir entre sauver Ike ou récupérer un jouet rare.",
+        "Randy est un géologue qui travaille pour une agence gouvernementale.",
         "Butters devient le super-vilain Professeur Chaos.",
         "Mr. Garrison change de métier à plusieurs reprises dans la série.",
         "Un documentaire local accuse les vaches d'être contrôlées par des extraterrestres."
@@ -1562,23 +1146,10 @@
     {
       "question": "Quelle affirmation sur South Park est fausse ?",
       "affirmations": [
-        "Chef quitte la série après avoir rejoint un groupe extrémiste dangereux.",
-        "Les enfants doivent protéger une vache sacrée offerte par les Indiens.",
-        "Cartman chante « Kyle’s Mom is a Big Fat… » lors d'un épisode musical.",
-        "Randy enseigne les arts martiaux après avoir vu un film de kung-fu.",
-        "Mr. Garrison utilise un animal de ferme pour donner une leçon sur l’évolution."
-      ],
-      "indexFausse": 3,
-      "id": 118,
-      "themeId": 1
-    },
-    {
-      "question": "Quelle affirmation sur South Park est fausse ?",
-      "affirmations": [
         "Une prophétie affirme que Stan est l'élu et qu'il doit sauver une race d’humanoïdes poulets.",
         "Cartman engueule sa mère parce qu’elle refuse de lui acheter un IPAD.",
         "Cartman forme un groupe musical chrétien pour devenir célèbre.",
-        "Chef est parfois le seul adulte à comprendre ce qui se passe réellement.",
+        "Cartman a fait bouffer ses parents à Scott Tenorman.",
         "Le père de Stan déclenche une bagarre monumentale lors d’un match de baseball."
       ],
       "indexFausse": 0,
@@ -1599,25 +1170,12 @@
       "themeId": 5
     },
     {
-      "question": "Quelle affirmation sur les éclairs est fausse ?",
-      "affirmations": [
-        "Un éclair peut frapper deux fois au même endroit.",
-        "La foudre peut partir du sol vers les nuages.",
-        "Le tonnerre est produit par la dilatation rapide de l’air chauffé.",
-        "Les éclairs ne frappent jamais la mer car l’eau ‘repousse’ l’électricité.",
-        "D’énormes éclairs peuvent se produire au-dessus des nuages, invisibles du sol."
-      ],
-      "indexFausse": 3,
-      "id": 121,
-      "themeId": 5
-    },
-    {
       "question": "Quelle affirmation sur les chats est fausse ?",
       "affirmations": [
         "Les chats ne retombent pas toujours indemnes de très haute altitude.",
         "Ils communiquent avec les humains via une variété de miaulements.",
         "Ils peuvent reconnaître leur nom.",
-        "Tous les chats sont droitiers.",
+        "Ils sont droitiers.",
         "Ils utilisent leur queue pour maintenir leur équilibre."
       ],
       "indexFausse": 3,
@@ -1643,7 +1201,7 @@
         "Les chiens distinguent mieux le mouvement que les détails.",
         "Les chiens ont environ 1700 papilles gustatives, les humains en ont environ 9000.",
         "Ils comprennent quelques dizaines de mots selon les individus.",
-        "Ils voient exactement les mêmes couleurs que les humains.",
+        "Ils voient les mêmes couleurs que les humains.",
         "Ils peuvent reconnaître les émotions humaines."
       ],
       "indexFausse": 3,
@@ -1695,7 +1253,7 @@
         "La tour de Pise était déjà légèrement inclinée pendant sa construction.",
         "Les Vikings n’avaient pas de casques à cornes.",
         "Les pyramides d’Égypte étaient recouvertes d’un revêtement brillant.",
-        "Les gladiateurs combattaient toujours jusqu’à la mort.",
+        "Les gladiateurs combattaient jusqu’à la mort.",
         "La monnaie existe depuis plusieurs milliers d’années."
       ],
       "indexFausse": 3,
@@ -1716,19 +1274,6 @@
       "themeId": 5
     },
     {
-      "question": "Quelle affirmation sur le corps humain est fausse ?",
-      "affirmations": [
-        "Le hoquet est souvent dû à une contraction involontaire du diaphragme.",
-        "Les ongles des mains poussent plus vite que ceux des pieds.",
-        "On ne peut pas éternuer en gardant les yeux ouverts.",
-        "Sourire active exactement les mêmes muscles que le rire.",
-        "Le goût est une combinaison d’odeur, de texture et de température."
-      ],
-      "indexFausse": 3,
-      "id": 130,
-      "themeId": 5
-    },
-    {
       "question": "Quelle affirmation sur les illusions d’optique est fausse ?",
       "affirmations": [
         "Une illusion d’optique peut faire croire qu’un objet se déplace alors qu’il reste immobile.",
@@ -1742,55 +1287,16 @@
       "themeId": 5
     },
     {
-      "question": "Dans Harry Potter, quelle affirmation sur les Horcruxes est fausse ?",
-      "affirmations": [
-        "Un Horcruxe peut être créé en utilisant un objet vivant.",
-        "La création d’un Horcruxe implique la division de l’âme après un meurtre.",
-        "Dumbledore en a lui-même étudié plusieurs pour comprendre Voldemort.",
-        "Ils peuvent être détruits avec du venin de basilic.",
-        "Certains Horcruxes influencent négativement l’humeur de ceux qui les portent."
-      ],
-      "indexFausse": 0,
-      "id": 132,
-      "themeId": 6
-    },
-    {
       "question": "Dans Harry Potter, quelle affirmation sur les Reliques de la Mort dans les films est fausse ?",
       "affirmations": [
         "La Baguette de Sureau est arrachée à Dumbledore par Voldemort dans son tombeau.",
         "La Cape d'invisibilité apparaît dès le premier film.",
         "La Pierre de Résurrection est retrouvée à l’intérieur d’un Vif d’or.",
         "La légende des trois frères est racontée dans une séquence animée.",
-        "Dans les films, Harry utilise consciemment les trois Reliques simultanément avant la bataille finale."
+        "Harry est le véritable maître de la Baguette de Sureau puisqu'il a désarmé Rogue qui a tué Dumbeldore."
       ],
       "indexFausse": 4,
       "id": 133,
-      "themeId": 6
-    },
-    {
-      "question": "Dans Harry Potter, quelle affirmation sur Dumbledore dans les films est fausse ?",
-      "affirmations": [
-        "Il affronte Voldemort au ministère dans le cinquième film.",
-        "Il est remplacé par un autre acteur à partir du troisième film.",
-        "Il récupère l’anneau maudit dans une scène montrée directement à l’écran.",
-        "Il boit une potion affaiblissante dans la caverne avec Harry.",
-        "Sa mort est provoquée par un sort de Severus Rogue."
-      ],
-      "indexFausse": 2,
-      "id": 134,
-      "themeId": 6
-    },
-    {
-      "question": "Dans Star Wars (prélogie), quelle affirmation sur les planètes est fausse ?",
-      "affirmations": [
-        "Geonosis possède une architecture constituée de structures rocheuses et organiques.",
-        "Naboo présente à la fois des paysages aquatiques et des cités élégantes.",
-        "Utapau est caractérisée par de vastes puits où se trouvent des villes circulaires.",
-        "Kamino est constamment balayée par de fortes pluies et une mer agitée.",
-        "Kashyyyk est la planète où se déroule l’attaque contre le sénat galactique."
-      ],
-      "indexFausse": 4,
-      "id": 135,
       "themeId": 6
     },
     {
@@ -1822,7 +1328,7 @@
     {
       "question": "Dans Le Seigneur des Anneaux, quelle affirmation est fausse ?",
       "affirmations": [
-        "Seul deux Istari furent envoyé sur terre, Gandalf et Saroumane.",
+        "Deux Istari furent envoyé sur terre, Gandalf et Saroumane.",
         "Celebrimbor a forgé les 3 anneaux elf.",
         "Edoras est la capital du Rohan.",
         "Au total 19 anneaux furent forgés et offert aux elfs, nains et hommes.",
@@ -1869,19 +1375,6 @@
       ],
       "indexFausse": 3,
       "id": 141,
-      "themeId": 6
-    },
-    {
-      "question": "Dans X-Men, quelle affirmation sur Wolverine est fausse ?",
-      "affirmations": [
-        "Wolverine apparaît dans les premiers instants du tout premier film X-Men.",
-        "Il subit une transformation majeure qui remplace ses griffes d’origine par du métal.",
-        "Il participe à des conflits à différentes époques, dont la Seconde Guerre mondiale.",
-        "Il rencontre Charles Xavier pour la première fois lorsqu’il est déjà professeur à l’école.",
-        "Wolverine a perdu la mémoire après avoir reçu une balle dans la tête."
-      ],
-      "indexFausse": 3,
-      "id": 142,
       "themeId": 6
     },
     {
@@ -2008,7 +1501,7 @@
         "Il incarne l’entraîneur de football américain dans ‘Remember the Titans’.",
         "Il a collaboré à plusieurs reprises avec Spike Lee, notamment pour ‘Malcolm X’ et ‘Inside Man’.",
         "Il a remporté l’Oscar du meilleur acteur pour ‘Training Day’.",
-        "Il incarne un pilote d’avion en difficulté dans ‘Flight’ de Robert Zemeckis."
+        "Il incarne un pilote d’avion alcoolique dans ‘Flight’ de Robert Zemeckis."
       ],
       "indexFausse": 0,
       "id": 152,
@@ -2043,7 +1536,7 @@
     {
       "question": "Quelle affirmation sur Morgan Freeman est fausse ?",
       "affirmations": [
-        "Il a été révélé au grand public grâce à son rôle dans ‘Miss Daisy et son chauffeur’.",
+        "Il incarne Nelson Mandela dans le film Invictus qui revient sur la victoire des Springboks lors de la coupe du monde 1995’.",
         "Il interprète Red, un détenu sage et pragmatique, dans ‘Les Évadés’.",
         "Il joue un détective à la retraite dans le thriller ‘Seven’.",
         "Il incarne Dieu dans la comédie ‘Bruce tout-puissant’.",
@@ -2059,7 +1552,7 @@
         "Il donne sa voix à Woody dans la saga ‘Toy Story’.",
         "Il joue un gardien de prison compatissant dans ‘La Ligne verte’.",
         "Il a remporté deux Oscars consécutifs du meilleur acteur pour ‘Philadelphia’ et ‘Forrest Gump’.",
-        "Il tient le rôle d’un pilote d’essai blessé dans ‘Apollo 11’.",
+        "Il joue le rôle d'un propriétaire de salle dans ‘le prestige’.",
         "Il joue un naufragé isolé pendant des années dans ‘Seul au monde’."
       ],
       "indexFausse": 3,
@@ -2084,7 +1577,7 @@
       "affirmations": [
         "Il incarne un samouraï américain dans ‘Le Dernier Samouraï’.",
         "Il incarne un soldat revivant constamment la même bataille dans ‘Edge of Tomorrow’.",
-        "Il a appris l’hélicoptère pour une séquence de ‘Mission: Impossible – Fallout’.",
+        "Il a appris à piloter un hélicoptère pour une séquence de ‘Mission: Impossible – Fallout’.",
         "Il joue un tueur à gages dans ‘Collateral’.",
         "Il incarne un agent du FBI dans ‘Les Infiltrés’."
       ],
@@ -2119,97 +1612,6 @@
       "themeId": 6
     },
     {
-      "question": "Quelle affirmation sur Pixar est fausse ?",
-      "affirmations": [
-        "Pixar est née d'une division informatique de Lucasfilm avant d’être rachetée par Steve Jobs.",
-        "Le logo de Pixar mettant en scène Luxo Jr. est apparu avant la sortie du premier long-métrage de la société.",
-        "Pixar a été l’un des premiers studios d’animation à développer ses propres outils technologiques internes.",
-        "Pixar avait initialement prévu de devenir un fabricant de matériel informatique avant de se concentrer sur l’animation.",
-        "A ce jour, Pixar est toujours une société indépendante."
-      ],
-      "indexFausse": 4,
-      "id": 161,
-      "themeId": 7
-    },
-    {
-      "question": "Quelle affirmation sur DreamWorks est fausse ?",
-      "affirmations": [
-        "DreamWorks a été fondé par Steven Spielberg, Jeffrey Katzenberg et David Geffen.",
-        "Le logo de DreamWorks, avec l’enfant assis sur la lune, a été imaginé pour évoquer l’imaginaire et le cinéma familial.",
-        "Avant de produire des films d’animation, DreamWorks était principalement orienté vers la musique enregistrée.",
-        "DreamWorks a régulièrement utilisé la musique orchestrale pour renforcer sa signature narrative.",
-        "DreamWorks a parfois adapté des récits littéraires ou légendaires pour en faire des films familiaux"
-      ],
-      "indexFausse": 2,
-      "id": 162,
-      "themeId": 7
-    },
-    {
-      "question": "Quelle affirmation sur Apple est fausse ?",
-      "affirmations": [
-        "Apple a été fondée par Steve Jobs, Steve Wozniak et Ronald Wayne.",
-        "Le logo de la pomme croquée a été conçu pour éviter d’être confondu avec une tomate.",
-        "Apple s’est d’abord développée en vendant des ordinateurs destinés aux passionnés d’électronique.",
-        "La culture d’entreprise d’Apple met l’accent sur la simplification des usages pour le grand public.",
-        "Apple a initialement produit une gamme de téléviseurs connectés qui a servi de base à l’Apple TV."
-      ],
-      "indexFausse": 4,
-      "id": 163,
-      "themeId": 7
-    },
-    {
-      "question": "Quelle affirmation sur Microsoft est fausse ?",
-      "affirmations": [
-        "Microsoft a été fondée par Bill Gates et Paul Allen.",
-        "Le nom Microsoft est une contraction de microcomputer et software.",
-        "La société s’est d’abord spécialisée dans les systèmes d’exploitation pour ordinateurs personnels.",
-        "Microsoft a été créée à l’origine en Californie avant d’être transférée à Seattle.",
-        "La croissance de Microsoft s’est appuyée sur une stratégie d’ouverture totale de son code source."
-      ],
-      "indexFausse": 4,
-      "id": 164,
-      "themeId": 7
-    },
-    {
-      "question": "Quelle affirmation sur Samsung est fausse ?",
-      "affirmations": [
-        "Samsung a été fondée en Corée du Sud au début du XXe siècle.",
-        "L’entreprise est l’un des plus grands fabricants d'écrans au niveau mondial.",
-        "Samsung a développé sa propre interface logicielle pour accompagner ses appareils mobiles.",
-        "La marque Samsung signifie littéralement « trois étoiles » en coréen.",
-        "Samsung ne produit que de la technologie digitale."
-      ],
-      "indexFausse": 4,
-      "id": 165,
-      "themeId": 7
-    },
-    {
-      "question": "Quelle affirmation sur Nike est fausse ?",
-      "affirmations": [
-        "Nike a commencé sous le nom de Blue Ribbon Sports avant d’adopter son nom actuel.",
-        "Le logo Swoosh a été conçu par une étudiante en design au début des années 70.",
-        "Le nom Nike fait référence à la déesse grecque de la victoire.",
-        "Nike s’est d’abord spécialisée dans les équipements de natation avant le running.",
-        "La marque a collaboré avec de nombreux athlètes pour promouvoir ses produits."
-      ],
-      "indexFausse": 3,
-      "id": 166,
-      "themeId": 7
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "Le handball olympique se joue en deux mi-temps de 30 minutes.",
-        "Le BMX freestyle est apparu pour la première fois aux Jeux olympiques de Tokyo 2020.",
-        "Le volley-ball de plage se joue uniquement en sets de 21 points.",
-        "Le rugby à sept est un sport olympique depuis les Jeux de Rio 2016.",
-        "La lutte olympique comprend des catégories en style libre et en lutte gréco-romaine."
-      ],
-      "indexFausse": 2,
-      "id": 167,
-      "themeId": 8
-    },
-    {
       "question": "En sports olympiques, quelle affirmation est fausse ?",
       "affirmations": [
         "Le canoë-kayak slalom se déroule sur un parcours artificiel avec des portes à franchir.",
@@ -2238,40 +1640,14 @@
     {
       "question": "En sports olympiques, quelle affirmation est fausse ?",
       "affirmations": [
-        "La boxe olympique impose le port d’un casque pour les femmes.",
-        "Les combats de taekwondo sont répartis selon des catégories de poids.",
-        "Le badminton se joue en sets de 21 points en compétition olympique.",
-        "La lutte gréco-romaine interdit les saisies sous la ceinture.",
-        "Le tir à l’arc olympique n’utilise qu’un seul type d’arc : l’arc classique."
-      ],
-      "indexFausse": 0,
-      "id": 170,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
         "Le cyclisme sur route comprend une course en ligne et un contre-la-montre.",
-        "La natation artistique exige des figures imposées et un programme libre.",
+        "Le badminton se joue en sets de 21 points en compétition olympique.",
         "Le pentathlon moderne inclut une épreuve d’équitation.",
         "L’escrime en sabre autorise les touches de pointe uniquement.",
-        "La gymnastique rythmique utilise des engins comme le ruban et le cerceau."
+        "La lutte gréco-romaine interdit les saisies sous la ceinture."
       ],
       "indexFausse": 3,
       "id": 171,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "Le volleyball se dispute sur des sets de 25 points.",
-        "Le ski de fond olympique propose des relais par équipes.",
-        "La gymnastique artistique féminine comporte le cheval d’arçons comme agrès.",
-        "Le canoë sprint se déroule sur des lignes d’eau rectilignes.",
-        "Le tir olympique inclut des épreuves à 10 mètres au pistolet."
-      ],
-      "indexFausse": 2,
-      "id": 172,
       "themeId": 8
     },
     {
@@ -2290,22 +1666,9 @@
     {
       "question": "En sports olympiques, quelle affirmation est fausse ?",
       "affirmations": [
-        "Le cross-country en ski se dispute en style classique ou libre selon les épreuves.",
-        "Le short-track est une variante rapide du patinage de vitesse.",
-        "Le snowboard half-pipe consiste à réaliser des figures dans un tunnel de neige incurvé.",
-        "Le combiné nordique associe saut à ski et ski alpin.",
-        "Le patinage de vitesse utilise des patins longs pour gagner en stabilité."
-      ],
-      "indexFausse": 3,
-      "id": 174,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
         "En escrime, l’épée permet de toucher sur toute la surface du corps.",
         "Les épreuves de trampoline évaluent la hauteur et la qualité des figures.",
-        "Le pentathlon moderne impose un ordre fixe des épreuves.",
+        "Le volleyball se dispute sur des sets de 25 points.",
         "Le tir à l’arc olympique se déroule en sets de trois flèches par archer.",
         "Le karaté kumite appartient au programme olympique permanent."
       ],
@@ -2316,128 +1679,11 @@
     {
       "question": "En sports olympiques, quelle affirmation est fausse ?",
       "affirmations": [
-        "Le relais 4x100 m en athlétisme nécessite un passage du témoin dans une zone précise.",
-        "La natation de course utilise des piscines de 25 m pour les Jeux olympiques.",
-        "Le VTT olympique se dispute sur un circuit naturel avec obstacles.",
-        "Le tir sportif inclut des épreuves où les cibles apparaissent brièvement.",
-        "Le kayak se distingue du canoë par l’usage d’une pagaie double."
-      ],
-      "indexFausse": 1,
-      "id": 176,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "Le slalom géant est une épreuve de ski alpin chronométrée.",
-        "Le half-pipe en snowboard a été introduit aux Jeux d’hiver 1998.",
-        "Le hockey sur glace se joue avec des équipes de dix joueurs sur la glace.",
-        "Le skeleton se pratique tête en avant.",
-        "La luge possède des épreuves simples et doubles."
-      ],
-      "indexFausse": 2,
-      "id": 177,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "La nage papillon se reconnaît par un mouvement simultané des deux bras.",
-        "Les épreuves d’escrime utilisent un système de touches électroniques.",
-        "Le triple saut impose une séquence saut-hop-step.",
-        "La perche utilisée au saut à la perche est rigide pour éviter les rebonds.",
-        "Le départ des courses de sprint se fait à partir de starting-blocks."
-      ],
-      "indexFausse": 3,
-      "id": 178,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "Les épreuves de ski alpin comprennent un combiné.",
-        "Les épreuves de curling utilisent une piste de glace rectangulaire.",
-        "Le relais mixte existe en biathlon.",
-        "Le patinage artistique autorise les sauts multiples successifs.",
-        "Le ski acrobatique n’inclut aucune épreuve de sauts."
-      ],
-      "indexFausse": 4,
-      "id": 179,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "L’aviron se pratique en bateaux individuels ou en équipage.",
-        "Le tir à la carabine comprend des positions couché, debout et à genoux.",
-        "Le saut à ski se déroule sur des rampes de différentes tailles.",
-        "Le patinage de vitesse sur piste courte se pratique sur une piste de 400 m.",
-        "La descente est l’épreuve la plus rapide du ski alpin."
-      ],
-      "indexFausse": 3,
-      "id": 180,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "Le marathon olympique se termine traditionnellement dans un stade.",
-        "La gymnastique rythmique est ouverte aux hommes en compétition olympique.",
-        "Le pentathlon moderne possède une épreuve de natation.",
-        "Le hockey sur gazon utilise une balle dure en plastique.",
-        "L’équitation olympique comprend le dressage et le saut d’obstacles."
-      ],
-      "indexFausse": 1,
-      "id": 181,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "Le cyclisme sur piste a des épreuves comme l’omnium.",
-        "Le volleyball assigne trois touches maximum avant de renvoyer la balle.",
-        "Le snowboard cross se dispute en duel uniquement.",
-        "Le ski acrobatique possède des épreuves de bosses.",
-        "La vitesse en escalade fait partie du programme olympique."
-      ],
-      "indexFausse": 2,
-      "id": 182,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "La course de fond comprend des épreuves allant jusqu’à 10 000 m.",
-        "L’escrime en fleuret permet les touches sur le tronc uniquement.",
-        "Le relais 4x100 m quatre nages regroupe les quatre styles principaux.",
-        "Le patinage de vitesse impose des virages relevés.",
-        "La lutte libre permet d’attaquer les jambes."
-      ],
-      "indexFausse": 3,
-      "id": 183,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "Le combiné nordique n’existe pas sous format féminin aux JO.",
-        "La gymnastique artistique autorise des mouvements au sol avec musique pour les hommes.",
-        "Le ski acrobatique propose des épreuves de big air.",
-        "Le biathlon utilise des skis plus courts que le ski alpin.",
-        "Le patinage artistique compte aussi une épreuve par équipes."
-      ],
-      "indexFausse": 1,
-      "id": 184,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
         "L’aviron utilise des bateaux à rames courtes ou longues selon les catégories.",
-        "Le saut à ski dépend fortement des conditions de vent.",
+        "Le kayak se distingue du canoë par l’usage d’une pagaie double.",
         "Le relais 4x200 m quatre nages est une épreuve olympique traditionnelle.",
-        "Les épreuves de ski acrobatique incluent le ski cross.",
-        "La luge simple se dispute en positions ventrales."
+        "L’équitation olympique comprend le dressage et le saut d’obstacles.",
+        "Le tir sportif inclut des épreuves où les cibles apparaissent brièvement."
       ],
       "indexFausse": 2,
       "id": 185,
@@ -2446,40 +1692,14 @@
     {
       "question": "En sports olympiques, quelle affirmation est fausse ?",
       "affirmations": [
-        "Le pentathlon moderne a récemment fusionné le tir et la course.",
+        "La hauteur du filet varie entre hommes et femmes en volleyball.",
         "Le water-polo se joue en quatre périodes de huit minutes effectives.",
-        "Le hockey sur glace impose des patins spécifiques.",
-        "Le patinage artistique comporte des levées chorégraphiées en couple.",
-        "Le ski nordique regroupe le ski de fond et le combiné nordique."
+        "En athlétisme, la marche impose des contacts continus avec le sol.",
+        "Le rugby à sept se joue en deux mi-temps de sept minutes.",
+        "Le lancer du marteau impose une cage de protection autour du cercle."
       ],
       "indexFausse": 1,
       "id": 186,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "La hauteur du filet varie entre hommes et femmes en volleyball.",
-        "En athlétisme, la marche impose des contacts continus avec le sol.",
-        "La natation autorise les ondulations sous-marines uniquement au départ et virages.",
-        "Le triathlon olympique se termine par une course de 15 km.",
-        "Le plongeon synchronisé exige une coordination parfaite entre les deux athlètes."
-      ],
-      "indexFausse": 3,
-      "id": 187,
-      "themeId": 8
-    },
-    {
-      "question": "En sports olympiques, quelle affirmation est fausse ?",
-      "affirmations": [
-        "Le rugby à sept se joue en deux mi-temps de sept minutes.",
-        "Le cyclisme sur route autorise des vélos de contre-la-montre spécifiques.",
-        "La gymnastique rythmique impose des équipes mixtes de cinq athlètes.",
-        "Le saut en hauteur nécessite de franchir une barre sans la faire tomber.",
-        "Le lancer du marteau impose une cage de protection autour du cercle."
-      ],
-      "indexFausse": 2,
-      "id": 188,
       "themeId": 8
     },
     {
@@ -2526,7 +1746,7 @@
       "affirmations": [
         "Novak Djokovic a remporté les quatre tournois du Grand Chelem d’affilée une fois.",
         "Andy Murray a été numéro un mondial ATP.",
-        "Marat Safin a gagné l’Open d’Australie en 2005.",
+        "Le Masters 1000 de Paris se joue en indoor.",
         "David Nalbandian a atteint la finale de Wimbledon.",
         "Juan Martín del Potro a remporté l'Open D'Australie en 2010."
       ],
@@ -2537,23 +1757,10 @@
     {
       "question": "En tennis, quelle affirmation est fausse ?",
       "affirmations": [
-        "Roger Federer a remporté huit titres à Wimbledon.",
-        "Nadal, Federer et Djokovic sont souvent appelés le «Big Three».",
-        "L’US Open a été le premier tournoi du Grand Chelem à utiliser le toit rétractable.",
-        "Le tournoi de Monte-Carlo est obligatoire dans le calendrier ATP.",
-        "Le Masters 1000 de Paris se joue en indoor."
-      ],
-      "indexFausse": 3,
-      "id": 193,
-      "themeId": 8
-    },
-    {
-      "question": "En tennis, quelle affirmation est fausse ?",
-      "affirmations": [
         "Le Suisse Stan Wawrinka a remporté trois titres du Grand Chelem.",
         "Djokovic a remporté Rolland Garros à trois reprises.",
         "Andy Murray a remporté deux médailles d'or olympiques.",
-        "Marat Safin a remporté l’US Open à 20 ans.",
+        "Roger Federer a remporté huit titres à Wimbledon.",
         "Gael Monfils a déjà fini dans le top 5 du classement ATP ."
       ],
       "indexFausse": 4,
@@ -2589,9 +1796,9 @@
     {
       "question": "En football, quelle affirmation est fausse ?",
       "affirmations": [
-        "Thierry Henry a terminé meilleur buteur de Premier League à quatre reprises.",
+        "Thierry Henry a terminé meilleur buteur de Premier League à cinq reprises.",
         "Dennis Bergkamp a joué pour l’Inter Milan avant Arsenal.",
-        "Patrick Vieira a terminé sa carrière en Italie.",
+        "Patrick Vieira a terminé sa carrière à manchester city.",
         "Robert Pirès a remporté l’Euro 2000.",
         "Sol Campbell a été transféré gratuitement de Tottenham à Arsenal."
       ],
@@ -2645,7 +1852,7 @@
         "Au Mondial 2010, David Villa a reçu le Ballon d’Or de la compétition.",
         "Lionel Messi a reçu le Ballon d’Or du Mondial 2014 malgré la défaite de l’Argentine en finale.",
         "James Rodríguez a terminé meilleur buteur du Mondial 2014.",
-        "Harry Kane a terminé meilleur buteur de la Coupe du monde 2018."
+        "Lionel Messi a fini meilleur joueur de la compétition lors du mondial 2014."
       ],
       "indexFausse": 1,
       "id": 201,
@@ -2747,25 +1954,12 @@
       "affirmations": [
         "Les pandas passent plus de 10 heures par jour à manger du bambou.",
         "Le jaguar possède une mâchoire plus puissante que le lion.",
-        "Les gorilles vivent principalement dans des régions désertiques",
+        "Les gorilles sont strictement herbivores",
         "Le paresseux ne descend au sol qu'environ une fois par semaine.",
-        "Les éléphants utilisent des infrasons pour communiquer à distance."
+        "Les crocodiles avalent parfois des pierres pour mieux plonger"
       ],
       "indexFausse": 2,
       "id": 209,
-      "themeId": 9
-    },
-    {
-      "question": "Quelle affirmation sur les animaux est fausse ?",
-      "affirmations": [
-        "Les caméléons changent de couleur pour communiquer autant que pour se camoufler.",
-        "Certains lézards peuvent se détacher de leur queue pour fuir.",
-        "Les crocodiles avalent parfois des pierres pour mieux plonger",
-        "Toutes les tortues sont strictement herbivores.",
-        "Les serpents sentent les vibrations au sol avec leur mâchoire."
-      ],
-      "indexFausse": 3,
-      "id": 210,
       "themeId": 9
     },
     {
@@ -2780,6 +1974,799 @@
       "indexFausse": 1,
       "id": 211,
       "themeId": 9
+    },
+    {
+      "question": "Quelle affirmation sur ces jouets est fausse ?",
+      "affirmations": [
+        "Les Beyblade pouvaient se démonter et se remonter différemment et même avec d'autres pièces de toupies différentes.",
+        "Les cartes Pokémon ont d’abord été un jeu de cartes à collectionner avant d’être une série animée en France.",
+        "Les Pogs étaient initialement destinés à être collectionnés, pas joués.",
+        "La Game Boy a volontairement été laissée en noir et blanc pour améliorer son autonomie.",
+        "Les Tamagotchi pouvaient mourir si on oubliait de les nourrir ou de les soigner."
+      ],
+      "indexFausse": 2,
+      "id": 212,
+      "themeId": 1
+    },
+    {
+      "question": "Quelle affirmation sur Les Simpsons est fausse ?",
+      "affirmations": [
+        "Dans Simpsons Horror Show VI, Willie le jardinier déguisé en Freddy Krueger attaque les enfants de Springfield à travers leurs rêves pour se venger de leur manque de respect.",
+        "Dans Simpsons Horror Show I, Homer vend son âme au diable en échange d’un donut infini.",
+        "Dans Simpsons Horror Show XIV, Homer devient la mort après l'avoir accidentellement tué.",
+        "Dans Simsons Horror Show XVII, les extraterrestres utilisent la télévision pour abrutir l'humanité et préparer son invasion.",
+        "Dans Simpsons Horror Show III, Marge est possédée par la maison des Simpson et tente de tuer sa famille."
+      ],
+      "indexFausse": 4,
+      "id": 213,
+      "themeId": 1
+    },
+    {
+      "question": "Quelle affirmation sur Les Simpsons est fausse ?",
+      "affirmations": [
+        "Monsieur Burns ne se rappelle jamais du nom d'Homer.",
+        "Smithers est secrètement amoureux de monsieur Burns.",
+        "Le proviseur Skinner vit chez sa mère.",
+        "Willie est le jardinier irlandais de l'école élémentaire.",
+        "Ralph Wiggum est amoureux de Lisa Simpson."
+      ],
+      "indexFausse": 3,
+      "id": 214,
+      "themeId": 1
+    },
+    {
+      "question": "Quelle affirmation sur Les Simpsons est fausse ?",
+      "affirmations": [
+        "Il est introduit dans la serie comme l'assistant de Krusty.",
+        "Il essaye de faire accruser Krusty d'un braquage mais Bart le démasque et il finit en prison.",
+        "Il s'évade de prison grâce à son frère Cecil.",
+        "Il épouse Selma dans le but de la tuer et hériter de son patrimoine.",
+        "Il devient maire de Springfield en manipulant le scrutin."
+      ],
+      "indexFausse": 2,
+      "id": 215,
+      "themeId": 1
+    },
+    {
+      "question": "Quelle affirmation sur les billes est fausse ?",
+      "affirmations": [
+        "Le terme pépite est utilisé pour qualifier un skin de bille.",
+        "Le terme mamouth est utilisé pour qualifier une bille de diamètre 42 mm.",
+        "Le terme calot est utilisé pour qualifier une bille de diamètre 25 mm.",
+        "Le terme œil de chat est utilisé pour qualifier un skin de bille.",
+        "Le terme baleine est utilisé pour qualifier une bille de diamètre 35 mm."
+      ],
+      "indexFausse": 4,
+      "id": 216,
+      "themeId": 1
+    },
+    {
+      "question": "Quelle affirmation sur Dragon Ball est fausse ?",
+      "affirmations": [
+        "Lors de leur première rencontre Bulma a failli renverser Goku en voiture.",
+        "Oolong kidnappe les filles d'un village en se servant de son pouvoir de transformation.",
+        "Tortue géniale offre à Goku un nuage magique après que ce dernier ait ramené sain et sauve sa tortue.",
+        "Lors du premier Budokai Tenkaichi, Krilin se fait éliminer par Goku.",
+        "Jackie Choun remporte le premier Budokai Tenkaichi après sa victoire en finale contre Goku."
+      ],
+      "indexFausse": 3,
+      "id": 217,
+      "themeId": 1
+    },
+    {
+      "question": "Quelle affirmation sur Naruto est fausse ?",
+      "affirmations": [
+        "Itachi élimine tous les membres de son clan sur ordre de l'Akatsuki.",
+        "Shikamaru est le seul à obtenir le rang de Chunin suite à l'examen.",
+        "Le clan de Choji utilisent des pillules qui permettent de convertir le graisse corporelle en Chakra.",
+        "Orochimaru a assassiné le 4ème Kazekage.",
+        "Avant d'être le sensei de la team 7, Kakashi était un membre de l'ANBU."
+      ],
+      "indexFausse": 0,
+      "id": 218,
+      "themeId": 1
+    },
+    {
+      "question": "Quelle affirmation sur Olive et Tom est fausse ?",
+      "affirmations": [
+        "Bruce Harper est le meilleur ami de Tom.",
+        "Roberto a dû arrêter le football suite à un problème de vue.",
+        "Thomas price part jouer en Italie.",
+        "Mark landers est l'attaquant de la Toho.",
+        "Olive rejoint le FC Barcelone."
+      ],
+      "indexFausse": 2,
+      "id": 219,
+      "themeId": 1
+    },
+    {
+      "question": "Quelle affirmation sur Gazo est fausse ?",
+      "affirmations": [
+        "Il s’est fait connaître avec le titre Drill FR.",
+        "Il a featé avec Freeze Corleone sur Drill 4.",
+        "Il est originaire de Saint-Denis.",
+        "Il a sorti un projet intitulé KMT.",
+        "Il a collaboré avec Damso sur le morceau La Rue."
+      ],
+      "indexFausse": 2,
+      "id": 220,
+      "themeId": 4
+    },
+    {
+      "question": "Dans Indiana Jones, quelle affirmation sur Les Aventuriers de l’Arche perdue est fausse ?",
+      "affirmations": [
+        "Indiana Jones est archéologue et professeur d’université.",
+        "L’Arche d’Alliance est recherchée par les nazis.",
+        "Marion Ravenwood est une ancienne amante d’Indiana.",
+        "Indiana détruit volontairement l’Arche pour sauver le monde.",
+        "Le film se déroule avant la Seconde Guerre mondiale."
+      ],
+      "indexFausse": 3,
+      "id": 221,
+      "themeId": 6
+    },
+    {
+      "question": "Quelle affirmation sur Steven Spielberg est fausse ?",
+      "affirmations": [
+        "Il a réalisé ‘Les Dents de la mer’.",
+        "Il a réalisé ‘E.T. l’extra-terrestre’.",
+        "Il a réalisé ‘Jurassic Park’.",
+        "Il a réalisé ‘Avatar’.",
+        "Il a remporté plusieurs Oscars."
+      ],
+      "indexFausse": 3,
+      "id": 222,
+      "themeId": 6
+    },
+    {
+      "question": "Dans Le Parrain, quelle affirmation est fausse ?",
+      "affirmations": [
+        "Vito Corleone est surnommé Don Corleone.",
+        "Michael Corleone commence par refuser les affaires familiales.",
+        "Sonny Corleone est l’aîné des fils.",
+        "Sonny Corleone devient le chef de la famille après Vito.",
+        "Michael Corleone part se réfugier en Italie après avoir assassiné le rival de son père."
+      ],
+      "indexFausse": 3,
+      "id": 223,
+      "themeId": 6
+    },
+    {
+      "question": "Quelle affirmation sur Quentin Tarantino est fausse ?",
+      "affirmations": [
+        "Il a réalisé ‘Reservoir Dogs’.",
+        "Il a réalisé ‘Kill Bill’.",
+        "Il apparaît dans certains de ses films.",
+        "Il a remporté un Oscar pour un rôle d’acteur.",
+        "Il a réalisé au total 9 films et Samuel L Jackson figure dans 6 d'entre eux."
+      ],
+      "indexFausse": 3,
+      "id": 224,
+      "themeId": 6
+    },
+    {
+      "question": "Quelle affirmation sur les animaux est fausse ?",
+      "affirmations": [
+        "Les chevaux peuvent dormir debout.",
+        "Les hiboux peuvent tourner la tête jusqu’à environ 270°.",
+        "Les requins sont immunisés contre le cancer.",
+        "Les méduses existent depuis plus longtemps que les dinosaures.",
+        "Les koalas dorment plus de 18 heures par jour."
+      ],
+      "indexFausse": 2,
+      "id": 225,
+      "themeId": 9
+    },
+    {
+      "question": "Quelle affirmation sur les animaux est fausse ?",
+      "affirmations": [
+        "Les araignées ne sont pas des insectes.",
+        "Les loutres utilisent des pierres comme outils.",
+        "Les coraux sont des animaux et non des plantes.",
+        "Les autruches peuvent courir plus vite qu’un cheval au galop.",
+        "Les fourmis peuvent reconnaître leurs congénères."
+      ],
+      "indexFausse": 3,
+      "id": 226,
+      "themeId": 9
+    },
+    {
+      "question": "Quelle affirmation sur les animaux est fausse ?",
+      "affirmations": [
+        "Les crocodiles peuvent survivre plusieurs mois sans manger.",
+        "Les requins doivent nager en permanence pour respirer.",
+        "Les baleines communiquent sur des centaines de kilomètres.",
+        "Les chauves-souris sont les seuls mammifères capables de vol actif.",
+        "Les pieuvres possèdent trois cœurs."
+      ],
+      "indexFausse": 1,
+      "id": 227,
+      "themeId": 9
+    },
+    {
+      "question": "Quelle affirmation étonante est fausse ?",
+      "affirmations": [
+        "Le cerveau utilise seulement 10 % de ses capacités.",
+        "Lire à la lumière faible fatigue les yeux mais ne les abîme pas.",
+        "Se raser ne rend pas les poils plus épais.",
+        "L’alcool ne réchauffe pas réellement le corps.",
+        "Le sucre ne rend pas les enfants hyperactifs."
+      ],
+      "indexFausse": 0,
+      "id": 228,
+      "themeId": 5
+    },
+    {
+      "question": "Quelle affirmation sur le corps humain est fausse ?",
+      "affirmations": [
+        "Le cerveau consomme environ 20 % de l’énergie du corps.",
+        "Le cœur bat plus vite en position debout.",
+        "Les intestins abritent des milliards de bactéries.",
+        "La langue est un muscle.",
+        "Les neurones ne se renouvellent pas."
+      ],
+      "indexFausse": 4,
+      "id": 229,
+      "themeId": 2
+    },
+    {
+      "question": "Quelle affirmation sur la la Ligue 1 est fausse ?",
+      "affirmations": [
+        "Gunnar Andersson est le meilleur buteur de l'histoire de l'olympique de Marseille.",
+        "Au 21ème sciècle, Dimitri Payet est le meilleur passeur de la ligue 1.",
+        "Le PSG a remporté 14 championnats.",
+        "Le FC Nantes détient le record du plus grand nombre de matchs consécutifs sans défaite en Ligue 1.",
+        "Le PSG détient le record de points sur une saison avec 96 points lors de la saison 2015-2016."
+      ],
+      "indexFausse": 2,
+      "id": 230,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur la Premier League est fausse ?",
+      "affirmations": [
+        "Alan Shearer est le meilleur buteur de l'histoire de la premier league.",
+        "Kevin De Bruyne est le meilleur passeur de l'histoire de la premier league.",
+        "Lors de la saison 2004-2005, Chelsea fût champion avec seulement 15 buts encaissés.",
+        "Lors de la saison 2001-2002, Arsenal a été champion en marquant au moins 1 but à chaque journée de championnat.",
+        "Manchester city détient le record de points sur une saison avec 100 points lors de la saison 2017-2018."
+      ],
+      "indexFausse": 1,
+      "id": 231,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur la série A est fausse ?",
+      "affirmations": [
+        "Francesco Totti est le meilleur passeur de l'histoire de la série A.",
+        "Zlatan Ibrahimovich a remporté la série A avec la Juventus, l'Inter Milan et le Milan AC.",
+        "Antonio Dinatale est le meilleur buteur de série A au 21ème sciècle.",
+        "La Juventus est le club le plus sacré avec 36 championnats.",
+        "Gianluigi Buffon détient le record de matchs joués en série A avec 658 apparitions."
+      ],
+      "indexFausse": 1,
+      "id": 232,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur la Liga est fausse ?",
+      "affirmations": [
+        "Lionel Messi est le meilleur buteur de l'histoire de la Liga.",
+        "Diego Godin a été nommé meilleur joueur de la Liga lors de la saison 2013-2014.",
+        "Le FC Barcelone détient le record de but marqué sur une saison avec 114 buts lors de la saison 2011-2012.",
+        "En 2011-2012, Lionel Messi a marqué 50 buts en Liga.",
+        "Christiano Ronaldo a joué 292 matchs en Liga pour 311 buts."
+      ],
+      "indexFausse": 2,
+      "id": 233,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur les stades est fausse ?",
+      "affirmations": [
+        "Wembley est le stade qui a accueilli le plus de finale de ligue des champions.",
+        "Le Signal Iduna Park est le plus grande stade d'Allemagne.",
+        "Le parc des princes n'a jamais accueilli de finale de ligue des champions.",
+        "L'ancien stade de l'Atletico Madrid se nommait Estadio Vicente Calderon.",
+        "Le stade du FC Porto s'appelle Estadio Do Dragao."
+      ],
+      "indexFausse": 2,
+      "id": 234,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur le Championnat d'Europe des nations est fausse ?",
+      "affirmations": [
+        "Michel Platini détient le record de but sur une édition avec 9 buts.",
+        "La Tchécoslovaquie a gagné l'édition de 1976.",
+        "L'Allemagne est le pays qui a fait le plus de finale avec 6 finales.",
+        "L'Espagne est le pays qui a participé au plus grand nombres d'éditions avec 13 participations.",
+        "Christiano Ronaldo est le meilleur buteur et meilleur passeur de l'histoire du championnat d'Europe des nations."
+      ],
+      "indexFausse": 3,
+      "id": 235,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur la coupe du monde est fausse ?",
+      "affirmations": [
+        "L'Allemagne détient le record de finale consécutive avec 3 éditions de suite.",
+        "Le Brésil a participé à toutes les éditions de coupe du monde.",
+        "Lionel Messi est le joueur qui a le plus joué de matchs de coupe du monde avec 26 apparitions.",
+        "La France a accueilli 2 fois la coupe du monde.",
+        "La Suisse a été finaliste en 1950 face à l'Uruguay."
+      ],
+      "indexFausse": 4,
+      "id": 236,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur la ligue des champions est fausse ?",
+      "affirmations": [
+        "La première édition de la coupe d'Europe a eu lieu en 1954.",
+        "Le Real Madrid est le seul club ayant marqué plus de 1000 buts en ligue des champions.",
+        "L'Angleterre tout club combiné a remporté 15 ligue des champions.",
+        "3 clubs hollandais ont remporté au moins une fois la ligue des champions.",
+        "5 clubs français sont allés en finale de ligue des champions."
+      ],
+      "indexFausse": 1,
+      "id": 237,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur l'Europa League (Coupe UEFA) est fausse ?",
+      "affirmations": [
+        "Le FC Séville a remporté 7 fois la compétition sans jamais perdre en finale",
+        "Pierre Emerick Aubameyang est le meilleur buteur de l'histoire de la compétition.",
+        "Le Sporting est le club ayant le plus participé à l'Europa League avec 30 participations.",
+        "Marseille a fait 3 finales.",
+        "Le Parc OL a accueilli la finale de l'édition 2017-2018."
+      ],
+      "indexFausse": 2,
+      "id": 238,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Jose Mourinho est fausse ?",
+      "affirmations": [
+        "Il a remporté la Premier League, la Liga et la Série A.",
+        "Il a remporté la Ligue des Champions, l'Europa League et la Conference League.",
+        "Il a été viré à 6 reprises par ses différents clubs.",
+        "Il a entrainé Marcel Desailly.",
+        "Il a entrainé Quaresma."
+      ],
+      "indexFausse": 3,
+      "id": 239,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Carlo Ancelotti est fausse ?",
+      "affirmations": [
+        "Il a remporté la série A, la Premier League, Ligue 1, la Liga et la Bundesliga.",
+        "Il a fait 6 finales de ligue des champions.",
+        "Il a remporté 4 fois la coupe du monde des clubs.",
+        "Il a entrainé Essien.",
+        "Il a entrainé Mertens."
+      ],
+      "indexFausse": 2,
+      "id": 240,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Rafael Benitez est fausse ?",
+      "affirmations": [
+        "Il a remporté 2 Europa League.",
+        "Il a remporté la Liga avec Valence.",
+        "Il a remporté la Coupe du Monde des Clubs.",
+        "Il a entraîné Eden Hazard.",
+        "Il a entraîné Gonzalo Higuaín."
+      ],
+      "indexFausse": 2,
+      "id": 241,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Antonio Conte est fausse ?",
+      "affirmations": [
+        "Il a remporté la Serie A avec la Juventus, l'Inter Milan et Naples.",
+        "Il a remporté la Premier League avec Chelsea.",
+        "Il a entraîné Bonucci.",
+        "Il a entraîné Lucas Moura.",
+        "Il a entraîné Filipe Luis."
+      ],
+      "indexFausse": 4,
+      "id": 242,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur le FC Bayern Munich est fausse ?",
+      "affirmations": [
+        "Le Bayern a remporté plus de 30 titres de Bundesliga.",
+        "Le Bayern a réalisé deux triplés (championnat, coupe, C1).",
+        "Thomas Müller est le meilleur passeur de l’histoire de la Bundesliga.",
+        "Le Bayern n’a jamais été relégué.",
+        "Franz Beckenbauer a remporté la C1 comme joueur et entraîneur."
+      ],
+      "indexFausse": 4,
+      "id": 243,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur l’AC Milan est fausse ?",
+      "affirmations": [
+        "L’AC Milan n'a jamais remporté l'Europa League (Coupe UEFA).",
+        "Paolo Maldini a disputé 902 matchs avec le club.",
+        "Le stade San Siro porte officiellement le nom de Giuseppe Meazza, un joueur qui a évolué dans les deux clubs milanais.",
+        "Le numéro 3 (Maldini) et le numéro 6 (Baresi) ont été retirés et ne peuvent plus être portés.",
+        "Andriy Shevchenko est le meilleur buteur de l’histoire du club."
+      ],
+      "indexFausse": 4,
+      "id": 244,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur le FC Barcelone est fausse ?",
+      "affirmations": [
+        "Le FC Barcelone a remporté deux triplés.",
+        "Le FC Barcelone n’a jamais été relégué en deuxième division.",
+        "Le club a eu son premier sponsors sur le maillot en 2006 avec celui de UNICEF.",
+        "Xavi est le joueur le plus capé de l'histoire du club.",
+        "Le club a réalisé un sextuplé en 2009."
+      ],
+      "indexFausse": 3,
+      "id": 245,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur l’Inter Milan est fausse ?",
+      "affirmations": [
+        "L’Inter Milan n’a jamais été relégué.",
+        "L’Inter Milan est le premier club italien a avoir remporté la ligue des champions en 1963.",
+        "L’Inter Milan a remporté plus championnat que le Milan AC.",
+        "Javier Zanetti est le joueur le plus capé de l’histoire du club.",
+        "L’Inter Milan a remporté la Coupe UEFA à trois reprises."
+      ],
+      "indexFausse": 1,
+      "id": 246,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur le Borussia Dortmund est fausse ?",
+      "affirmations": [
+        "Le Borussia Dortmund a remporté la Ligue des Champions en 1997.",
+        "Le Signal Iduna Park est le stade avec la plus grande affluence moyenne d’Europe.",
+        "Le dernier titre de Bundesliga remonte à 2013.",
+        "Robert Lewandowski a marqué 4 buts en une demi-finale de Ligue des Champions avec Dortmund.",
+        "Le Borussia Dortmund a fait 3 finale de ligue des champions."
+      ],
+      "indexFausse": 2,
+      "id": 247,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur l'Atletico de Madrid est fausse ?",
+      "affirmations": [
+        "Atletico de Madrid est le club avec le plus de finale de ligue des champions jouées sans victoire.",
+        "Atletico de Madrid est le troisième club le plus titré d'Espagne avec 11 Liga remportées.",
+        "Juan Oblak est le joueur le plus capé de l'histoire du club.",
+        "Antoine Griezman est le meilleur buteur de l'histoire du club.",
+        "Atletico de Madrid a remporté 3 Europa League."
+      ],
+      "indexFausse": 2,
+      "id": 248,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur les animaux est fausse ?",
+      "affirmations": [
+        "Les serpents clignent régulièrement des yeux.",
+        "Les escargots hibernent par temps froid.",
+        "Les dauphins peuvent coopérer pour chasser.",
+        "Les loups vivent dans des structures sociales hiérarchisées.",
+        "Les grenouilles avalent leurs proies sans mâcher."
+      ],
+      "indexFausse": 0,
+      "id": 249,
+      "themeId": 9
+    },
+    {
+      "question": "Quelle affirmation sur les animaux est fausse ?",
+      "affirmations": [
+        "Les cerfs perdent et repoussent leurs bois chaque année.",
+        "Les méduses sont composées à plus de 90 % d’eau.",
+        "Les poissons clowns peuvent changer de sexe.",
+        "Les girafes ne peuvent pas émettre de sons.",
+        "Les chats ont plus d’os que les humains."
+      ],
+      "indexFausse": 3,
+      "id": 250,
+      "themeId": 9
+    },
+    {
+      "question": "Quelle affirmation est fausse sur Cristiano Ronaldo ?",
+      "affirmations": [
+        "Il a terminé meilleur buteur de la ligue des champions sur 6 saisons consécutives de 2013 à 2018.",
+        "Il a été entrainé par Manuel Pellegrini.",
+        "Il a joué avec Raul.",
+        "Il détient le plus grand nombre de passe décisive dans l'histoire de la ligue des champions.",
+        "Il a joué avec Lichsteiner."
+      ],
+      "indexFausse": 4,
+      "id": 251,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Lionel Messi est fausse ?",
+      "affirmations": [
+        "Il a joué son premier match Liga en 2004.",
+        "Il a joué avec Boateng.",
+        "Il est le meilleur buteur de l'équipe d'Argentine.",
+        "Il a été entraîné par Xavi.",
+        "Il a joué avec Thiago Motta."
+      ],
+      "indexFausse": 3,
+      "id": 252,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Luis Suarez est fausse ?",
+      "affirmations": [
+        "Il a remporté deux fois le soulier d'or européen, en 2014 et 2016.",
+        "Il a joué avec Sterling.",
+        "Il a mordu Bonucci.",
+        "Il est le meilleur buteur de l'histoire de l'équipe d'Uruguay.",
+        "Il a joué avec Kondogbia."
+      ],
+      "indexFausse": 2,
+      "id": 253,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Robert Lewandoski est fausse ?",
+      "affirmations": [
+        "Il est le joueur le plus capé de la sélection polonaise.",
+        "Il a remporté le trophée joueur de l'année UEFA en 2020.",
+        "Il a joué avec Aubameyang.",
+        "Il n'a jamais marqué de but en coupe du monde.",
+        "Il a joué avec James Rodriguez."
+      ],
+      "indexFausse": 3,
+      "id": 254,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Thierry Henry est fausse ?",
+      "affirmations": [
+        "Il a plus de 100 sélections en équipe de France.",
+        "Il a joué avec Zidane en club.",
+        "Il a terminé soulier d'or Européen en 2004 et 2005.",
+        "Son plus haut classement au ballon d'or est 3 ème en 2003.",
+        "Il a joué avec Oxlade Chamberlain."
+      ],
+      "indexFausse": 3,
+      "id": 255,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Didier Drogba est fausse ?",
+      "affirmations": [
+        "Il a déjà été meilleur passeur de Premier League.",
+        "Il a été entraîné par Carlo Ancelotti.",
+        "Il a joué avec Eden Hazard.",
+        "Il a fini deux fois meilleur buteur de Premier League.",
+        "Il a joué avec Samir Nasri."
+      ],
+      "indexFausse": 4,
+      "id": 256,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2012/2013, le PSG comptait dans ses rangs",
+      "affirmations": [
+        "Mamadou Sakho.",
+        "Sylvain Armand.",
+        "Thiago Silva.",
+        "Marquinhos.",
+        "David Beckham."
+      ],
+      "indexFausse": 3,
+      "id": 257,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2016/2017, l'OM comptait dans ses rangs :",
+      "affirmations": [
+        "Patrice Evra.",
+        "Steeve Mandanda.",
+        "Lasaana Diarra.",
+        "Rod Fanni.",
+        "Bafetimbi Gomis."
+      ],
+      "indexFausse": 1,
+      "id": 258,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2016/2017, l'OM comptait dans ses rangs :",
+      "affirmations": [
+        "Alexandre Lacazette.",
+        "Nabil Fekir.",
+        "Samuel Umtiti.",
+        "Mathieu Valbuena.",
+        "Maxime Gonalons."
+      ],
+      "indexFausse": 2,
+      "id": 259,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2014/2015, Le Real Madrid comptait dans ses rangs :",
+      "affirmations": [
+        "Sami Khedira.",
+        "Toni Kroos.",
+        "James Rodriguez.",
+        "Alvaro Morata.",
+        "Isco."
+      ],
+      "indexFausse": 3,
+      "id": 260,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2015/2016, Le FC Barcelone comptait dans ses rangs :",
+      "affirmations": [
+        "Iniesta.",
+        "Arda Turan.",
+        "Jeremy Mathieu.",
+        "Claudio Bravo.",
+        "Xavi."
+      ],
+      "indexFausse": 4,
+      "id": 261,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2015/2016, Manchester United comptait dans ses rangs :",
+      "affirmations": [
+        "David de Gea.",
+        "Paul Pogba.",
+        "Memphis Depay.",
+        "Antony Martial.",
+        "Bastian Schweinsteiger."
+      ],
+      "indexFausse": 1,
+      "id": 262,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2017/2018, Chelsea comptait dans ses rangs :",
+      "affirmations": [
+        "Diego Costa.",
+        "Pedro.",
+        "Cesc Fabregas.",
+        "Marco Alonzo.",
+        "David Luiz."
+      ],
+      "indexFausse": 0,
+      "id": 263,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2018/2019, Manchester city comptait dans ses rangs :",
+      "affirmations": [
+        "Ederson.",
+        "Aymeric Laporte.",
+        "Yaya Touré.",
+        "Ryad Mahrez.",
+        "Otamendi."
+      ],
+      "indexFausse": 2,
+      "id": 264,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2018/2019, Liverpool comptait dans ses rangs :",
+      "affirmations": [
+        "Alison Becker.",
+        "Shaqiri.",
+        "Coutinho.",
+        "Firminho.",
+        "Sturridge."
+      ],
+      "indexFausse": 2,
+      "id": 265,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2019-2020, le Bayern Munich comptait dans ses rangs :",
+      "affirmations": [
+        "Javi Martinez.",
+        "Lucas Hernandez.",
+        "Goretzka.",
+        "Thiago Alcantara.",
+        "Leroy Sané."
+      ],
+      "indexFausse": 4,
+      "id": 266,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2022-2023, L'Atletico de Madrid comptait dans ses rangs :",
+      "affirmations": [
+        "Witsel.",
+        "Nahuel Molina.",
+        "Kieran Trippier.",
+        "Yannick Carrasco.",
+        "Alvaro Morata."
+      ],
+      "indexFausse": 2,
+      "id": 267,
+      "themeId": 8
+    },
+    {
+      "question": "Lors de la saison 2020-2021, la Juventus comptait dans ses rangs :",
+      "affirmations": [
+        "Matthijs de Ligt.",
+        "Blaise Matuidi.",
+        "Henrique Arthur.",
+        "Aaron Ramsey.",
+        "Federico Chiesa."
+      ],
+      "indexFausse": 1,
+      "id": 268,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Michael Jordan est fausse ? :",
+      "affirmations": [
+        "Il a fini 6 fois MVP des finales NBA.",
+        "Il a fini 5 fois MVP de la saison régulière.",
+        "Il est deux fois champion olympique.",
+        "Il a fait toute sa carrière au Chicago Bulls.",
+        "Il a joué avec Denis Rodman."
+      ],
+      "indexFausse": 3,
+      "id": 269,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Shaquille O'Neal ? :",
+      "affirmations": [
+        "Il a fini sa carrière au Boston Celtics.",
+        "Il a été drafté par le Magic D'Orlando.",
+        "Il est 4 fois MVP des finales NBA.",
+        "Il n'a jamais gagné le trophée de DPOY : Defensive player of the year.",
+        "Il a joué avec Lebron James."
+      ],
+      "indexFausse": 2,
+      "id": 270,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Lebron James est fausse ? :",
+      "affirmations": [
+        "Il est allé 9 fois de suite en finale NBA.",
+        "Il est 3 fois champion olympique.",
+        "Il a fini 4 fois MVP de la saison régulière.",
+        "Il a fini 4 fois MVP des finales NBA.",
+        "Il a scoré plus de 40 000 points en saison régulière sur toute sa carrière."
+      ],
+      "indexFausse": 0,
+      "id": 271,
+      "themeId": 8
+    },
+    {
+      "question": "Quelle affirmation sur Stephen Curry est fausse ? :",
+      "affirmations": [
+        "Il est le premier MVP unanime de l'histoire.",
+        "Il est le meilleur scorer à 3 points de l'histoire NBA.",
+        "Il a été drafté par les Golden State Warriors.",
+        "Il est allé 6 fois en finale NBA.",
+        "Il porte le numéro 29."
+      ],
+      "indexFausse": 4,
+      "id": 272,
+      "themeId": 8
     }
   ]
 }
