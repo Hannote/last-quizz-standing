@@ -2404,10 +2404,10 @@ io.on("connection", (socket) => {
     let available = getUnusedQuestions(ENCHERES_QUESTIONS, "les_encheres");
     let pool = available.filter((q) => q.theme_id === selectedThemeId);
 
-    // Si plus de questions pour ce thème, on reset TOUT le jeu des enchères
+    // Si plus de questions pour ce th?me (ne devrait pas arriver gr?ce au gris?, mais s?curit?)
     if (pool.length === 0) {
-        resetGameHistory("les_encheres");
-        // Et on reprend le stock complet pour ce thème
+        // MODIFICATION : On NE reset PAS l'historique global ("les_encheres")
+        // On recharge simplement le stock complet pour CE th?me sp?cifique en urgence
         pool = ENCHERES_QUESTIONS.filter((q) => q.theme_id === selectedThemeId);
     }
 
@@ -2465,10 +2465,31 @@ io.on("connection", (socket) => {
     const room = rooms[roomCode];
     if (!room) return;
 
+    // --- MODIFICATION DÉBUT : Calcul du stock par thème ---
+    // On crée une liste temporaire qui contient l'info "outOfStock"
+    let themesWithStockInfo = ENCHERES_THEMES.map(theme => {
+      // On vérifie s'il reste des questions non jouées pour ce thème
+      const unusedForTheme = getUnusedQuestions(ENCHERES_QUESTIONS, "les_encheres")
+                             .filter(q => q.theme_id === theme.id);
+      return {
+        ...theme,
+        outOfStock: unusedForTheme.length === 0
+      };
+    });
+
+    // SÉCURITÉ : Si TOUS les thèmes sont vides, on reset tout pour ne pas bloquer le jeu
+    const allEmpty = themesWithStockInfo.every(t => t.outOfStock);
+    if (allEmpty) {
+      resetGameHistory("les_encheres");
+      // On remet tout le monde disponible
+      themesWithStockInfo.forEach(t => t.outOfStock = false);
+    }
+    // --- MODIFICATION FIN ---
+
     room.gameState.currentMiniGameState = {
       type: "les_encheres",
       subPhase: "theme_selection",
-      themesAvailable: ENCHERES_THEMES.slice(0, 3),
+      themesAvailable: themesWithStockInfo.slice(0, 3), // (Si tu utilises cette variable ailleurs)
       playerVotes: {},
       question: null,
       bids: [],
@@ -2482,7 +2503,7 @@ io.on("connection", (socket) => {
     };
 
     io.to(roomCode).emit("encheresSetup", {
-      themes: ENCHERES_THEMES
+      themes: themesWithStockInfo // On envoie la liste enrichie avec outOfStock
     });
 
     // TIMER SÉLECTION (30s) -> Si fin, on finalise automatiquement

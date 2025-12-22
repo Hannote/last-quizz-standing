@@ -7230,93 +7230,136 @@ socket.on("encheresSetup", (data) => {
       btn.dataset.themeId = theme.id;
 
 
-      btn.textContent = theme.nom || theme.name || "ThËme";
+      // --- MODIFICATION D?BUT : Gestion Rupture de Stock ---
 
 
-      if (isSpec) {
+      if (theme.outOfStock) {
 
 
-        btn.disabled = true;
+        // Cas : Rupture de stock -> Bouton bloqu? et gris?
 
 
-        btn.style.opacity = "0.5";
-
-
-        btn.style.cursor = "default";
-
-
-      } else if (myVoteId) {
+        btn.textContent = (theme.nom || theme.name || "Th?me") + " (Rupture de stock)";
 
 
         btn.disabled = true;
 
 
-        if (theme.id === myVoteId) {
+        // Style visuel "Interdit"
 
 
-          btn.classList.add("selected");
+        btn.style.opacity = "0.4";
 
 
-          btn.style.opacity = "1";
+        btn.style.backgroundColor = "#444";
 
 
-        } else {
+        btn.style.cursor = "not-allowed";
 
 
-          btn.style.opacity = "0.5";
+        btn.style.border = "1px solid #666";
 
 
-        }
+        btn.style.color = "#aaa";
 
 
       } else {
 
 
-        btn.onclick = () => {
+        // Cas : Normal
 
 
-          sfxEnchere.stop();
+        btn.textContent = theme.nom || theme.name || "Th?me";
 
 
-          sfxBubbleClick.play();
+        if (isSpec) {
 
 
-          socket.emit("encheresVoteTheme", theme.id);
+          btn.disabled = true;
 
 
-          btn.classList.add("selected");
+          btn.style.opacity = "0.5";
 
 
-          Array.from(list.children).forEach((sibling) => {
+          btn.style.cursor = "default";
 
 
-            sibling.disabled = true;
+        } else if (myVoteId) {
 
 
-            if (sibling !== btn) {
+          btn.disabled = true;
 
 
-              sibling.style.opacity = "0.5";
+          if (theme.id === myVoteId) {
 
 
-            }
+            btn.classList.add("selected");
 
 
-          });
+            btn.style.opacity = "1";
 
 
-        };
+          } else {
+
+
+            btn.style.opacity = "0.5";
+
+
+          }
+
+
+        } else {
+
+
+          btn.onclick = () => {
+
+
+            sfxEnchere.stop();
+
+
+            sfxBubbleClick.play();
+
+
+            socket.emit("encheresVoteTheme", theme.id);
+
+
+            btn.classList.add("selected");
+
+
+            Array.from(list.children).forEach((sibling) => {
+
+
+              sibling.disabled = true;
+
+
+              if (sibling !== btn) {
+
+
+                sibling.style.opacity = "0.5";
+
+
+              }
+
+
+            });
+
+
+          };
+
+
+        }
 
 
       }
+
+
+      // --- MODIFICATION FIN ---
 
 
       list.appendChild(btn);
 
 
     });
-
-
   }
 
 
