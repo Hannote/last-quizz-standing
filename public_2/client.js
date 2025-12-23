@@ -246,7 +246,7 @@ const sfxVictoire = new Howl({
 const sfx45s = new Howl({ src: ['sons/45s.mp3'], volume: 0.5 });
 
 
-const sfx2min = new Howl({ src: ['sons/2min.mp3'], volume: 0.5 });
+const sfx150s = new Howl({ src: ['sons/150s.mp3'], volume: 0.5 });
 
 
 const sfxEnchere = new Howl({ src: ['sons/enchere.mp3'], volume: 0.5 });
@@ -1516,7 +1516,7 @@ function lockFauxVraiButtons(selectedIndex) {
 function showFauxVraiQuestion(data) {
 
 
-  sfx40s.play(); // Remplacement : joue 40s
+  sfx45s.play(); // Remplacement : joue 45s
 
 
   if (mainDefault) mainDefault.classList.add("hidden");
@@ -3194,52 +3194,33 @@ socket.on("blindTestEnd", () => {
 
 
 socket.on("petitBacStart", (data) => {
-
-
   showMainZone("playing");
-
-
   hideAllMiniGames();
-
-
+  
   if (petitBacContainer) petitBacContainer.classList.remove("hidden");
-
-
   if (pbLetterDisplay) pbLetterDisplay.textContent = data.letter;
-
-
   setupPetitBacForm(data.categories);
 
+  // --- AJOUT : On force l'affichage à 150 (ou la durée reçue) tout de suite ---
+  if (pbTimerNumber && data.duration) {
+      pbTimerNumber.textContent = data.duration;
+  }
+  if (pbTimerFill) {
+      pbTimerFill.style.width = "100%";
+      pbTimerFill.style.background = "#ffcc00";
+  }
+  // --------------------------------------------------------------------------
 
   if (palierOverlay && palierOverlayText) {
-
-
     sfxTheme.play();
-
-
     palierOverlayText.textContent = "Lettre " + data.letter;
-
-
     palierOverlay.classList.remove("hidden");
-
-
     setTimeout(() => {
-
-
       palierOverlay.classList.add("hidden");
-
-
-      sfx2min.play(); // Relance le son longue durée après l'animation
-
-
+      sfx150s.play(); 
     }, 2000);
-
-
   }
-
-
 });
-
 
 socket.on("petitBacTimerUpdate", ({ remaining, total }) => {
 
@@ -3253,7 +3234,7 @@ socket.on("petitBacTimerUpdate", ({ remaining, total }) => {
   if (remaining <= 0) {
 
 
-    sfx2min.stop();
+    sfx150s.stop();
 
 
   }
@@ -3307,7 +3288,7 @@ socket.on("petitBacAnswerAck", () => {
 socket.on("petitBacEnd", () => {
 
 
-  sfx2min.stop();
+  sfx150s.stop();
 
 
   if (pbFeedback) {
@@ -3661,7 +3642,7 @@ if (pbValidateBtn) {
     if (pbValidateBtn.disabled) return;
 
 
-    sfx2min.stop();
+    sfx150s.stop();
 
 
     sfxBubbleClick.play();
@@ -6465,7 +6446,7 @@ socket.on("fauxVraiTimerUpdate", ({ remaining, total }) => {
   if (remaining <= 0) {
 
 
-    sfx40s.stop();
+    sfx45s.stop();
 
 
   }
@@ -6477,7 +6458,7 @@ socket.on("fauxVraiTimerUpdate", ({ remaining, total }) => {
 socket.on("fauxVraiReveal", ({ indexFausse, playerChoice, isLastQuestion }) => {
 
 
-  sfx40s.stop();
+  sfx45s.stop();
 
 
   const fb = document.getElementById("fauxVraiFeedback");

@@ -102,14 +102,19 @@ const TOUR_MONDE_QUESTIONS = leTourDuMondeData.questions || [];
 const TOUR_MONDE_THEMES = leTourDuMondeData.themes || [];
 const PETIT_BAC_CATEGORIES = [
   "Sportif en activité (hors foot)",
-  "Entraineur de foot",
+  "Entraineur de foot (connaître au moins un club qu'il a entraîné)",
   "Club de foot",
   "Acteur ou Actrice",
   "Dessin animé / Manga",
   "Jeu vidéo",
   "Métier",
   "Pays",
-  "Plat"
+  "Plat",
+  "Fruit ou légume",
+  "Animal",
+  "Joueur ayant gagné la ligue des champions",
+  "Chanteur / Groupe de musique",
+  "Ville de France"
 ];
 
 const quiSuisJeData = require(
@@ -203,7 +208,7 @@ const POSSIBLE_MINI_GAMES = [
   "les_encheres" // <--- AJOUT
 ];
 const LEUGTAS_TIMER_DURATION_SECONDS = 30;
-const FAUX_VRAI_TIMER_DURATION = 40;
+const FAUX_VRAI_TIMER_DURATION = 45;
 const LE_BON_ORDRE_DURATION = 45;
 
 // ===============================
@@ -1353,32 +1358,44 @@ function endQuiSuisJeQuestion(roomCode) {
 function startPetitBac(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
+
+  // --- SÉCURITÉ 1 : On tue le timer s'il tourne déjà ---
+  if (room.petitBacInterval) {
+      clearInterval(room.petitBacInterval);
+      room.petitBacInterval = null;
+  }
+
+  // --- SÉCURITÉ 2 : On annule tout démarrage en attente (Le CORRECTIF est ici) ---
+  if (room.petitBacStartTimeout) {
+      clearTimeout(room.petitBacStartTimeout);
+      room.petitBacStartTimeout = null;
+  }
+  // -----------------------------------------------------------------------------
+
   const gs = room.gameState;
   
-  // Gestion mémoire des lettres
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  // FILTRAGE DES LETTRES
+  const alphabet = "ABCDEFGHIJLMNOPRSTUV"; 
   const history = getPlayedHistory();
   const playedLetters = history["petit_bac"] || [];
-  
-  // On ne garde que les lettres jamais jouées
   let availableLetters = alphabet.split('').filter(l => !playedLetters.includes(l));
   
-  // Si toutes les lettres ont été jouées, on reset
   if (availableLetters.length === 0) {
       resetGameHistory("petit_bac");
       availableLetters = alphabet.split('');
   }
 
-  // Tirage au sort
   const letter = availableLetters[Math.floor(Math.random() * availableLetters.length)];
-  
-  // On enregistre la lettre comme jouée (on simule un objet {id: letter} pour notre fonction)
   markQuestionsAsPlayed([{id: letter}], "petit_bac");
+
+  const selectedCategories = PETIT_BAC_CATEGORIES
+    .sort(() => 0.5 - Math.random())
+    .slice(0, 9);
 
   gs.currentMiniGameState = {
     type: "petit_bac",
     letter,
-    categories: PETIT_BAC_CATEGORIES,
+    categories: selectedCategories,
     playerAnswers: {},
     finished: false,
     timer: null,
@@ -1391,11 +1408,12 @@ function startPetitBac(roomCode) {
 
   io.to(roomCode).emit("petitBacStart", {
     letter,
-    categories: PETIT_BAC_CATEGORIES,
-    duration: 120
+    categories: selectedCategories,
+    duration: 150
   });
 
-  setTimeout(() => {
+  // On stocke le timeout pour pouvoir l'annuler si la fonction est rappelée
+  room.petitBacStartTimeout = setTimeout(() => {
     startPetitBacTimer(room);
   }, 2500);
 }
@@ -1403,13 +1421,22 @@ function startPetitBac(roomCode) {
 function startPetitBacTimer(room) {
   const roomCode = room.roomCode;
   const mini = room.gameState.currentMiniGameState;
-  if (!mini) return;
+  
+  // Sécurité : si le jeu a changé ou n'existe plus
+  if (!mini || mini.type !== "petit_bac") return;
 
-  let remaining = 120;
-  mini.timer = { totalSeconds: 120, remainingSeconds: 120, running: true };
+  const DURATION = 150; 
+
+  let remaining = DURATION;
+  
+  mini.timer = { 
+    totalSeconds: DURATION, 
+    remainingSeconds: DURATION, 
+    running: true 
+  };
   mini.startTime = Date.now();
 
-  io.to(roomCode).emit("petitBacTimerUpdate", { remaining, total: 120 });
+  io.to(roomCode).emit("petitBacTimerUpdate", { remaining, total: DURATION });
 
   if (room.petitBacInterval) clearInterval(room.petitBacInterval);
 
@@ -1418,11 +1445,14 @@ function startPetitBacTimer(room) {
       clearInterval(room.petitBacInterval);
       return;
     }
+
     remaining--;
     mini.timer.remainingSeconds = remaining;
-    io.to(roomCode).emit("petitBacTimerUpdate", { remaining, total: 120 });
+
+    io.to(roomCode).emit("petitBacTimerUpdate", { remaining, total: DURATION });
 
     if (remaining <= 0) {
+      clearInterval(room.petitBacInterval);
       endPetitBacRound(roomCode);
     }
   }, 1000);
@@ -2507,7 +2537,7 @@ io.on("connection", (socket) => {
     });
 
     // TIMER SÉLECTION (30s) -> Si fin, on finalise automatiquement
-    startEncheresTimer(roomCode, 30, () => {
+    startEncheresTimer(roomCode, 60, () => {
       finalizeThemeSelection(room);
     });
   }
@@ -2518,20 +2548,28 @@ io.on("connection", (socket) => {
     const mini = room.gameState.currentMiniGameState;
     if (!mini) return;
 
-    let remaining = duration;
+    // MODIFICATION : On stocke tout dans l'objet mini pour pouvoir le modifier ailleurs
     mini.timer = { total: duration, remaining: duration, running: true };
 
     if (room.encheresInterval) clearInterval(room.encheresInterval);
 
     room.encheresInterval = setInterval(() => {
-      if (!mini.timer.running) {
+      // Sécurité si le timer n'existe plus
+      if (!mini.timer || !mini.timer.running) {
         clearInterval(room.encheresInterval);
         return;
       }
-      remaining--;
-      io.to(roomCode).emit("encheresTimerUpdate", { remaining, total: duration });
-      if (remaining <= 0) {
+
+      mini.timer.remaining--;
+
+      io.to(roomCode).emit("encheresTimerUpdate", { 
+        remaining: mini.timer.remaining, 
+        total: mini.timer.total 
+      });
+
+      if (mini.timer.remaining <= 0) {
         clearInterval(room.encheresInterval);
+        mini.timer.running = false;
         if (callback) callback();
       }
     }, 1000);
@@ -2549,10 +2587,10 @@ io.on("connection", (socket) => {
     io.to(roomCode).emit("encheresStartCollection", {
       activePlayerId: mini.activePlayerId,
       target: mini.currentMaxBid,
-      duration: 60
+      duration: 90
     });
 
-    startEncheresTimer(roomCode, 60, () => {
+    startEncheresTimer(roomCode, 90, () => {
       mini.subPhase = "correction";
       io.to(roomCode).emit("encheresStartCorrection", {
         answers: mini.answersGiven,
@@ -2617,6 +2655,16 @@ io.on("connection", (socket) => {
 
       mini.currentMaxBid = val;
       mini.currentBidder = socket.playerId;
+      
+      if (mini.timer && mini.timer.running && mini.timer.remaining <= 5) {
+          mini.timer.remaining += 10;
+          // On force une mise à jour immédiate pour le visuel client
+          io.to(socket.roomCode).emit("encheresTimerUpdate", { 
+            remaining: mini.timer.remaining, 
+            total: mini.timer.total 
+          });
+      }
+
 
       const bidData = {
         playerId: socket.playerId,
