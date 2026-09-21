@@ -245,6 +245,15 @@ Le mode Liste ne doit pas utiliser :
 - l’annonce des deux finalistes ;
 - la finale Battle Royale des Enchères.
 Le mode Liste doit recevoir un classement général cumulatif à la fin de chaque mini-jeu.
+
+## Direction artistique et identité sonore
+
+Le mode Liste doit conserver la direction artistique et l’identité sonore du Battle Royale existant. Cela comprend notamment l’image de fond, la palette de couleurs, les typographies, les cadres et cases des mini-jeux, les boutons, la barre de chronomètre, les animations d’interaction ainsi que les sons de clic, de validation et d’erreur.
+
+Les nouvelles interfaces doivent réutiliser les composants, styles et assets existants lorsqu’ils sont compatibles. Elles doivent paraître natives au jeu et non appartenir à une nouvelle application.
+
+Aucun remplacement ou retrait d’un asset visuel ou sonore existant ne doit être effectué sans autorisation. Les nouveaux styles nécessaires au mode Liste doivent rester isolés afin de ne pas modifier le rendu du Battle Royale.
+
 Interface mobile
 La majorité des joueurs utilisent un téléphone.
 Toute nouvelle interface doit être conçue en priorité pour une utilisation mobile en orientation portrait.
