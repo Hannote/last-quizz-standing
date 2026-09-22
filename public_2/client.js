@@ -465,6 +465,8 @@ const leaveRoomBtn = document.getElementById("leaveRoomBtn");
 
 
 const startGameBtn = document.getElementById("startGameBtn");
+const gameModeButtons = document.querySelectorAll("[data-game-mode]");
+const gameModeHint = document.getElementById("gameModeHint");
 
 
 const sandboxControls = document.getElementById("sandboxControls");
@@ -4363,6 +4365,8 @@ function updateGameStateUI(gs) {
 
 
   currentGameState = gs || currentGameState;
+  if (currentRoom && gs?.gameMode) currentRoom.gameMode = gs.gameMode;
+  updateGameModeUI();
 
 
   // Nettoyage de l'intro si la phase n'est plus "intro"
@@ -4981,6 +4985,29 @@ function updateReadyPlayersListUI() {
 }
 
 
+function updateGameModeUI() {
+  const isListe = currentRoom?.gameMode === "liste";
+  const isHost = currentRoom?.hostId === playerId;
+  const canChangeMode = isHost && currentGameState.phase === "idle";
+  body.classList.toggle("mode-liste", isListe);
+
+  gameModeButtons.forEach((button) => {
+    const selected = button.dataset.gameMode === currentRoom?.gameMode;
+    button.setAttribute("aria-pressed", String(selected));
+    button.classList.toggle("btn-primary", selected);
+    button.classList.toggle("btn-secondary", !selected);
+    button.disabled = !canChangeMode;
+  });
+  if (gameModeHint) {
+    gameModeHint.textContent = isListe
+      ? "Le mode Liste n'est pas encore disponible."
+      : "";
+  }
+  if (sandboxControls) {
+    sandboxControls.style.display = isHost && !isListe ? "block" : "none";
+  }
+}
+
 function updateRoomUI(room) {
 
 
@@ -5098,16 +5125,7 @@ function updateRoomUI(room) {
   }
 
 
-  if (sandboxControls) {
-
-
-    const isHost = room.hostId === myId;
-
-
-    sandboxControls.style.display = isHost ? "block" : "none";
-
-
-  }
+  updateGameModeUI();
 
 
   setRoomError("");
@@ -5421,6 +5439,15 @@ if (readyBtn) {
 
 // L'hÃ´te lance la partie
 
+
+gameModeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    if (currentRoom?.hostId !== playerId || currentGameState.phase !== "idle") return;
+    sfxBubbleClick.play();
+    setRoomError("");
+    socket.emit("hostSetGameMode", { gameMode: button.dataset.gameMode });
+  });
+});
 
 if (startGameBtn) {
 

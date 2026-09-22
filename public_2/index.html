@@ -120,6 +120,41 @@
         color: #ffcc00;
       }
 
+      /* Choix du mode : styles limités au nouveau contrôle du lobby. */
+      .room-mode-control {
+        min-width: 0;
+        margin-top: 12px;
+      }
+
+      .room-mode-options {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      .room-mode-options button {
+        min-width: 0;
+        min-height: 44px;
+        font-size: clamp(0.85rem, 3.5vw, 1rem);
+        overflow-wrap: anywhere;
+      }
+
+      .room-mode-options button:disabled {
+        cursor: default;
+        opacity: 1;
+      }
+
+      .room-mode-hint {
+        margin: 0;
+        font-size: 0.9rem;
+        overflow-wrap: anywhere;
+      }
+
+      body.mode-liste .room-mode-hint {
+        color: #ffcc00;
+      }
+
       .error {
         margin-top: 8px;
         color: #ff8a8a;
@@ -1515,6 +1550,15 @@
             Joueurs dans la salle :
           </div>
           <ul id="playersList"></ul>
+        </div>
+
+        <div class="room-mode-control" role="group" aria-labelledby="gameModeLabel" aria-describedby="gameModeHint">
+          <div id="gameModeLabel">Mode de jeu (choisi par l'hôte)</div>
+          <div class="room-mode-options">
+            <button type="button" class="btn-secondary" data-game-mode="battle_royale" aria-pressed="false" disabled>Battle Royale</button>
+            <button type="button" class="btn-secondary" data-game-mode="liste" aria-pressed="false" disabled>Liste</button>
+          </div>
+          <p id="gameModeHint" class="room-mode-hint" role="status"></p>
         </div>
 
         <!-- État de la partie -->

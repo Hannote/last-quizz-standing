@@ -234,6 +234,7 @@ function createInitialGameState() {
 function getGameStateSummary(room) {
   const gs = room.gameState || createInitialGameState();
   return {
+    gameMode: room.gameMode,
     phase: gs.phase,
     roundNumber: gs.roundNumber,
     currentMiniGame: gs.currentMiniGame,
@@ -760,6 +761,7 @@ function generateRoomCode() {
 function serializeRoom(room) {
   return {
     roomCode: room.roomCode,
+    gameMode: room.gameMode,
     hostId: room.hostId,
     players: room.players.map((p) => ({
       playerId: p.playerId,
@@ -1499,6 +1501,7 @@ io.on("connection", (socket) => {
     const roomCode = generateRoomCode();
     const room = {
       roomCode,
+      gameMode: "battle_royale",
       hostId: playerId,
       players: [],
       gameState: createInitialGameState(),
@@ -1593,6 +1596,29 @@ io.on("connection", (socket) => {
   });
 
   // -----------------------------------
+  //         HOST SET GAME MODE (LOBBY)
+  // -----------------------------------
+  socket.on("hostSetGameMode", (data) => {
+    const room = rooms[socket.roomCode];
+    if (!room) return;
+
+    const host = room.players.find((p) => p.playerId === room.hostId);
+    if (room.hostId !== socket.playerId || host?.socketId !== socket.id) {
+      return socket.emit("errorMessage", "Seul l'hôte peut modifier le mode de jeu.");
+    }
+    if (room.gameState?.phase !== "idle") {
+      return socket.emit("errorMessage", "Le mode ne peut plus être modifié après le lancement.");
+    }
+    if (data?.gameMode !== "battle_royale" && data?.gameMode !== "liste") {
+      return socket.emit("errorMessage", "Mode de jeu invalide.");
+    }
+
+    room.gameMode = data.gameMode;
+    io.to(room.roomCode).emit("roomUpdate", serializeRoom(room));
+    io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+  });
+
+  // -----------------------------------
   //         HOST START GAME
   // -----------------------------------
   socket.on("hostStartGame", (data) => {
@@ -1604,7 +1630,12 @@ io.on("connection", (socket) => {
     const room = rooms[roomCode];
     if (!room || room.hostId !== playerId) return;
 
+    if (room.gameMode === "liste") {
+      return socket.emit("errorMessage", "Le mode Liste n'est pas encore disponible. Choisissez Battle Royale pour lancer une partie.");
+    }
+
     const gs = room.gameState;
+    if (gs.phase !== "idle") return;
     const activePlayers = room.players.filter((p) => !p.eliminated);
 
     // Vérification du nombre de joueurs (min 3 sauf si forcé)
@@ -1627,6 +1658,9 @@ io.on("connection", (socket) => {
     const INTRO_DURATION_MS = 32500; 
 
     setTimeout(() => {
+        if (rooms[roomCode] !== room || room.gameState !== gs ||
+            room.gameMode !== "battle_royale" || gs.phase !== "intro" || gs.roundNumber !== 1) return;
+
         const forcedMiniGame = POSSIBLE_MINI_GAMES.includes(data?.forcedMiniGame)
           ? data.forcedMiniGame
           : null;
