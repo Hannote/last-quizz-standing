@@ -1,9 +1,9 @@
 # Mode Liste — plan validé et règles de reprise
 
-- État actuel : étape 1 implémentée, testée et validée.
-- Code fonctionnel modifié : étape 1 sauvegardée dans le commit `286eb9f`.
-- Étape 2 : non commencée.
-- Prochaine action : attendre une autorisation explicite avant de commencer l’étape 2.
+- État actuel : étapes 1 et 2 implémentées, testées, validées et poussées.
+- Commits : étape 1 — `286eb9f` ; étape 2 — `1513a7b`.
+- Étape 3 : non commencée.
+- Prochaine action : étape 3, à ne pas commencer sans autorisation explicite.
 - Aucun commit ni push sans autorisation.
 
 La demande de cette session porte uniquement sur la mise à jour de cet état d’avancement. La consigne actuelle « Aucun commit ni push sans autorisation » prévaut sur l’autorisation générale de commits mentionnée dans les échanges antérieurs recopiés ci-dessous. Les points Git du plan sont des propositions, pas des commandes à exécuter automatiquement.
