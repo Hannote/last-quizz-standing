@@ -155,6 +155,79 @@
         color: #ffcc00;
       }
 
+      .liste-config-panel {
+        min-width: 0;
+        margin-top: 12px;
+        padding: clamp(8px, 3vw, 14px);
+        border: 1px solid #444;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .liste-config-panel h2 {
+        margin: 0 0 12px;
+        font-size: clamp(1rem, 4vw, 1.15rem);
+        color: #ffcc00;
+      }
+
+      .liste-config-panel select {
+        width: 100%;
+        min-width: 0;
+        min-height: 44px;
+        margin-bottom: 12px;
+        padding: 8px;
+        border: 1px solid #444;
+        border-radius: 8px;
+        background: #222;
+        color: #f5f5f5;
+        font: inherit;
+        font-size: 1rem;
+      }
+
+      .liste-config-panel fieldset {
+        min-width: 0;
+        margin: 0 0 12px;
+        padding: 8px;
+        border: 1px solid #444;
+        border-radius: 8px;
+      }
+
+      .liste-game-choices {
+        max-height: clamp(140px, 30vh, 260px);
+        overflow-y: auto;
+      }
+
+      .liste-game-choice {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 44px;
+        padding: 6px 0;
+        overflow-wrap: anywhere;
+      }
+
+      .liste-game-choice input {
+        flex: 0 0 20px;
+        width: 20px;
+        height: 20px;
+        margin: 0;
+        accent-color: #ffcc00;
+      }
+
+      .liste-config-panel p {
+        margin: 8px 0;
+        font-size: 0.9rem;
+        overflow-wrap: anywhere;
+      }
+
+      .liste-config-panel button { min-height: 44px; }
+      .liste-config-panel button:disabled { opacity: 0.5; cursor: default; }
+      .liste-config-panel select:disabled { opacity: 1; }
+      body.mode-liste .container { padding-top: 80px; }
+      body.mode-liste #playersList { max-height: 25vh; overflow-y: auto; }
+      body.mode-liste #playersList .player-name { min-width: 0; overflow-wrap: anywhere; }
+      body.mode-liste #playersList .player-status { flex-shrink: 0; }
+
       .error {
         margin-top: 8px;
         color: #ff8a8a;
@@ -1560,6 +1633,28 @@
           </div>
           <p id="gameModeHint" class="room-mode-hint" role="status"></p>
         </div>
+
+        <form id="listeConfigForm" class="liste-config-panel hidden" aria-labelledby="listeConfigTitle">
+          <h2 id="listeConfigTitle">Configuration Liste</h2>
+          <label for="listeGameCount">Nombre de mini-jeux</label>
+          <select id="listeGameCount" disabled>
+            <option value="">Choisir le nombre de mini-jeux</option>
+          </select>
+          <label for="listeSelectionMethod">Méthode de sélection</label>
+          <select id="listeSelectionMethod" disabled>
+            <option value="">Choisir une méthode</option>
+            <option value="random">Aléatoire</option>
+            <option value="manual">Manuel</option>
+          </select>
+          <fieldset id="listeManualOptions" class="hidden">
+            <legend>Mini-jeux à sélectionner</legend>
+            <p id="listeSelectionCount" role="status"></p>
+            <div id="listeGameChoices" class="liste-game-choices"></div>
+          </fieldset>
+          <p>L'ordre des mini-jeux sera tiré au sort au lancement du tournoi.</p>
+          <button id="listeConfigSubmit" type="submit" class="btn-primary" disabled>Valider la configuration</button>
+          <p id="listeConfigStatus" role="status">Aucune configuration validée.</p>
+        </form>
 
         <!-- État de la partie -->
         <div style="margin-top: 12px">

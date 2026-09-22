@@ -211,6 +211,58 @@ const LEUGTAS_TIMER_DURATION_SECONDS = 30;
 const FAUX_VRAI_TIMER_DURATION = 45;
 const LE_BON_ORDRE_DURATION = 45;
 
+// Catalogue Liste indépendant du tirage et du bac à sable Battle Royale.
+const MINI_GAME_CATALOG = [
+  { id: "qui_suis_je", label: "Qui suis-je ?", modes: ["battle_royale", "liste"] },
+  { id: "blind_test", label: "Blind test", modes: ["battle_royale", "liste"] },
+  { id: "le_tour_du_monde", label: "Le tour du monde", modes: ["battle_royale", "liste"] },
+  { id: "le_bon_ordre", label: "Le bon ordre", modes: ["battle_royale", "liste"] },
+  { id: "petit_bac", label: "Le petit bac", modes: ["battle_royale", "liste"] },
+  { id: "qui_veut_gagner_des_leugtas", label: "Qui veut gagner des leugtas ?", modes: ["battle_royale", "liste"] },
+  { id: "le_faux_du_vrai", label: "Le faux du vrai", modes: ["battle_royale", "liste"] },
+  { id: "les_encheres", label: "Les Enchères", modes: ["battle_royale"] }
+];
+
+function getListeOptions() {
+  const miniGames = MINI_GAME_CATALOG.filter((game) => game.modes.includes("liste"));
+  return { minGames: 1, maxGames: miniGames.length, miniGames };
+}
+
+function validateListeConfig(data) {
+  const { minGames, maxGames, miniGames } = getListeOptions();
+  if (!Number.isInteger(data?.gameCount) || data.gameCount < minGames || data.gameCount > maxGames) {
+    return { error: `Choisissez un nombre entier de mini-jeux entre ${minGames} et ${maxGames}.` };
+  }
+  if (data.selectionMethod !== "random" && data.selectionMethod !== "manual") {
+    return { error: "Choisissez la méthode Aléatoire ou Manuel." };
+  }
+  const selected = data.selectedMiniGames;
+  if (!Array.isArray(selected)) {
+    return { error: "La sélection de mini-jeux doit être une liste." };
+  }
+  const compatibleIds = new Set(miniGames.map((game) => game.id));
+  if (selected.some((id) => !compatibleIds.has(id))) {
+    return { error: "La sélection contient un mini-jeu inconnu ou incompatible avec Liste." };
+  }
+  if (new Set(selected).size !== selected.length) {
+    return { error: "Un mini-jeu ne peut être sélectionné qu'une seule fois." };
+  }
+  if (data.selectionMethod === "random" && selected.length !== 0) {
+    return { error: "En mode Aléatoire, ne fournissez aucune sélection manuelle." };
+  }
+  if (data.selectionMethod === "manual" && selected.length !== data.gameCount) {
+    return { error: `Sélectionnez exactement ${data.gameCount} mini-jeux.` };
+  }
+  return {
+    config: {
+      gameCount: data.gameCount,
+      selectionMethod: data.selectionMethod,
+      // Ordre du catalogue uniquement : le client ne définit pas l'ordre de passage.
+      selectedMiniGames: miniGames.filter((game) => selected.includes(game.id)).map((game) => game.id)
+    }
+  };
+}
+
 // ===============================
 //      GAME STATE HELPERS
 // ===============================
@@ -762,6 +814,12 @@ function serializeRoom(room) {
   return {
     roomCode: room.roomCode,
     gameMode: room.gameMode,
+    listeOptions: getListeOptions(),
+    listeConfig: {
+      ...room.listeConfig,
+      selectedMiniGames: [...room.listeConfig.selectedMiniGames],
+      isValid: !validateListeConfig(room.listeConfig).error
+    },
     hostId: room.hostId,
     players: room.players.map((p) => ({
       playerId: p.playerId,
@@ -1502,6 +1560,7 @@ io.on("connection", (socket) => {
     const room = {
       roomCode,
       gameMode: "battle_royale",
+      listeConfig: { gameCount: null, selectionMethod: null, selectedMiniGames: [] },
       hostId: playerId,
       players: [],
       gameState: createInitialGameState(),
@@ -1616,6 +1675,31 @@ io.on("connection", (socket) => {
     room.gameMode = data.gameMode;
     io.to(room.roomCode).emit("roomUpdate", serializeRoom(room));
     io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+  });
+
+  // -----------------------------------
+  //         HOST VALIDATE LISTE CONFIG (LOBBY)
+  // -----------------------------------
+  socket.on("hostValidateListeConfig", (data) => {
+    const reject = (message) => socket.emit("listeConfigResult", { gameMode: "liste", roomCode: socket.roomCode, ok: false, message });
+    const room = rooms[socket.roomCode];
+    if (!room) return reject("La salle n'existe plus. Rejoignez une salle.");
+    const host = room.players.find((p) => p.playerId === room.hostId);
+    if (room.hostId !== socket.playerId || host?.socketId !== socket.id) {
+      return reject("Seul l'hôte connecté peut modifier la configuration Liste.");
+    }
+    if (room.gameState?.phase !== "idle") {
+      return reject("La configuration ne peut plus être modifiée après le lancement.");
+    }
+    if (room.gameMode !== "liste") {
+      return reject("Sélectionnez le mode Liste avant de le configurer.");
+    }
+    const result = validateListeConfig(data);
+    if (result.error) return reject(result.error);
+
+    room.listeConfig = result.config;
+    io.to(room.roomCode).emit("roomUpdate", serializeRoom(room));
+    socket.emit("listeConfigResult", { gameMode: "liste", roomCode: room.roomCode, ok: true, message: "Configuration Liste validée." });
   });
 
   // -----------------------------------

@@ -467,6 +467,16 @@ const leaveRoomBtn = document.getElementById("leaveRoomBtn");
 const startGameBtn = document.getElementById("startGameBtn");
 const gameModeButtons = document.querySelectorAll("[data-game-mode]");
 const gameModeHint = document.getElementById("gameModeHint");
+const listeConfigForm = document.getElementById("listeConfigForm");
+const listeGameCount = document.getElementById("listeGameCount");
+const listeSelectionMethod = document.getElementById("listeSelectionMethod");
+const listeManualOptions = document.getElementById("listeManualOptions");
+const listeGameChoices = document.getElementById("listeGameChoices");
+const listeSelectionCount = document.getElementById("listeSelectionCount");
+const listeConfigStatus = document.getElementById("listeConfigStatus");
+const listeConfigSubmit = document.getElementById("listeConfigSubmit");
+let listeConfigKey = null;
+let listeConfigDirty = false;
 
 
 const sandboxControls = document.getElementById("sandboxControls");
@@ -4985,6 +4995,84 @@ function updateReadyPlayersListUI() {
 }
 
 
+function readListeConfigForm() {
+  return {
+    gameCount: listeGameCount.value === "" ? null : Number(listeGameCount.value),
+    selectionMethod: listeSelectionMethod.value || null,
+    selectedMiniGames: listeSelectionMethod.value === "manual"
+      ? Array.from(listeGameChoices.querySelectorAll("input:checked"), (input) => input.value)
+      : []
+  };
+}
+
+function canEditListeConfig() {
+  return socket.connected && currentRoom?.gameMode === "liste" &&
+    currentRoom.hostId === playerId && currentGameState.phase === "idle";
+}
+
+function updateListeConfigControls() {
+  const draft = readListeConfigForm();
+  const options = currentRoom?.listeOptions;
+  const canEdit = canEditListeConfig();
+  const manual = draft.selectionMethod === "manual";
+  const validCount = Number.isInteger(draft.gameCount) && options &&
+    draft.gameCount >= options.minGames && draft.gameCount <= options.maxGames;
+  const complete = validCount && (draft.selectionMethod === "random" ||
+    (manual && draft.selectedMiniGames.length === draft.gameCount));
+
+  listeGameCount.disabled = !canEdit;
+  listeSelectionMethod.disabled = !canEdit;
+  listeManualOptions.classList.toggle("hidden", !manual);
+  listeGameChoices.querySelectorAll("input").forEach((input) => {
+    input.disabled = !canEdit || !validCount ||
+      (!input.checked && draft.selectedMiniGames.length >= draft.gameCount);
+  });
+  const selectedCount = draft.selectedMiniGames.length;
+  listeSelectionCount.textContent = `${selectedCount} ${selectedCount === 1 ? "jeu sélectionné" : "jeux sélectionnés"} sur ${draft.gameCount ?? "—"}`;
+  listeConfigSubmit.hidden = currentRoom?.hostId !== playerId;
+  listeConfigSubmit.disabled = !canEdit || !complete;
+}
+
+function updateListeConfigUI() {
+  const visible = currentRoom?.gameMode === "liste";
+  listeConfigForm.classList.toggle("hidden", !visible);
+  if (!visible) {
+    listeConfigKey = null;
+    return;
+  }
+  const { listeOptions: options, listeConfig: config } = currentRoom;
+  if (!options || !config) return;
+  // Une arrivée/déconnexion d'invité ne doit pas effacer les choix en cours de l'hôte.
+  const key = JSON.stringify([currentRoom.roomCode, currentRoom.hostId, options, config]);
+  if (key !== listeConfigKey) {
+    listeConfigKey = key;
+    listeConfigDirty = false;
+    listeGameCount.replaceChildren(new Option("Choisir le nombre de mini-jeux", ""));
+    for (let count = options.minGames; count <= options.maxGames; count++) {
+      listeGameCount.add(new Option(String(count), String(count)));
+    }
+    listeGameCount.value = config.gameCount === null ? "" : String(config.gameCount);
+    listeSelectionMethod.value = config.selectionMethod || "";
+    listeGameChoices.replaceChildren();
+    options.miniGames.forEach((game) => {
+      const label = document.createElement("label");
+      label.className = "liste-game-choice";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.value = game.id;
+      input.checked = config.selectedMiniGames.includes(game.id);
+      const text = document.createElement("span");
+      text.textContent = game.label;
+      label.append(input, text);
+      listeGameChoices.appendChild(label);
+    });
+    listeConfigStatus.textContent = config.isValid
+      ? "Configuration validée par l'hôte."
+      : "Aucune configuration validée. L'hôte doit choisir un nombre et une méthode.";
+  }
+  updateListeConfigControls();
+}
+
 function updateGameModeUI() {
   const isListe = currentRoom?.gameMode === "liste";
   const isHost = currentRoom?.hostId === playerId;
@@ -5006,6 +5094,7 @@ function updateGameModeUI() {
   if (sandboxControls) {
     sandboxControls.style.display = isHost && !isListe ? "block" : "none";
   }
+  updateListeConfigUI();
 }
 
 function updateRoomUI(room) {
@@ -5440,6 +5529,46 @@ if (readyBtn) {
 // L'hÃ´te lance la partie
 
 
+listeConfigForm.addEventListener("change", (event) => {
+  if (!canEditListeConfig()) return;
+  sfxBubbleClick.play();
+  // Si le nombre diminue, demander une nouvelle sélection, sans choisir à la place de l'hôte.
+  if (event.target === listeGameCount &&
+      listeGameChoices.querySelectorAll("input:checked").length > Number(listeGameCount.value)) {
+    listeGameChoices.querySelectorAll("input").forEach((input) => { input.checked = false; });
+  }
+  if (event.target === listeSelectionMethod && listeSelectionMethod.value !== "manual") {
+    listeGameChoices.querySelectorAll("input").forEach((input) => { input.checked = false; });
+  }
+  listeConfigDirty = true;
+  listeConfigStatus.textContent = "Choix en cours, non validés. Complétez puis validez la configuration.";
+  updateListeConfigControls();
+});
+
+listeConfigForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!canEditListeConfig() || listeConfigSubmit.disabled) return;
+  sfxBubbleClick.play();
+  socket.emit("hostValidateListeConfig", readListeConfigForm());
+});
+
+socket.on("listeConfigResult", (result) => {
+  if (currentRoom?.gameMode !== "liste" || result.roomCode !== currentRoom.roomCode) return;
+  if (result.ok) {
+    listeConfigKey = null;
+    updateListeConfigUI();
+    sfxReady.play();
+  }
+  listeConfigStatus.textContent = result.message;
+});
+
+socket.on("disconnect", () => {
+  updateListeConfigControls();
+  if (listeConfigDirty && currentRoom?.gameMode === "liste") {
+    listeConfigStatus.textContent = "Connexion interrompue. Les choix non validés ne sont pas sauvegardés.";
+  }
+});
+
 gameModeButtons.forEach((button) => {
   button.addEventListener("click", () => {
     if (currentRoom?.hostId !== playerId || currentGameState.phase !== "idle") return;
@@ -5723,6 +5852,7 @@ socket.on("leugtasQuestion", (data) => {
 
 
 socket.on("roomJoined", (roomData) => {
+  listeConfigKey = null; // La reconnexion restaure toujours la configuration serveur.
 
 
   console.log("Rejoint la salle :", roomData.roomCode);
