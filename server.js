@@ -7,6 +7,14 @@ const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
+const {
+  calculateGradeRevision,
+  getQuestionResponseTime,
+  rankTournamentPlayers,
+  recordQuestionResponseTime,
+  settleListeRound,
+  validateManualGrade
+} = require("./liste-tournament");
 
 // ============================================================
 //   SYSTÈME DE MÉMOIRE (PERSISTENCE DES QUESTIONS JOUÉES)
@@ -301,14 +309,89 @@ function isActiveMiniGamePlayer(room, player) {
     : !player.eliminated && !player.isSpectator;
 }
 
+function createListeTournamentState() {
+  return {
+    started: false,
+    initialParticipantIds: [],
+    initialParticipantCount: 0,
+    roundResults: []
+  };
+}
+
+function initializePlayerTournamentStats(player) {
+  player.tournamentPoints = 0;
+  player.tournamentTime = 0;
+  player.tournamentPlacements = [];
+}
+
+function ensurePlayerTournamentStats(player) {
+  if (!Number.isFinite(player.tournamentPoints)) player.tournamentPoints = 0;
+  if (!Number.isFinite(player.tournamentTime)) player.tournamentTime = 0;
+  if (!Array.isArray(player.tournamentPlacements)) player.tournamentPlacements = [];
+}
+
+function getListeGeneralRanking(room) {
+  if (!room.listeTournament.started) return [];
+  const initialIds = new Set(room.listeTournament.initialParticipantIds);
+  return rankTournamentPlayers(room.players.filter((player) =>
+    initialIds.has(player.playerId) && !player.isSpectator));
+}
+
+// Prépare et fige le résultat d'une manche. Son appel dans le déroulement Liste
+// restera du ressort de l'étape 5, avant toute remise à zéro des stats de manche.
+function finalizeListeMiniGameResult(room, roundKey) {
+  if (room.gameMode !== "liste" || !room.listeTournament.started) {
+    return { error: "Aucun tournoi Liste n'est actif." };
+  }
+  const gs = room.gameState;
+  if (!gs?.currentMiniGame || !Number.isInteger(gs.roundNumber) || gs.roundNumber < 1) {
+    return { error: "La manche Liste à finaliser est invalide." };
+  }
+
+  const initialIds = new Set(room.listeTournament.initialParticipantIds);
+  const participants = room.players.filter((player) => initialIds.has(player.playerId));
+  participants.forEach(ensurePlayerTournamentStats);
+  const settlement = settleListeRound({
+    roundKey,
+    roundNumber: gs.roundNumber,
+    miniGame: gs.currentMiniGame,
+    initialParticipantCount: room.listeTournament.initialParticipantCount,
+    players: participants,
+    previousRoundResults: room.listeTournament.roundResults
+  });
+
+  if (!settlement.applied) return settlement;
+  const updatesById = new Map(settlement.playerUpdates.map((update) => [update.playerId, update]));
+  participants.forEach((player) => {
+    const update = updatesById.get(player.playerId);
+    if (!update) return;
+    player.tournamentPoints = update.tournamentPoints;
+    player.tournamentTime = update.tournamentTime;
+    player.tournamentPlacements = update.tournamentPlacements;
+  });
+  room.listeTournament.roundResults.push(settlement.roundResult);
+  return { ...settlement, generalRanking: getListeGeneralRanking(room) };
+}
+
+function rememberManualResponseTime(mini, playerId, timeTaken) {
+  mini.responseTimesByQuestion = recordQuestionResponseTime(
+    mini.responseTimesByQuestion,
+    mini.questionIndex || 0,
+    playerId,
+    timeTaken
+  );
+}
+
 function initializeListeParticipants(room) {
   if (room.gameMode !== "liste" || room.listeTournament.started) return false;
   const ids = room.players.filter((p) => p.isConnected && isListeParticipant(room, p)).map((p) => p.playerId);
   if (ids.length === 0) return false;
+  room.players.filter((player) => ids.includes(player.playerId)).forEach(initializePlayerTournamentStats);
   room.listeTournament = {
     started: true,
     initialParticipantIds: [...new Set(ids)],
-    initialParticipantCount: new Set(ids).size
+    initialParticipantCount: new Set(ids).size,
+    roundResults: []
   };
   ensureListeHost(room);
   return true;
@@ -560,7 +643,7 @@ function revealFauxVrai(roomCode) {
   const maxDuration = FAUX_VRAI_TIMER_DURATION;
 
   room.players.forEach((player) => {
-    if (player.eliminated || player.isSpectator) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
 
     const socketId = player.socketId;
     const answerIndex = game.answers[socketId];
@@ -796,8 +879,9 @@ async function endLeugtasQuestion(roomCode, mini) {
   mini.playerAnswers = mini.playerAnswers || {};
   const answeredIds = new Set(Object.keys(mini.playerAnswers));
 
-  // On attribue "Faux" à ceux qui n'ont pas répondu
+  // En Liste, seuls les participants encore actifs reçoivent la pénalité d'absence.
   room.players.forEach((player) => {
+    if (room.gameMode === "liste" && !isListeParticipant(room, player)) return;
     // Si pas de réponse, on force une entrée incorrecte
     if (!answeredIds.has(player.playerId)) {
       mini.playerAnswers[player.playerId] = {
@@ -892,13 +976,19 @@ function generateRoomCode() {
 }
 
 function serializeRoom(room) {
+  const roundResults = room.listeTournament.roundResults || [];
   return {
     roomCode: room.roomCode,
     gameMode: room.gameMode,
     listeOptions: getListeOptions(),
     listeTournament: {
       ...room.listeTournament,
-      initialParticipantIds: [...room.listeTournament.initialParticipantIds]
+      initialParticipantIds: [...room.listeTournament.initialParticipantIds],
+      roundResults: roundResults.map((result) => ({
+        ...result,
+        placements: result.placements.map((placement) => ({ ...placement }))
+      })),
+      generalRanking: getListeGeneralRanking(room)
     },
     listeConfig: {
       ...room.listeConfig,
@@ -912,7 +1002,10 @@ function serializeRoom(room) {
       isConnected: p.isConnected,
       eliminated: p.eliminated,
       withdrawn: p.withdrawn,
-      isSpectator: p.isSpectator
+      isSpectator: p.isSpectator,
+      tournamentPoints: p.tournamentPoints || 0,
+      tournamentTime: p.tournamentTime || 0,
+      tournamentPlacements: (p.tournamentPlacements || []).map((placement) => ({ ...placement }))
     }))
   };
 }
@@ -1656,7 +1749,7 @@ io.on("connection", (socket) => {
       roomCode,
       gameMode: "battle_royale",
       listeConfig: { gameCount: null, selectionMethod: null, selectedMiniGames: [] },
-      listeTournament: { started: false, initialParticipantIds: [], initialParticipantCount: 0 },
+      listeTournament: createListeTournamentState(),
       hostId: playerId,
       players: [],
       gameState: createInitialGameState(),
@@ -1678,6 +1771,9 @@ io.on("connection", (socket) => {
       roundScore: 0,      // Score du mini-jeu en cours (Pour l'élimination)
       totalTime: 0,       // Temps cumulé global (Départage)
       roundTime: 0,       // Temps cumulé sur le mini-jeu en cours
+      tournamentPoints: 0,
+      tournamentTime: 0,
+      tournamentPlacements: [],
       // -------------------------------------
     };
 
@@ -1724,6 +1820,7 @@ io.on("connection", (socket) => {
       player.id = socket.id;
       player.isConnected = true;
       player.pseudo = pseudo;
+      ensurePlayerTournamentStats(player);
     } else {
       player = {
         playerId,
@@ -1740,6 +1837,9 @@ io.on("connection", (socket) => {
         roundScore: 0,      // Score du mini-jeu en cours (Pour l'élimination)
         totalTime: 0,       // Temps cumulé global (Départage)
         roundTime: 0,       // Temps cumulé sur le mini-jeu en cours
+        tournamentPoints: 0,
+        tournamentTime: 0,
+        tournamentPlacements: [],
         // -------------------------------------
       };
       room.players.push(player);
@@ -2179,6 +2279,7 @@ io.on("connection", (socket) => {
       if (!mini.responseTimes) mini.responseTimes = {};
       const timeTaken = (Date.now() - (mini.startTime || Date.now())) / 1000;
       mini.responseTimes[socket.playerId] = timeTaken;
+      rememberManualResponseTime(mini, socket.playerId, timeTaken);
 
       mini.playerAnswers[socket.playerId] = answer;
       socket.emit("quiSuisJeAnswerAck");
@@ -2381,6 +2482,7 @@ io.on("connection", (socket) => {
       if (!mini.responseTimes) mini.responseTimes = {};
       const timeTaken = (Date.now() - (mini.startTime || Date.now())) / 1000;
       mini.responseTimes[socket.playerId] = timeTaken;
+      rememberManualResponseTime(mini, socket.playerId, timeTaken);
 
       mini.playerAnswers[socket.playerId] = answer;
       socket.emit("leBonOrdreAnswerAck");
@@ -2415,6 +2517,7 @@ io.on("connection", (socket) => {
       if (!mini.responseTimes) mini.responseTimes = {};
       const timeTaken = (Date.now() - (mini.startTime || Date.now())) / 1000;
       mini.responseTimes[socket.playerId] = timeTaken;
+      rememberManualResponseTime(mini, socket.playerId, timeTaken);
 
       mini.playerAnswers[socket.playerId] = answer;
       socket.emit("leTourDuMondeAnswerAck");
@@ -2449,6 +2552,7 @@ io.on("connection", (socket) => {
       if (!mini.responseTimes) mini.responseTimes = {};
       const timeTaken = (Date.now() - (mini.startTime || Date.now())) / 1000;
       mini.responseTimes[socket.playerId] = timeTaken;
+      rememberManualResponseTime(mini, socket.playerId, timeTaken);
 
       mini.playerAnswers[socket.playerId] = answer;
       socket.emit("blindTestAnswerAck");
@@ -2479,6 +2583,7 @@ io.on("connection", (socket) => {
     if (!mini.responseTimes) mini.responseTimes = {};
     const timeTaken = (Date.now() - (mini.startTime || Date.now())) / 1000;
     mini.responseTimes[socket.playerId] = timeTaken;
+    rememberManualResponseTime(mini, socket.playerId, timeTaken);
     mini.playerAnswers[socket.playerId] = answers;
     mini.history[socket.playerId] = { 0: answers };
     socket.emit("petitBacAnswerAck");
@@ -2518,21 +2623,33 @@ io.on("connection", (socket) => {
 
   socket.on("hostGradePlayer", function (data = {}) {
     const { points, details } = data;
-    const soundVal =
-      typeof data === "object" && data !== null ? data.soundValue : null;
-    if (soundVal !== undefined && soundVal !== null) {
-      io.to(socket.roomCode).emit("playGradeSound", soundVal);
-    }
     const roomCode = socket.roomCode;
     const room = rooms[roomCode];
-    if (!room || room.hostId !== socket.playerId) return;
+    const host = room?.players.find((candidate) => candidate.playerId === room.hostId);
+    if (!room || room.hostId !== socket.playerId || host?.socketId !== socket.id) return;
 
     const gs = room.gameState;
     const mini = gs.currentMiniGameState;
     if (!mini || !room.activePlayersList) return;
 
     const player = room.activePlayersList[mini.gradingPlayerIndex];
+    if (!player) return;
     if (room.gameMode === "liste" && !isListeParticipant(room, player)) return;
+
+    const grade = validateManualGrade({
+      miniGameType: mini.type,
+      points,
+      details,
+      categoryCount: mini.categories?.length || 0
+    });
+    if (grade.error) return socket.emit("errorMessage", grade.error);
+    const soundVal = data.soundValue;
+    if (soundVal !== undefined && soundVal !== null) {
+      if (![0, 0.5, 1].includes(soundVal)) {
+        return socket.emit("errorMessage", "La valeur sonore de correction est invalide.");
+      }
+      io.to(roomCode).emit("playGradeSound", soundVal);
+    }
 
     if (!mini.scoresGiven) mini.scoresGiven = {};
     if (!mini.scoresGiven[mini.correctionIndex]) mini.scoresGiven[mini.correctionIndex] = {};
@@ -2541,11 +2658,7 @@ io.on("connection", (socket) => {
     if (!mini.timesApplied[mini.correctionIndex]) mini.timesApplied[mini.correctionIndex] = {};
 
     const oldScore = mini.scoresGiven[mini.correctionIndex][player.playerId] || 0;
-    const newScore = parseFloat(points);
-
-    player.score = player.score - oldScore + newScore;
-    player.roundScore = player.roundScore - oldScore + newScore;
-    mini.scoresGiven[mini.correctionIndex][player.playerId] = newScore;
+    const newScore = grade.value;
 
     let maxDuration = 40; // Valeur par défaut (Qui suis-je, Tour du monde, Blind test)
     if (mini.type === "petit_bac") {
@@ -2553,25 +2666,34 @@ io.on("connection", (socket) => {
     } else if (mini.type === "le_bon_ordre") {
       maxDuration = LE_BON_ORDRE_DURATION;
     }
-    const realTime = (mini.responseTimes && mini.responseTimes[player.playerId])
+    const oldTime = mini.timesApplied[mini.correctionIndex][player.playerId] || 0;
+    const legacyTime = Number.isFinite(mini.responseTimes?.[player.playerId])
       ? mini.responseTimes[player.playerId]
       : maxDuration;
+    const realTime = getQuestionResponseTime(
+      mini.responseTimesByQuestion,
+      mini.correctionIndex,
+      player.playerId,
+      legacyTime
+    );
+    const revision = calculateGradeRevision({
+      previousScore: oldScore,
+      previousTime: oldTime,
+      newScore,
+      responseTime: realTime,
+      maxDuration
+    });
 
-    let timeToApply;
-    if (newScore > 0) {
-      timeToApply = realTime;
-    } else {
-      timeToApply = maxDuration;
-    }
+    player.score += revision.scoreDelta;
+    player.roundScore += revision.scoreDelta;
+    player.roundTime += revision.timeDelta;
+    player.totalTime += revision.timeDelta;
+    mini.scoresGiven[mini.correctionIndex][player.playerId] = newScore;
+    mini.timesApplied[mini.correctionIndex][player.playerId] = revision.appliedTime;
 
-    const oldTime = mini.timesApplied[mini.correctionIndex][player.playerId] || 0;
-    player.roundTime = player.roundTime - oldTime + timeToApply;
-    player.totalTime = player.totalTime - oldTime + timeToApply;
-    mini.timesApplied[mini.correctionIndex][player.playerId] = timeToApply;
-
-    if (mini.type === "petit_bac" && details) {
+    if (mini.type === "petit_bac") {
       if (!mini.gradingDetails) mini.gradingDetails = {};
-      mini.gradingDetails[player.playerId] = details;
+      mini.gradingDetails[player.playerId] = grade.details;
     }
 
     io.to(roomCode).emit("scoreUpdate", {
