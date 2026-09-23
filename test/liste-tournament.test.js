@@ -2,6 +2,9 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
 const {
   calculateGradeRevision,
   getQuestionResponseTime,
@@ -159,4 +162,92 @@ test("valide strictement les notes manuelles et le détail du Petit Bac", () => 
     details: { 0: 1, 1: 0.5 },
     categoryCount: 9
   }).error, /total/);
+  assert.deepEqual(validateManualGrade({
+    miniGameType: "petit_bac",
+    points: 4.5,
+    details: Object.fromEntries(Array.from({ length: 9 }, (_, index) => [index, 0.5])),
+    categoryCount: 9
+  }).value, 4.5);
+  assert.match(validateManualGrade({
+    miniGameType: "petit_bac",
+    points: 2,
+    details: { 0: 1, "00": 1 },
+    categoryCount: 9
+  }).error, /invalide/);
+});
+
+test("Petit Bac : la remise à 125 s garde son temps à 6, 8 ou 0 points, sans cumul lors des révisions", () => {
+  let previousScore = 0;
+  let previousTime = 0;
+  let totalTime = 0;
+  for (const newScore of [6, 8, 0, 0, 6]) {
+    const revision = calculateGradeRevision({
+      previousScore, previousTime, newScore,
+      responseTime: 125, maxDuration: 150, miniGameType: "petit_bac"
+    });
+    totalTime += revision.timeDelta;
+    assert.equal(totalTime, 125);
+    assert.equal(revision.appliedTime, 125);
+    previousScore = newScore;
+    previousTime = revision.appliedTime;
+  }
+});
+
+test("les autres jeux conservent la pénalité maximale après révision à zéro", () => {
+  for (const miniGameType of ["qui_suis_je", "blind_test", "le_tour_du_monde", "le_bon_ordre"]) {
+    const maxDuration = miniGameType === "le_bon_ordre" ? 45 : 40;
+    const revision = calculateGradeRevision({
+      previousScore: 1, previousTime: 12, newScore: 0,
+      responseTime: 12, maxDuration, miniGameType
+    });
+    assert.equal(revision.appliedTime, maxDuration);
+    assert.equal(revision.timeDelta, maxDuration - 12);
+  }
+});
+
+test("handler serveur Petit Bac : temps indépendant des notes dans les deux modes", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../server.js"), "utf8");
+  const start = source.indexOf('  socket.on("hostGradePlayer",');
+  const end = source.indexOf('  socket.on("correctionPrevQuestion",', start);
+  assert.ok(start >= 0 && end > start);
+  for (const gameMode of ["battle_royale", "liste"]) {
+    for (const responseTime of [125, 0, undefined]) {
+      const participant = {
+        playerId: "host", socketId: "socket", pseudo: "Test",
+        score: 0, roundScore: 0, roundTime: 0, totalTime: 0, withdrawn: false
+      };
+      const mini = {
+        type: "petit_bac", categories: Array(9).fill("catégorie"),
+        correctionIndex: 0, gradingPlayerIndex: 0,
+        timer: { totalSeconds: 150 },
+        responseTimesByQuestion: responseTime === undefined ? {} : { 0: { host: responseTime } }
+      };
+      const room = {
+        gameMode, hostId: "host", players: [participant], activePlayersList: [participant],
+        gameState: { currentMiniGameState: mini }
+      };
+      let handler;
+      vm.runInNewContext(source.slice(start, end), {
+        calculateGradeRevision, getQuestionResponseTime, validateManualGrade,
+        rooms: { TEST: room },
+        socket: {
+          id: "socket", playerId: "host", roomCode: "TEST",
+          on: (name, callback) => { handler = callback; },
+          emit: (event, message) => assert.fail(`${event}: ${message}`)
+        },
+        io: { to: () => ({ emit: () => {} }) },
+        isListeParticipant: (currentRoom, currentPlayer) => !currentPlayer.withdrawn,
+        isActiveMiniGamePlayer: () => true, sendCorrectionData: () => {},
+        LE_BON_ORDRE_DURATION: 45
+      });
+      for (const points of [0, 6, 8, 0, 0]) {
+        const details = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [i, i < points ? 1 : 0]));
+        handler({ points, details });
+        assert.equal(participant.roundTime, responseTime ?? 150);
+        assert.equal(participant.totalTime, responseTime ?? 150);
+        assert.equal(participant.roundScore, points);
+        assert.equal(participant.score, points);
+      }
+    }
+  }
 });

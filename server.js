@@ -604,12 +604,15 @@ function startFauxVraiTimer(roomCode) {
   });
 
   game.startTime = Date.now();
+  game.remainingSeconds = total;
+  game.totalSeconds = total;
 
   game.timer = setInterval(() => {
     remaining -= 1;
     if (remaining < 0) {
       remaining = 0;
     }
+    game.remainingSeconds = remaining;
 
     io.to(roomCode).emit("fauxVraiTimerUpdate", {
       remaining,
@@ -646,7 +649,7 @@ function revealFauxVrai(roomCode) {
     if (!isActiveMiniGamePlayer(room, player)) return;
 
     const socketId = player.socketId;
-    const answerIndex = game.answers[socketId];
+    const answerIndex = game.answers[player.playerId];
     const isCorrect =
       typeof answerIndex === "number" && answerIndex === indexFausse;
 
@@ -655,10 +658,8 @@ function revealFauxVrai(roomCode) {
       player.roundScore += 1;
     }
 
-    let realTime =
-      game.answerTimes && game.answerTimes[socketId]
-        ? game.answerTimes[socketId]
-        : maxDuration;
+    const savedTime = game.answerTimes?.[player.playerId];
+    const realTime = Number.isFinite(savedTime) ? savedTime : maxDuration;
     const timeTaken = isCorrect ? realTime : maxDuration;
     registerPlayerTime(player, timeTaken, isCorrect, maxDuration);
   });
@@ -667,7 +668,7 @@ function revealFauxVrai(roomCode) {
 
   room.players.forEach((player) => {
     const socketId = player.socketId;
-    const answerIndex = game.answers[socketId];
+    const answerIndex = game.answers[player.playerId];
 
     io.to(socketId).emit("fauxVraiReveal", {
       indexFausse,
@@ -714,6 +715,7 @@ function nextFauxVrai(roomCode) {
   }
 
   game.answers = {};
+  game.answerTimes = {};
   sendFauxVraiQuestion(roomCode);
 }
 
@@ -2231,7 +2233,7 @@ io.on("connection", (socket) => {
     const room = rooms[socket.roomCode];
     if (!room) return;
 
-    const player = room.players.find((p) => p.socketId === socket.id);
+    const player = room.players.find((p) => p.playerId === socket.playerId);
     if (!player || player.eliminated || player.isSpectator) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
 
@@ -2239,19 +2241,21 @@ io.on("connection", (socket) => {
     // Bloquer la réponse si le timer n'est pas encore lancé
     if (!game || !game.timer) return;
     if (!game || game.type !== "faux_vrai") return;
+    if (!Number.isInteger(index) || index < 0 || index >= (game.list?.[game.index]?.affirmations?.length || 0)) return;
+    if (Object.prototype.hasOwnProperty.call(game.answers, player.playerId)) return;
 
     if (!game.answerTimes) game.answerTimes = {};
     const timeTaken = (Date.now() - (game.startTime || Date.now())) / 10**3;
-    game.answerTimes[socket.id] = timeTaken;
+    game.answerTimes[player.playerId] = timeTaken;
 
-    game.answers[socket.id] = index;
+    game.answers[player.playerId] = index;
 
     // CORRECTIF : On compte uniquement les joueurs ACTIFS pour la fin anticipée
     const activePlayers = room.players.filter(
       (p) => isActiveMiniGamePlayer(room, p)
     );
     const answersCount = activePlayers.reduce((count, p) => {
-      return count + (game.answers[p.socketId] !== undefined ? 1 : 0);
+      return count + (Object.prototype.hasOwnProperty.call(game.answers, p.playerId) ? 1 : 0);
     }, 0);
 
     if (answersCount >= activePlayers.length) {
@@ -2579,6 +2583,9 @@ io.on("connection", (socket) => {
     const mini = room.gameState.currentMiniGameState;
 
     if (!mini || mini.type !== "petit_bac" || mini.finished) return;
+    if (Object.prototype.hasOwnProperty.call(mini.playerAnswers, socket.playerId)) {
+      return socket.emit("petitBacAnswerAck");
+    }
 
     if (!mini.responseTimes) mini.responseTimes = {};
     const timeTaken = (Date.now() - (mini.startTime || Date.now())) / 1000;
@@ -2662,7 +2669,7 @@ io.on("connection", (socket) => {
 
     let maxDuration = 40; // Valeur par défaut (Qui suis-je, Tour du monde, Blind test)
     if (mini.type === "petit_bac") {
-      maxDuration = 120;
+      maxDuration = mini.timer?.totalSeconds ?? 150;
     } else if (mini.type === "le_bon_ordre") {
       maxDuration = LE_BON_ORDRE_DURATION;
     }
@@ -2681,7 +2688,8 @@ io.on("connection", (socket) => {
       previousTime: oldTime,
       newScore,
       responseTime: realTime,
-      maxDuration
+      maxDuration,
+      miniGameType: mini.type
     });
 
     player.score += revision.scoreDelta;
@@ -3250,10 +3258,19 @@ function syncPlayerWithGame(socket, room) {
   else if (mini.type === "faux_vrai") {
     const q = mini.list ? mini.list[mini.index] : null;
     if (q) {
+      const selectedAnswerIndex = mini.answers?.[socket.playerId];
       socket.emit("fauxVraiQuestion", { 
         question: q.question, affirmations: q.affirmations, themeId: q.themeId, 
-        indexFausse: q.indexFausse, duration: 40, index: mini.index + 1, total: mini.list.length, 
+        indexFausse: q.indexFausse, duration: mini.totalSeconds || FAUX_VRAI_TIMER_DURATION,
+        index: mini.index + 1, total: mini.list.length,
+        hasAnswered: Number.isInteger(selectedAnswerIndex), selectedAnswerIndex,
         isReload: true // FLAG IMPORTANT
+      });
+    }
+    if (mini.timer) {
+      socket.emit("fauxVraiTimerUpdate", {
+        remaining: mini.remainingSeconds ?? FAUX_VRAI_TIMER_DURATION,
+        total: mini.totalSeconds || FAUX_VRAI_TIMER_DURATION
       });
     }
   }
@@ -3270,10 +3287,14 @@ function syncPlayerWithGame(socket, room) {
   }
   // 7. PETIT BAC
   else if (mini.type === "petit_bac") {
-    socket.emit("petitBacStart", { letter: mini.letter, categories: mini.categories, duration: 120 });
-    if (mini.timer && mini.timer.running) {
-      socket.emit("petitBacTimerUpdate", { remaining: mini.timer.remainingSeconds, total: 120 });
-    }
+    const duration = mini.timer?.totalSeconds ?? 150;
+    const remaining = mini.timer?.remainingSeconds ?? duration;
+    const savedAnswers = mini.playerAnswers?.[socket.playerId];
+    socket.emit("petitBacStart", {
+      letter: mini.letter, categories: mini.categories, duration,
+      hasAnswered: savedAnswers !== undefined, savedAnswers: savedAnswers || null
+    });
+    socket.emit("petitBacTimerUpdate", { remaining, total: duration });
   }
   // 8. LES ENCHERES
   else if (mini.type === "les_encheres") {

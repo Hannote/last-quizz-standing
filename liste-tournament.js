@@ -30,7 +30,8 @@ function validateManualGrade({ miniGameType, points, details, categoryCount = 0 
   let total = 0;
   for (const [rawIndex, value] of Object.entries(details)) {
     const index = Number(rawIndex);
-    if (!Number.isInteger(index) || index < 0 || index >= categoryCount || !STANDARD_GRADE_VALUES.has(value)) {
+    if (String(index) !== rawIndex || !Number.isInteger(index) || index < 0 ||
+        index >= categoryCount || !STANDARD_GRADE_VALUES.has(value)) {
       return { error: "Le détail des notes du Petit Bac est invalide." };
     }
     total += value;
@@ -56,14 +57,15 @@ function getQuestionResponseTime(history, questionIndex, playerId, fallback) {
   return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
-function calculateGradeRevision({ previousScore = 0, previousTime = 0, newScore, responseTime, maxDuration }) {
+function calculateGradeRevision({ previousScore = 0, previousTime = 0, newScore, responseTime, maxDuration, miniGameType }) {
   assertFiniteNonNegative(previousScore, "L'ancienne note");
   assertFiniteNonNegative(previousTime, "L'ancien temps");
   assertFiniteNonNegative(newScore, "La nouvelle note");
   assertFiniteNonNegative(responseTime, "Le temps de réponse");
   assertFiniteNonNegative(maxDuration, "La durée maximale");
 
-  const appliedTime = newScore > 0 ? responseTime : maxDuration;
+  // Le Petit Bac est une seule remise de formulaire, indépendante de sa note.
+  const appliedTime = miniGameType === "petit_bac" || newScore > 0 ? responseTime : maxDuration;
   return {
     scoreDelta: newScore - previousScore,
     timeDelta: appliedTime - previousTime,

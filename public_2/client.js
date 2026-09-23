@@ -1531,6 +1531,18 @@ function lockFauxVraiButtons(selectedIndex) {
 }
 
 
+function restoreFauxVraiSubmittedState(selectedIndex) {
+  lockFauxVraiButtons(selectedIndex);
+  document.querySelectorAll(".fauxvrai-answer-btn").forEach((btn, index) => {
+    btn.classList.add("locked");
+    if (index === selectedIndex) btn.classList.add("btn-waiting-selected");
+    else btn.classList.add("btn-waiting-other");
+  });
+  if (fauxVraiFeedback) {
+    fauxVraiFeedback.textContent = "Réponse envoyée... En attente des autres joueurs.";
+  }
+}
+
 function showFauxVraiQuestion(data) {
 
 
@@ -1722,6 +1734,9 @@ function showFauxVraiQuestion(data) {
 
     });
 
+    if (data.hasAnswered && Number.isInteger(data.selectedAnswerIndex)) {
+      restoreFauxVraiSubmittedState(data.selectedAnswerIndex);
+    }
 
   }
 
@@ -2325,6 +2340,21 @@ if (!isBtSpectator) {
 
 }
 
+
+function restorePetitBacSubmittedState() {
+  if (pbFeedback) pbFeedback.textContent = "Réponse enregistrée !";
+  if (pbValidateBtn) {
+    pbValidateBtn.disabled = true;
+    pbValidateBtn.textContent = "Grille Validée";
+    pbValidateBtn.style.backgroundColor = "#ffcc00";
+    pbValidateBtn.style.color = "#000";
+    pbValidateBtn.style.opacity = "1";
+    pbValidateBtn.style.border = "2px solid #fff";
+  }
+  if (pbFormZone) {
+    pbFormZone.querySelectorAll("input").forEach((input) => { input.disabled = true; });
+  }
+}
 
 function setupPetitBacForm(categories) {
 
@@ -3218,6 +3248,12 @@ socket.on("petitBacStart", (data) => {
   if (petitBacContainer) petitBacContainer.classList.remove("hidden");
   if (pbLetterDisplay) pbLetterDisplay.textContent = data.letter;
   setupPetitBacForm(data.categories);
+  if (data.savedAnswers && pbFormZone) {
+    pbFormZone.querySelectorAll("input").forEach((input, index) => {
+      input.value = data.savedAnswers[index] || "";
+    });
+  }
+  if (data.hasAnswered) restorePetitBacSubmittedState();
 
   // --- AJOUT : On force l'affichage à 150 (ou la durée reçue) tout de suite ---
   if (pbTimerNumber && data.duration) {
@@ -3262,44 +3298,7 @@ socket.on("petitBacTimerUpdate", ({ remaining, total }) => {
 
 
 socket.on("petitBacAnswerAck", () => {
-
-
-  if (pbFeedback) pbFeedback.textContent = "Réponse enregistrée !";
-
-
-  if (pbValidateBtn) {
-
-
-    pbValidateBtn.disabled = true;
-
-
-    pbValidateBtn.textContent = "Grille Validée";
-
-
-    pbValidateBtn.style.backgroundColor = "#ffcc00";
-
-
-    pbValidateBtn.style.color = "#000";
-
-
-    pbValidateBtn.style.opacity = "1";
-
-
-    pbValidateBtn.style.border = "2px solid #fff";
-
-
-  }
-
-
-  if (pbFormZone) {
-
-
-    pbFormZone.querySelectorAll("input").forEach((i) => (i.disabled = true));
-
-
-  }
-
-
+  restorePetitBacSubmittedState();
 });
 
 
