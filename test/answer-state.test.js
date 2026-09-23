@@ -130,6 +130,7 @@ test("la reconnexion resynchronise les 150 s du Petit Bac et le choix Faux du vr
     socket,
     isListeParticipant: () => true,
     sendCorrectionData: () => {},
+    publishListeContext: () => {},
     ENCHERES_THEMES: [],
     FAUX_VRAI_TIMER_DURATION: 45
   };

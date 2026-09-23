@@ -7,6 +7,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
+const { randomUUID } = require("crypto");
 const {
   calculateGradeRevision,
   getQuestionResponseTime,
@@ -312,6 +313,10 @@ function isActiveMiniGamePlayer(room, player) {
 function createListeTournamentState() {
   return {
     started: false,
+    tournamentId: null,
+    sequence: [],
+    finished: false,
+    winners: [],
     initialParticipantIds: [],
     initialParticipantCount: 0,
     roundResults: []
@@ -337,8 +342,7 @@ function getListeGeneralRanking(room) {
     initialIds.has(player.playerId) && !player.isSpectator));
 }
 
-// Prépare et fige le résultat d'une manche. Son appel dans le déroulement Liste
-// restera du ressort de l'étape 5, avant toute remise à zéro des stats de manche.
+// Fige le résultat avant toute remise à zéro des statistiques de manche.
 function finalizeListeMiniGameResult(room, roundKey) {
   if (room.gameMode !== "liste" || !room.listeTournament.started) {
     return { error: "Aucun tournoi Liste n'est actif." };
@@ -388,7 +392,9 @@ function initializeListeParticipants(room) {
   if (ids.length === 0) return false;
   room.players.filter((player) => ids.includes(player.playerId)).forEach(initializePlayerTournamentStats);
   room.listeTournament = {
+    ...createListeTournamentState(),
     started: true,
+    tournamentId: randomUUID(),
     initialParticipantIds: [...new Set(ids)],
     initialParticipantCount: new Set(ids).size,
     roundResults: []
@@ -432,6 +438,7 @@ function disconnectListePlayer(room, playerId, socketId) {
   player.socketId = null;
   player.id = null;
   ensureListeHost(room);
+  if (room.listeTournament.started) startReadyMiniGame(room);
   return true;
 }
 
@@ -443,6 +450,7 @@ function withdrawListeParticipant(room, playerId, socketId) {
   delete room.gameState?.readyPlayers?.[playerId];
   pruneListeCorrectionPlayers(room);
   disconnectListePlayer(room, playerId, socketId);
+  if (room.listeTournament.finished || !room.players.some((p) => isListeParticipant(room, p))) finishListeTournament(room);
   return true;
 }
 
@@ -450,12 +458,164 @@ function getGameStateSummary(room) {
   const gs = room.gameState || createInitialGameState();
   return {
     gameMode: room.gameMode,
+    listeContext: room.gameMode === "liste" ? getListeContext(room) : null,
     phase: gs.phase,
     roundNumber: gs.roundNumber,
     currentMiniGame: gs.currentMiniGame,
     readyPlayerIds: Object.keys(gs.readyPlayers || {}).filter((id) => room.gameMode !== "liste" ||
       isListeParticipant(room, room.players.find((p) => p.playerId === id)))
   };
+}
+
+// Contexte transmis avec les commandes Liste : aucun ancien écran ne peut
+// agir sur une autre partie, manche, question ou fiche de correction.
+function getListeContext(room) {
+  const gs = room.gameState;
+  const mini = gs.currentMiniGameState || room.mini;
+  return {
+    gameMode: room.gameMode,
+    tournamentId: room.listeTournament.tournamentId,
+    roundNumber: gs.roundNumber,
+    miniGame: gs.currentMiniGame,
+    phase: gs.phase,
+    question: mini?.questionIndex ?? mini?.index ?? null,
+    correction: mini?.correctionIndex ?? null,
+    gradingPlayer: room.activePlayersList?.[mini?.gradingPlayerIndex]?.playerId ?? null
+  };
+}
+
+function publishListeContext(room, target = io.to(room.roomCode)) {
+  if (room.gameMode === "liste") target.emit("listeContext", getListeContext(room));
+}
+
+function captureListeCallback(room) {
+  const gs = room.gameState;
+  const tournament = room.listeTournament;
+  const mini = gs.currentMiniGameState || room.mini;
+  // Le curseur de correction peut changer lors d'un abandon, sans invalider
+  // la transition déjà engagée vers le jeu suivant.
+  const callbackContext = () => {
+    const { correction, gradingPlayer, ...context } = getListeContext(room);
+    return JSON.stringify(context);
+  };
+  const context = callbackContext();
+  const finished = mini?.finished;
+  const revealing = mini?.isRevealing;
+  return () => rooms[room.roomCode] === room && room.gameState === gs &&
+    room.gameMode === "liste" && room.listeTournament === tournament &&
+    !tournament.finished && (gs.currentMiniGameState || room.mini) === mini &&
+    mini?.finished === finished && mini?.isRevealing === revealing &&
+    callbackContext() === context;
+}
+
+function roomTimeout(room, callback, delay) {
+  if (room.gameMode !== "liste") return setTimeout(callback, delay);
+  const current = captureListeCallback(room);
+  room.listeTimers ||= new Set();
+  let fired = false;
+  const timer = setTimeout(() => {
+    if (fired) return;
+    fired = true;
+    room.listeTimers.delete(timer);
+    if (current()) callback();
+  }, delay);
+  room.listeTimers.add(timer);
+  return timer;
+}
+
+function roomInterval(room, callback, delay) {
+  if (room.gameMode !== "liste") return setInterval(callback, delay);
+  const current = captureListeCallback(room);
+  room.listeTimers ||= new Set();
+  const timer = setInterval(() => {
+    if (current()) callback();
+    else {
+      clearInterval(timer);
+      room.listeTimers.delete(timer);
+    }
+  }, delay);
+  room.listeTimers.add(timer);
+  return timer;
+}
+
+function clearListeTimers(room) {
+  for (const timer of room.listeTimers || []) {
+    clearTimeout(timer);
+    clearInterval(timer);
+  }
+  room.listeTimers?.clear();
+}
+
+function prepareListeSequence(config, random = Math.random) {
+  const validated = validateListeConfig(config);
+  if (validated.error) throw new Error(validated.error);
+  const pool = config.selectionMethod === "manual"
+    ? [...validated.config.selectedMiniGames]
+    : getListeOptions().miniGames.map((game) => game.id);
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, config.gameCount);
+}
+
+function finishListeTournament(room) {
+  clearListeTimers(room);
+  room.listeTournament.finished = true;
+  room.gameState.phase = "listeFinished";
+  room.listeTournament.generalRanking = getListeGeneralRanking(room);
+  room.listeTournament.winners = room.listeTournament.generalRanking
+    .filter((entry) => entry.place === 1).map((entry) => entry.playerId);
+  io.to(room.roomCode).emit("roomUpdate", serializeRoom(room));
+  io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+}
+
+function startNextListeRound(room) {
+  const gs = room.gameState;
+  if (room.gameMode !== "liste" || room.listeTournament.finished ||
+      !["idle", "listeTransition"].includes(gs.phase)) return;
+  clearListeTimers(room);
+  if (gs.roundNumber >= room.listeTournament.sequence.length ||
+      !room.players.some((p) => isListeParticipant(room, p))) {
+    finishListeTournament(room);
+    return;
+  }
+  gs.currentMiniGame = room.listeTournament.sequence[gs.roundNumber];
+  gs.roundNumber++;
+  gs.phase = "drawingGame";
+  gs.readyPlayers = {};
+  gs.currentMiniGameState = null;
+  room.mini = null;
+  room.activePlayersList = null;
+  resetRoundStats(room);
+  io.to(room.roomCode).emit("roomUpdate", serializeRoom(room));
+  io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+  // Secours si l'hôte se déconnecte pendant le tirage.
+  roomTimeout(room, () => {
+    gs.phase = "rules";
+    io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+  }, 15000);
+}
+
+function endListeMiniGame(room) {
+  const gs = room.gameState;
+  if (gs.phase !== "listeRoundEnd" || room.listeTournament.finished) return;
+  const key = `${room.listeTournament.tournamentId}:${gs.roundNumber}`;
+  const result = finalizeListeMiniGameResult(room, key);
+  if (!result.applied) return;
+  clearListeTimers(room);
+  gs.miniGamesAlreadyPlayed.push(gs.currentMiniGame);
+  gs.phase = "listeTransition";
+  io.to(room.roomCode).emit("roomUpdate", serializeRoom(room));
+  io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+  roomTimeout(room, () => startNextListeRound(room), 1000);
+}
+
+function beginListeRoundEnd(room) {
+  if (room.gameMode !== "liste" || room.gameState.phase !== "playing") return;
+  clearListeTimers(room);
+  room.gameState.phase = "listeRoundEnd";
+  publishListeContext(room);
 }
 
 function startLeugtasTimer(room) {
@@ -484,7 +644,7 @@ function startLeugtasTimer(room) {
     clearInterval(room.leugtasTimerInterval);
   }
 
-  room.leugtasTimerInterval = setInterval(() => {
+  room.leugtasTimerInterval = roomInterval(room, () => {
     const timer =
       gs.currentMiniGameState && gs.currentMiniGameState.leugtasTimer;
     if (!timer || !timer.running) {
@@ -566,6 +726,7 @@ function sendFauxVraiQuestion(roomCode) {
   const q = game.list[game.index];
   if (!q) return;
 
+  publishListeContext(room);
   io.to(roomCode).emit("fauxVraiQuestion", {
     question: q.question,
     affirmations: q.affirmations,
@@ -578,7 +739,7 @@ function sendFauxVraiQuestion(roomCode) {
 
   // CORRECTION AUDIT : Passage de 2000ms à 3000ms
   // Pour synchroniser avec l'overlay client de 2.5s
-  setTimeout(() => {
+  roomTimeout(room, () => {
     startFauxVraiTimer(roomCode);
   }, 2500);
 }
@@ -607,7 +768,7 @@ function startFauxVraiTimer(roomCode) {
   game.remainingSeconds = total;
   game.totalSeconds = total;
 
-  game.timer = setInterval(() => {
+  game.timer = roomInterval(room, () => {
     remaining -= 1;
     if (remaining < 0) {
       remaining = 0;
@@ -641,6 +802,9 @@ function revealFauxVrai(roomCode) {
     clearInterval(game.timer);
     game.timer = null;
   }
+
+  if (room.gameMode === "liste" && game.isRevealing) return;
+  game.isRevealing = true;
 
   const indexFausse = q.indexFausse;
   const maxDuration = FAUX_VRAI_TIMER_DURATION;
@@ -692,7 +856,7 @@ function revealFauxVrai(roomCode) {
   // Passage de 8500 à 7000 pour isLastQuestion afin d'aligner avec l'animation client
   const waitTime = isLastQuestion ? 7000 : 5500;
 
-  setTimeout(() => {
+  roomTimeout(room, () => {
     nextFauxVrai(roomCode);
   }, waitTime);
 }
@@ -705,9 +869,10 @@ function nextFauxVrai(roomCode) {
   game.index++;
 
   if (game.index >= game.list.length) {
+    beginListeRoundEnd(room);
     io.to(roomCode).emit("fauxVraiEnd");
 
-    setTimeout(() => {
+    roomTimeout(room, () => {
       endMiniGame(roomCode);
     }, 7000); // Augment� � 7s
 
@@ -716,12 +881,14 @@ function nextFauxVrai(roomCode) {
 
   game.answers = {};
   game.answerTimes = {};
+  game.isRevealing = false;
   sendFauxVraiQuestion(roomCode);
 }
 
 function endMiniGame(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
+  if (room.gameMode === "liste") return endListeMiniGame(room);
 
   // --- S�CURIT� ANTI DOUBLE-APPEL ---
   if (room.isEnding) return;
@@ -932,21 +1099,23 @@ async function endLeugtasQuestion(roomCode, mini) {
       activeMini.finished = false;
       activeMini.isRevealing = false;
 
+      publishListeContext(room);
       io.to(roomCode).emit("leugtasQuestion", {
         question: activeMini.questions[activeMini.questionIndex],
         index: activeMini.questionIndex + 1,
         total: activeMini.questions.length
       });
 
-      setTimeout(() => {
+      roomTimeout(room, () => {
         startLeugtasTimer(room);
       }, 2500);
       return;
     }
 
+    beginListeRoundEnd(room);
     io.to(roomCode).emit("leugtasEnd");
 
-    setTimeout(() => {
+    roomTimeout(room, () => {
       activeMini.isRevealing = false;
       activeMini.finished = false;
       endMiniGame(roomCode);
@@ -955,6 +1124,11 @@ async function endLeugtasQuestion(roomCode, mini) {
 
   const waitTime = isLastQuestion ? 7700 : 5500;
 
+  if (room.gameMode === "liste") {
+    roomTimeout(room, continueToNextQuestion, waitTime);
+    return;
+  }
+
   if (mini.allAnsweredEarly) {
     await new Promise((res) => setTimeout(res, waitTime));
     mini.allAnsweredEarly = false;
@@ -962,7 +1136,7 @@ async function endLeugtasQuestion(roomCode, mini) {
     return;
   }
 
-  setTimeout(() => {
+  roomTimeout(room, () => {
     continueToNextQuestion();
   }, waitTime);
 }
@@ -1085,6 +1259,7 @@ function sendLeBonOrdreQuestion(roomCode) {
 
   const q = mini.questions[mini.questionIndex];
 
+  publishListeContext(room);
   io.to(roomCode).emit("leBonOrdreQuestion", {
     question: q,
     themeName: q.themeName,
@@ -1092,7 +1267,7 @@ function sendLeBonOrdreQuestion(roomCode) {
     total: mini.questions.length
   });
 
-  setTimeout(() => {
+  roomTimeout(room, () => {
     startLeBonOrdreTimer(room);
   }, 2500);
 }
@@ -1119,7 +1294,7 @@ function startLeBonOrdreTimer(room) {
 
   if (room.leBonOrdreInterval) clearInterval(room.leBonOrdreInterval);
 
-  room.leBonOrdreInterval = setInterval(() => {
+  room.leBonOrdreInterval = roomInterval(room, () => {
     const timer = activeMini.timer;
     if (!timer || !timer.running) {
       clearInterval(room.leBonOrdreInterval);
@@ -1163,7 +1338,7 @@ function endLeBonOrdreQuestion(roomCode) {
     sendLeBonOrdreQuestion(roomCode);
   } else {
     io.to(roomCode).emit("leBonOrdreEnd");
-    setTimeout(() => {
+    roomTimeout(room, () => {
       startCorrectionPhase(roomCode);
     }, 3000);
   }
@@ -1261,6 +1436,7 @@ function sendCorrectionData(roomCode, targetSocket = null) {
     }
   };
 
+  publishListeContext(room, targetSocket || io.to(roomCode));
   emitCorrectionUpdate({
     miniGameType: mini.type,
     questionImage: q.image_question || q.image,
@@ -1325,6 +1501,7 @@ function sendBlindTestQuestion(roomCode) {
   const mini = room.gameState.currentMiniGameState;
   const q = mini.questions[mini.questionIndex];
 
+  publishListeContext(room);
   io.to(roomCode).emit("blindTestQuestion", {
     question: q,
     themeName: q.themeName,
@@ -1332,7 +1509,7 @@ function sendBlindTestQuestion(roomCode) {
     total: mini.questions.length
   });
 
-  setTimeout(() => {
+  roomTimeout(room, () => {
     startBlindTestTimer(room);
   }, 2500);
 }
@@ -1354,7 +1531,7 @@ function startBlindTestTimer(room) {
 
   if (room.blindTestInterval) clearInterval(room.blindTestInterval);
 
-  room.blindTestInterval = setInterval(() => {
+  room.blindTestInterval = roomInterval(room, () => {
     if (!mini.timer || !mini.timer.running) {
       clearInterval(room.blindTestInterval);
       return;
@@ -1395,7 +1572,7 @@ function endBlindTestQuestion(roomCode) {
     sendBlindTestQuestion(roomCode);
   } else {
     io.to(roomCode).emit("blindTestEnd");
-    setTimeout(() => {
+    roomTimeout(room, () => {
       startCorrectionPhase(roomCode);
     }, 3000);
   }
@@ -1434,6 +1611,7 @@ function sendLeTourDuMondeQuestion(roomCode) {
   const mini = room.gameState.currentMiniGameState;
   const q = mini.questions[mini.questionIndex];
 
+  publishListeContext(room);
   io.to(roomCode).emit("leTourDuMondeQuestion", {
     question: q,
     themeName: q.themeName,
@@ -1441,7 +1619,7 @@ function sendLeTourDuMondeQuestion(roomCode) {
     total: mini.questions.length
   });
 
-  setTimeout(() => {
+  roomTimeout(room, () => {
     startLeTourDuMondeTimer(room);
   }, 2500);
 }
@@ -1463,7 +1641,7 @@ function startLeTourDuMondeTimer(room) {
 
   if (room.leTourDuMondeInterval) clearInterval(room.leTourDuMondeInterval);
 
-  room.leTourDuMondeInterval = setInterval(() => {
+  room.leTourDuMondeInterval = roomInterval(room, () => {
     if (!mini.timer || !mini.timer.running) {
       clearInterval(room.leTourDuMondeInterval);
       return;
@@ -1504,7 +1682,7 @@ function endLeTourDuMondeQuestion(roomCode) {
     sendLeTourDuMondeQuestion(roomCode);
   } else {
     io.to(roomCode).emit("leTourDuMondeEnd");
-    setTimeout(() => {
+    roomTimeout(room, () => {
       startCorrectionPhase(roomCode);
     }, 3000);
   }
@@ -1531,13 +1709,14 @@ function sendQuiSuisJeQuestion(roomCode) {
   const mini = room.gameState.currentMiniGameState;
   const q = mini.questions[mini.questionIndex];
 
+  publishListeContext(room);
   io.to(roomCode).emit("quiSuisJeQuestion", {
     question: q,
     index: mini.questionIndex + 1,
     total: mini.questions.length
   });
 
-  setTimeout(() => {
+  roomTimeout(room, () => {
     startQuiSuisJeTimer(room);
   }, 2500);
 }
@@ -1559,7 +1738,7 @@ function startQuiSuisJeTimer(room) {
 
   if (room.quiSuisJeInterval) clearInterval(room.quiSuisJeInterval);
 
-  room.quiSuisJeInterval = setInterval(() => {
+  room.quiSuisJeInterval = roomInterval(room, () => {
     if (!mini.timer || !mini.timer.running) {
       clearInterval(room.quiSuisJeInterval);
       return;
@@ -1599,7 +1778,7 @@ function endQuiSuisJeQuestion(roomCode) {
     sendQuiSuisJeQuestion(roomCode);
   } else {
     io.to(roomCode).emit("quiSuisJeEnd");
-    setTimeout(() => {
+    roomTimeout(room, () => {
       startCorrectionPhase(roomCode);
     }, 3000);
   }
@@ -1656,6 +1835,7 @@ function startPetitBac(roomCode) {
     gradingDetails: {}
   };
 
+  publishListeContext(room);
   io.to(roomCode).emit("petitBacStart", {
     letter,
     categories: selectedCategories,
@@ -1663,7 +1843,7 @@ function startPetitBac(roomCode) {
   });
 
   // On stocke le timeout pour pouvoir l'annuler si la fonction est rappelée
-  room.petitBacStartTimeout = setTimeout(() => {
+  room.petitBacStartTimeout = roomTimeout(room, () => {
     startPetitBacTimer(room);
   }, 2500);
 }
@@ -1690,7 +1870,7 @@ function startPetitBacTimer(room) {
 
   if (room.petitBacInterval) clearInterval(room.petitBacInterval);
 
-  room.petitBacInterval = setInterval(() => {
+  room.petitBacInterval = roomInterval(room, () => {
     if (!mini.timer || !mini.timer.running) {
       clearInterval(room.petitBacInterval);
       return;
@@ -1720,7 +1900,7 @@ function endPetitBacRound(roomCode) {
 
   io.to(roomCode).emit("petitBacEnd");
 
-  setTimeout(() => {
+  roomTimeout(room, () => {
     startCorrectionPhase(roomCode);
   }, 3000);
 }
@@ -1728,7 +1908,186 @@ function endPetitBacRound(roomCode) {
 // ===============================
 //   SOCKET.IO
 // ===============================
+
+function startReadyMiniGame(room, startEncheres) {
+  const roomCode = room.roomCode;
+  const gs = room.gameState;
+  if (gs.phase !== "rules") return;
+  const activePlayers = room.players.filter((p) => room.gameMode === "liste"
+    ? isListeParticipant(room, p) && p.isConnected
+    : !p.eliminated && !p.isSpectator);
+  const allReady = activePlayers.every((p) => gs.readyPlayers[p.playerId]);
+
+  if (allReady && activePlayers.length > 0) {
+    gs.phase = "playing";
+    console.log(
+      `Salle ${roomCode} : tous les joueurs sont prêts → phase playing (mini-jeu ${gs.currentMiniGame})`
+    );
+    // ------- LEUGTAS ----------
+    if (gs.currentMiniGame === "qui_veut_gagner_des_leugtas") {
+      // Début d'une question Leugtas : on sélectionne un lot de questions.
+      const leugtasQuestions = pickLeugtasQuestionsByPaliers();
+      if (!leugtasQuestions) {
+        return;
+      }
+
+      gs.currentMiniGameState = {
+        type: "qui_veut_gagner_des_leugtas",
+        questions: leugtasQuestions,
+        questionIndex: 0,
+        playerAnswers: {},
+        finished: false,
+        leugtasTimer: null,
+        isRevealing: false,
+        allAnsweredEarly: false
+      };
+
+      const firstQuestion = leugtasQuestions[0];
+
+      publishListeContext(room);
+      io.to(roomCode).emit("leugtasQuestion", {
+        question: firstQuestion,
+        index: 1,
+        total: leugtasQuestions.length
+      });
+
+      roomTimeout(room, () => {
+        startLeugtasTimer(room);
+      }, 2500); // Augmenté pour laisser le temps à l'intro client
+
+      leugtasQuestions.forEach((q) => {
+        if (q) gs.leugtasAskedQuestionIds.push(q.id);
+      });
+
+      console.log(
+        `Salle ${roomCode} : Leugtas question id = ${
+          firstQuestion ? firstQuestion.id : "AUCUNE"
+        }`
+      );
+    }
+    // ------- LE FAUX DU VRAI ----------
+    else if (gs.currentMiniGame === "le_faux_du_vrai") {
+      gs.currentMiniGameState = null;
+      startFauxVrai(roomCode);
+    }
+    // ------- QUI SUIS-JE ----------
+    else if (gs.currentMiniGame === "qui_suis_je") {
+      const questions = pickQuiSuisJeQuestions();
+      if (questions && questions.length > 0) {
+        gs.currentMiniGameState = {
+          type: "qui_suis_je",
+          questions,
+          questionIndex: 0,
+          playerAnswers: {},
+          history: {},
+          finished: false,
+          timer: null,
+          scoresGiven: {}
+        };
+        sendQuiSuisJeQuestion(roomCode);
+      }
+    }
+    // ------- LE BON ORDRE ----------
+    else if (gs.currentMiniGame === "le_bon_ordre") {
+      const questions = pickLeBonOrdreQuestions();
+      if (questions && questions.length > 0) {
+        gs.currentMiniGameState = {
+          type: "le_bon_ordre",
+          questions,
+          questionIndex: 0,
+          playerAnswers: {},
+          history: {},
+          finished: false,
+          timer: null
+        };
+
+        sendLeBonOrdreQuestion(roomCode);
+      }
+    }
+    // ------- LE TOUR DU MONDE ----------
+    else if (gs.currentMiniGame === "le_tour_du_monde") {
+      const questions = pickLeTourDuMondeQuestions();
+      if (questions && questions.length > 0) {
+        gs.currentMiniGameState = {
+          type: "le_tour_du_monde",
+          questions,
+          questionIndex: 0,
+          playerAnswers: {},
+          history: {},
+          finished: false,
+          timer: null,
+          scoresGiven: {}
+        };
+
+        sendLeTourDuMondeQuestion(roomCode);
+      }
+    }
+    // ------- BLIND TEST ----------
+    else if (gs.currentMiniGame === "blind_test") {
+      const questions = pickBlindTestQuestions();
+      if (questions && questions.length > 0) {
+        gs.currentMiniGameState = {
+          type: "blind_test",
+          questions,
+          questionIndex: 0,
+          playerAnswers: {},
+          history: {},
+          finished: false,
+          timer: null,
+          scoresGiven: {}
+        };
+
+        sendBlindTestQuestion(roomCode);
+      }
+    }
+    // ------- PETIT BAC ----------
+    else if (gs.currentMiniGame === "petit_bac") {
+      startPetitBac(roomCode);
+    }
+    // ------- LES ENCHÈRES ----------
+    else if (gs.currentMiniGame === "les_encheres") {
+      startEncheres(roomCode);
+    }
+    // ------- AUTRES MINI-JEUX ----------
+    else {
+      gs.currentMiniGameState = null;
+    }
+  }
+
+  io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+}
+
 io.on("connection", (socket) => {
+  socket.use(([event, payload, context], next) => {
+    const room = rooms[socket.roomCode];
+    if (!room || room.gameMode !== "liste") return next();
+    if (event.startsWith("encheres")) return;
+    const phases = {
+      drawingFinished: "drawingGame", playerSetReady: "rules",
+      leugtasAnswer: "playing", fauxVraiAnswer: "playing",
+      quiSuisJeAnswer: "playing", leBonOrdreAnswer: "playing",
+      leTourDuMondeAnswer: "playing", blindTestAnswer: "playing", petitBacAnswer: "playing",
+      correctionNavigate: "playing", correctionPrevQuestion: "playing",
+      correctionNextQuestion: "playing", hostGradePlayer: "playing", endPetitBacCorrection: "playing"
+    };
+    if (!phases[event]) return next();
+    const player = room.players.find((p) => p.playerId === socket.playerId);
+    if (!canUseMiniGameSocket(room, player, socket) || !room.listeTournament.started ||
+        room.listeTournament.finished || room.gameState.phase !== phases[event]) return;
+    const expected = getListeContext(room);
+    if (!context || Object.keys(expected).some((key) => context[key] !== expected[key])) return;
+    if (event === "drawingFinished" || event.startsWith("correction") ||
+        event === "hostGradePlayer" || event === "endPetitBacCorrection") {
+      if (room.hostId !== socket.playerId) return;
+    }
+    if (event.startsWith("correction") || event === "hostGradePlayer" || event === "endPetitBacCorrection") {
+      const mini = room.gameState.currentMiniGameState;
+      if (!mini?.finished || !Number.isInteger(mini.correctionIndex) ||
+          mini.correctionIndex >= mini.questions.length) return;
+    }
+    if (event === "petitBacAnswer" && !room.gameState.currentMiniGameState?.timer?.running) return;
+    next();
+  });
   console.log("Client connecté :", socket.id);
   socket.emit("fauxVraiThemes", fauxVraiThemes);
 
@@ -1920,7 +2279,16 @@ io.on("connection", (socket) => {
     if (!room || room.hostId !== playerId) return;
 
     if (room.gameMode === "liste") {
-      return socket.emit("errorMessage", "Le mode Liste n'est pas encore disponible. Choisissez Battle Royale pour lancer une partie.");
+      const host = room.players.find((p) => p.playerId === playerId);
+      if (host?.socketId !== socket.id || !isListeParticipant(room, host) ||
+          room.gameState.phase !== "idle" || room.listeTournament.started) return;
+      const validation = validateListeConfig(room.listeConfig);
+      if (validation.error) return socket.emit("errorMessage", validation.error);
+      const sequence = prepareListeSequence(validation.config);
+      if (!initializeListeParticipants(room)) return;
+      room.listeTournament.sequence = sequence;
+      startNextListeRound(room);
+      return;
     }
 
     const gs = room.gameState;
@@ -2009,159 +2377,17 @@ io.on("connection", (socket) => {
       if (data?.isReady) gs.readyPlayers[playerId] = true;
       else delete gs.readyPlayers[playerId];
       io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
-      return; // Le démarrage des mini-jeux Liste sera intégré à l'étape 5.
+      startReadyMiniGame(room);
+      return;
     }
 
     const isReady = !!data?.isReady;
     if (isReady) gs.readyPlayers[playerId] = true;
     else delete gs.readyPlayers[playerId];
 
-    const activePlayers = room.players.filter(
-      (p) => !p.eliminated && !p.isSpectator
-    );
-    const allReady = activePlayers.every((p) => gs.readyPlayers[p.playerId]);
-
-    if (allReady && activePlayers.length > 0) {
-      gs.phase = "playing";
-      console.log(
-        `Salle ${roomCode} : tous les joueurs sont prêts → phase playing (mini-jeu ${gs.currentMiniGame})`
-      );
-      // plus tard : on démarrera ici le vrai mini-jeu
-
-      // ------- LEUGTAS ----------
-      if (gs.currentMiniGame === "qui_veut_gagner_des_leugtas") {
-        // Début d'une question Leugtas : on sélectionne un lot de questions.
-        const leugtasQuestions = pickLeugtasQuestionsByPaliers();
-        if (!leugtasQuestions) {
-          return;
-        }
-
-        gs.currentMiniGameState = {
-          type: "qui_veut_gagner_des_leugtas",
-          questions: leugtasQuestions,
-          questionIndex: 0,
-          playerAnswers: {},
-          finished: false,
-          leugtasTimer: null,
-          isRevealing: false,
-          allAnsweredEarly: false
-        };
-
-        const firstQuestion = leugtasQuestions[0];
-
-        io.to(roomCode).emit("leugtasQuestion", {
-          question: firstQuestion,
-          index: 1,
-          total: leugtasQuestions.length
-        });
-
-        setTimeout(() => {
-          startLeugtasTimer(room);
-        }, 2500); // Augmenté pour laisser le temps à l'intro client
-
-        leugtasQuestions.forEach((q) => {
-          if (q) gs.leugtasAskedQuestionIds.push(q.id);
-        });
-
-        console.log(
-          `Salle ${roomCode} : Leugtas question id = ${
-            firstQuestion ? firstQuestion.id : "AUCUNE"
-          }`
-        );
-      }
-      // ------- LE FAUX DU VRAI ----------
-      else if (gs.currentMiniGame === "le_faux_du_vrai") {
-        gs.currentMiniGameState = null;
-        startFauxVrai(roomCode);
-      }
-      // ------- QUI SUIS-JE ----------
-      else if (gs.currentMiniGame === "qui_suis_je") {
-        const questions = pickQuiSuisJeQuestions();
-        if (questions && questions.length > 0) {
-          gs.currentMiniGameState = {
-            type: "qui_suis_je",
-            questions,
-            questionIndex: 0,
-            playerAnswers: {},
-            history: {},
-            finished: false,
-            timer: null,
-            scoresGiven: {}
-          };
-          sendQuiSuisJeQuestion(roomCode);
-        }
-      }
-      // ------- LE BON ORDRE ----------
-      else if (gs.currentMiniGame === "le_bon_ordre") {
-        const questions = pickLeBonOrdreQuestions();
-        if (questions && questions.length > 0) {
-          gs.currentMiniGameState = {
-            type: "le_bon_ordre",
-            questions,
-            questionIndex: 0,
-            playerAnswers: {},
-            history: {},
-            finished: false,
-            timer: null
-          };
-
-          sendLeBonOrdreQuestion(roomCode);
-        }
-      }
-      // ------- LE TOUR DU MONDE ----------
-      else if (gs.currentMiniGame === "le_tour_du_monde") {
-        const questions = pickLeTourDuMondeQuestions();
-        if (questions && questions.length > 0) {
-          gs.currentMiniGameState = {
-            type: "le_tour_du_monde",
-            questions,
-            questionIndex: 0,
-            playerAnswers: {},
-            history: {},
-            finished: false,
-            timer: null,
-            scoresGiven: {}
-          };
-
-          sendLeTourDuMondeQuestion(roomCode);
-        }
-      }
-      // ------- BLIND TEST ----------
-      else if (gs.currentMiniGame === "blind_test") {
-        const questions = pickBlindTestQuestions();
-        if (questions && questions.length > 0) {
-          gs.currentMiniGameState = {
-            type: "blind_test",
-            questions,
-            questionIndex: 0,
-            playerAnswers: {},
-            history: {},
-            finished: false,
-            timer: null,
-            scoresGiven: {}
-          };
-
-          sendBlindTestQuestion(roomCode);
-        }
-      }
-      // ------- PETIT BAC ----------
-      else if (gs.currentMiniGame === "petit_bac") {
-        startPetitBac(roomCode);
-      }
-      // ------- LES ENCHÈRES ----------
-      else if (gs.currentMiniGame === "les_encheres") {
-        startLesEncheres(roomCode);
-      }
-      // ------- AUTRES MINI-JEUX ----------
-      else {
-        gs.currentMiniGameState = null;
-      }
-    }
-
-    io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+    startReadyMiniGame(room, startLesEncheres);
   });
 
-  // Réception des réponses Leugtas
   socket.on("leugtasAnswer", ({ roomCode, playerId, answerId }) => {
     const room = rooms[roomCode];
     if (!room) return;
@@ -2756,29 +2982,30 @@ io.on("connection", (socket) => {
     mini.gradingPlayerIndex = 0;
 
     if (mini.correctionIndex >= mini.questions.length) {
-    io.to(socket.roomCode).emit("scoreUpdate", {
-      players: room.players
-        .filter((p) => isActiveMiniGamePlayer(room, p))
-        .map((p) => ({
-          id: p.playerId,
-          nickname: p.pseudo,
-          score: p.roundScore || 0,
-          time: p.roundTime || 0
-        }))
-    });
+      beginListeRoundEnd(room);
+      io.to(room.roomCode).emit("scoreUpdate", {
+        players: room.players
+          .filter((p) => isActiveMiniGamePlayer(room, p))
+          .map((p) => ({
+            id: p.playerId,
+            nickname: p.pseudo,
+            score: p.roundScore || 0,
+            time: p.roundTime || 0
+          }))
+      });
 
-      io.to(socket.roomCode).emit("leugtasReveal", {
+      io.to(room.roomCode).emit("leugtasReveal", {
         isLastQuestion: true,
         correctAnswerId: null,
         playerAnswers: null,
         skipAnimation: true
       });
 
-      setTimeout(() => {
-        io.to(socket.roomCode).emit("leBonOrdreExit");
+      roomTimeout(room, () => {
+        io.to(room.roomCode).emit("leBonOrdreExit");
         // On attend 7s (3s �limination + 3s logo + 1s s�curit�)
-        setTimeout(() => {
-          endMiniGame(socket.roomCode);
+        roomTimeout(room, () => {
+          endMiniGame(room.roomCode);
         }, 7000); 
       }, 5000);
     } else {
@@ -2789,18 +3016,27 @@ io.on("connection", (socket) => {
   socket.on("endPetitBacCorrection", () => {
     const room = rooms[socket.roomCode];
     if (!room || room.hostId !== socket.playerId) return;
+    if (room.gameMode === "liste") {
+      const mini = room.gameState.currentMiniGameState;
+      if (mini?.type !== "petit_bac") return;
+      const grades = mini.scoresGiven?.[0] || {};
+      if (room.players.some((p) => isListeParticipant(room, p) && grades[p.playerId] === undefined)) {
+        return socket.emit("errorMessage", "Corrigez tous les participants avant de terminer.");
+      }
+    }
 
-    io.to(socket.roomCode).emit("leugtasReveal", {
+    beginListeRoundEnd(room);
+    io.to(room.roomCode).emit("leugtasReveal", {
       isLastQuestion: true,
       correctAnswerId: null,
       playerAnswers: null,
       skipAnimation: true
     });
 
-    setTimeout(() => {
-      io.to(socket.roomCode).emit("leBonOrdreExit");
-      setTimeout(() => {
-        endMiniGame(socket.roomCode);
+    roomTimeout(room, () => {
+      io.to(room.roomCode).emit("leBonOrdreExit");
+      roomTimeout(room, () => {
+        endMiniGame(room.roomCode);
       }, 7000); // Augment� � 7s
     }, 5000);
   });
@@ -3192,6 +3428,7 @@ function syncPlayerWithGame(socket, room) {
   // CORRECTIF : On regarde currentMiniGameState OU room.mini (pour le cas spécifique du Faux du Vrai)
   const mini = gs.currentMiniGameState || room.mini;
 
+  publishListeContext(room, socket);
   if (gs.phase !== "playing" || !mini) return;
 
   // === GESTION DE LA CORRECTION (Si le jeu est fini) ===

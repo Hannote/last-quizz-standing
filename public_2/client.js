@@ -58,6 +58,14 @@ preloadImagesSequentially(PRIORITY_IMAGES).then(() => {
 });
 
 const socket = io();
+let listeActionContext = null;
+socket.on("listeContext", (context) => { listeActionContext = context; });
+
+function emitGameAction(event, payload, context = listeActionContext) {
+  if (currentRoom?.gameMode === "liste") socket.emit(event, payload ?? null, context);
+  else if (payload === undefined) socket.emit(event);
+  else socket.emit(event, payload);
+}
 
 // Conteneur invisible pour forcer le décodage des logos par le GPU
 function initGpuLogoCacheOnce() {
@@ -902,7 +910,7 @@ window.submitGrade = function (points) {
     // On envoie 'soundValue' pour dire au serveur quel son jouer
 
 
-    socket.emit("hostGradePlayer", { points, soundValue: points });
+    emitGameAction("hostGradePlayer", { points, soundValue: points });
 
 
   }
@@ -1324,6 +1332,7 @@ function stopDrawAnimation() {
 
 
 function startDrawAnimation(finalCode, isHost) {
+  const drawingContext = listeActionContext;
   stopDrawAnimation();
 
   if (sfxTirage) sfxTirage.play(); 
@@ -1338,7 +1347,10 @@ function startDrawAnimation(finalCode, isHost) {
   }
   if (drawGameLabel) drawGameLabel.textContent = "Tirage en cours...";
 
-  const list = [...POSSIBLE_MINI_GAMES].sort(() => Math.random() - 0.5);
+  const drawPool = currentRoom?.gameMode === "liste"
+    ? currentRoom.listeOptions.miniGames.map((game) => game.id)
+    : POSSIBLE_MINI_GAMES;
+  const list = [...drawPool].sort(() => Math.random() - 0.5);
   let index = 0;
   let isShuffling = true; // Flag pour empêcher les mises à jour après l'arrêt
 
@@ -1383,7 +1395,7 @@ function startDrawAnimation(finalCode, isHost) {
       document.body.classList.remove("drawing-active");
 
       if (isHost) {
-        socket.emit("drawingFinished");
+        emitGameAction("drawingFinished", null, drawingContext);
       }
     }, 2900);
   }, 6400);
@@ -1684,7 +1696,7 @@ function showFauxVraiQuestion(data) {
           lockFauxVraiButtons(index);
 
 
-          socket.emit("fauxVraiAnswer", index);
+          emitGameAction("fauxVraiAnswer", index);
 
 
           btn.classList.add("btn-waiting-selected");
@@ -3359,7 +3371,7 @@ if (lboValidateBtn) {
     if (!val) return;
 
 
-    socket.emit("leBonOrdreAnswer", {
+    emitGameAction("leBonOrdreAnswer", {
 
 
       roomCode: currentRoom.roomCode,
@@ -3392,7 +3404,7 @@ if (lboPassBtn) {
     sfxBubbleClick.play();
 
 
-    socket.emit("leBonOrdreAnswer", {
+    emitGameAction("leBonOrdreAnswer", {
 
 
       roomCode: currentRoom.roomCode,
@@ -3449,7 +3461,7 @@ if (qsjValidateBtn) {
     if (!val) return;
 
 
-    socket.emit("quiSuisJeAnswer", {
+    emitGameAction("quiSuisJeAnswer", {
 
 
       roomCode: currentRoom.roomCode,
@@ -3485,7 +3497,7 @@ if (qsjPassBtn) {
     if (!currentRoom) return;
 
 
-    socket.emit("quiSuisJeAnswer", {
+    emitGameAction("quiSuisJeAnswer", {
 
 
       roomCode: currentRoom.roomCode,
@@ -3542,7 +3554,7 @@ if (tdmValidateBtn) {
     if (!val) return;
 
 
-    socket.emit("leTourDuMondeAnswer", {
+    emitGameAction("leTourDuMondeAnswer", {
 
 
       roomCode: currentRoom.roomCode,
@@ -3578,7 +3590,7 @@ if (tdmPassBtn) {
     if (!currentRoom) return;
 
 
-    socket.emit("leTourDuMondeAnswer", {
+    emitGameAction("leTourDuMondeAnswer", {
 
 
       roomCode: currentRoom.roomCode,
@@ -3632,7 +3644,7 @@ if (btValidateBtn) {
     if (!val) return;
 
 
-    socket.emit("blindTestAnswer", {
+    emitGameAction("blindTestAnswer", {
 
 
       roomCode: currentRoom.roomCode,
@@ -3683,7 +3695,7 @@ if (pbValidateBtn) {
     });
 
 
-    socket.emit("petitBacAnswer", {
+    emitGameAction("petitBacAnswer", {
 
 
       roomCode: currentRoom.roomCode,
@@ -3716,7 +3728,7 @@ if (btPassBtn) {
     if (!currentRoom) return;
 
 
-    socket.emit("blindTestAnswer", {
+    emitGameAction("blindTestAnswer", {
 
 
       roomCode: currentRoom.roomCode,
@@ -3842,7 +3854,7 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
       let statusIcon = "";
 
 
-      if (isFinal) {
+      if (isFinal && currentRoom?.gameMode !== "liste") {
 
 
         // Si c'est le dernier joueur de la liste triée, il est éliminé
@@ -4298,7 +4310,7 @@ function setupLeugtasQuestion(questionData) {
           "Réponse envoyée... En attente des autres joueurs.";
 
 
-        socket.emit("leugtasAnswer", {
+        emitGameAction("leugtasAnswer", {
 
 
           roomCode: currentRoom.roomCode,
@@ -4454,6 +4466,17 @@ function updateGameStateUI(gs) {
 
 
   gamePhaseText.textContent = phaseText;
+  if (gs.gameMode === "liste" && ["listeRoundEnd", "listeTransition", "listeFinished"].includes(gs.phase)) {
+    stopDrawAnimation();
+    stopRuleSounds();
+    hideAllMiniGames();
+    showMainZone("default");
+    gamePhaseText.textContent = gs.phase === "listeFinished" ? "Tournoi terminé" : "Manche terminée";
+    currentMiniGameText.textContent = gs.phase === "listeFinished"
+      ? "Les résultats du tournoi sont enregistrés. Vous pouvez quitter la salle."
+      : "Préparation du mini-jeu suivant…";
+    return;
+  }
 
 
   if (!currentGameState.currentMiniGame) {
@@ -4652,7 +4675,7 @@ function updateGameStateUI(gs) {
           if (iAmReady) {
 
 
-            socket.emit("playerSetReady", { isReady: false });
+            emitGameAction("playerSetReady", { isReady: false });
 
 
             iAmReady = false;
@@ -5095,7 +5118,7 @@ function updateGameModeUI() {
   });
   if (gameModeHint) {
     gameModeHint.textContent = isListe
-      ? "Le mode Liste n'est pas encore disponible."
+      ? "Validez la configuration pour lancer le tournoi Liste."
       : "";
   }
   if (sandboxControls) {
@@ -5531,7 +5554,7 @@ if (readyBtn) {
     const newReady = !iAmReady;
 
 
-    socket.emit("playerSetReady", { isReady: newReady });
+    emitGameAction("playerSetReady", { isReady: newReady });
 
 
   });
@@ -5903,6 +5926,7 @@ socket.on("roomUpdate", (room) => {
 
 
 socket.on("gameStateUpdate", (gs) => {
+  listeActionContext = gs.listeContext || null;
 
 
   updateGameStateUI(gs);
@@ -7123,7 +7147,7 @@ function handlePetitBacCorrection(data, container) {
 if (btnPrevPlayer) {
 
 
-  btnPrevPlayer.onclick = () => socket.emit("correctionNavigate", { direction: -1 });
+  btnPrevPlayer.onclick = () => emitGameAction("correctionNavigate", { direction: -1 });
 
 
 }
@@ -7132,7 +7156,7 @@ if (btnPrevPlayer) {
 if (btnNextPlayer) {
 
 
-  btnNextPlayer.onclick = () => socket.emit("correctionNavigate", { direction: 1 });
+  btnNextPlayer.onclick = () => emitGameAction("correctionNavigate", { direction: 1 });
 
 
 }
@@ -7144,7 +7168,7 @@ if (btnPrevCorrectionQ) {
   btnPrevCorrectionQ.addEventListener("click", () => {
 
 
-    socket.emit("correctionPrevQuestion");
+    emitGameAction("correctionPrevQuestion");
 
 
   });
@@ -7162,7 +7186,7 @@ if (btnNextCorrectionQ) {
   btnNextCorrectionQ.addEventListener("click", () => {
 
 
-    socket.emit("correctionNextQuestion");
+    emitGameAction("correctionNextQuestion");
 
 
   });
@@ -7216,7 +7240,7 @@ window.ratePbLine = function (lineIdx, points, btnElement) {
   if (socket) {
 
 
-    socket.emit("hostGradePlayer", {
+    emitGameAction("hostGradePlayer", {
 
 
       points: total, // Met Ã  jour le score global
@@ -7249,7 +7273,7 @@ if (pbSubmitTotalBtn) {
     Object.values(window.pbScoresMap).forEach((v) => (total += v));
 
 
-    socket.emit("hostGradePlayer", {
+    emitGameAction("hostGradePlayer", {
 
 
       points: total,
@@ -7261,7 +7285,7 @@ if (pbSubmitTotalBtn) {
     });
 
 
-    socket.emit("correctionNavigate", { direction: 1 });
+    emitGameAction("correctionNavigate", { direction: 1 });
 
 
   };
@@ -7276,7 +7300,7 @@ if (pbFinishGameBtn) {
   pbFinishGameBtn.addEventListener("click", () => {
 
 
-    socket.emit("endPetitBacCorrection");
+    emitGameAction("endPetitBacCorrection");
 
 
   });
@@ -9257,6 +9281,10 @@ document.addEventListener("keydown", (e) => {
  * Affiche l'animation du joueur éliminé avec le message "EST À TERRE" et déclenche le son.
  */
 function runEliminationSequence(players, onFinish) {
+    if (currentRoom?.gameMode === "liste") {
+        if (onFinish) onFinish();
+        return;
+    }
     if (!players || players.length === 0) {
         if (onFinish) onFinish();
         return;

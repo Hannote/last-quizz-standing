@@ -72,22 +72,28 @@ async function run() {
   });
   await configPromise;
 
-  const blockedPromise = waitForEvent("errorMessage", (message) =>
-    typeof message === "string" && message.includes("pas encore disponible"));
+  const startedPromise = waitForEvent("gameStateUpdate", (state) =>
+    state.gameMode === "liste" && state.phase === "drawingGame");
   emit("hostStartGame", {});
-  await blockedPromise;
+  const started = await startedPromise;
+  assert.equal(started.roundNumber, 1);
+  assert.ok(started.listeContext.tournamentId);
+  assert.notEqual(started.currentMiniGame, "les_encheres");
+  const rulesPromise = waitForEvent("gameStateUpdate", (state) => state.phase === "rules");
+  socket.send(`42${JSON.stringify(["drawingFinished", null, started.listeContext])}`);
+  await rulesPromise;
+  emit("leaveRoom");
 
-  const battleRoyaleRoomPromise = waitForEvent("roomUpdate", (room) =>
-    room.gameMode === "battle_royale");
-  emit("hostSetGameMode", { gameMode: "battle_royale" });
-  await battleRoyaleRoomPromise;
+  const newRoomPromise = waitForEvent("roomJoined", (room) => room.gameMode === "battle_royale");
+  emit("createRoom", { pseudo: "Smoke BR", playerId });
+  await newRoomPromise;
   const introPromise = waitForEvent("gameStateUpdate", (state) =>
     state.gameMode === "battle_royale" && state.phase === "intro");
   emit("hostStartGame", { forcedMiniGame: "qui_suis_je" });
   await introPromise;
 
   socket.close();
-  console.log("Smoke Socket.IO réussi : lobby sérialisé, lancement Liste bloqué et intro Battle Royale déclenchée.");
+  console.log("Smoke Socket.IO réussi : lancement Liste, contexte de manche, règles, abandon et nouvelle partie Battle Royale.");
 }
 
 run().catch((error) => {

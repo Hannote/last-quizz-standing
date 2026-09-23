@@ -1,9 +1,10 @@
 # Mode Liste — plan validé et règles de reprise
 
-- État actuel : étapes 1 et 2 implémentées, testées, validées et poussées ; étapes 3 et 4 terminées et validées.
+- État actuel : étapes 1 à 5 terminées et validées.
 - Commits : étape 1 — `286eb9f` ; étape 2 — `1513a7b`.
 - Validation de l’étape 4 : tests automatisés réussis ; tests manuels des jeux avec correction, du Petit Bac et des QCM réalisés avec succès, chronos compris.
-- Prochaine action : étape 5, non commencée et à ne pas démarrer sans autorisation explicite.
+- Validation de l’étape 5 : tests manuels réalisés et réussis avec quatre joueurs, comprenant un Battle Royale complet et un tournoi Liste complet des sept mini-jeux compatibles.
+- Prochaine action : étape 6, non commencée et à ne pas démarrer sans autorisation explicite.
 - Aucun commit ni push sans autorisation.
 
 La demande de cette session porte uniquement sur la mise à jour de cet état d’avancement. La consigne actuelle « Aucun commit ni push sans autorisation » prévaut sur l’autorisation générale de commits mentionnée dans les échanges antérieurs recopiés ci-dessous. Les points Git du plan sont des propositions, pas des commandes à exécuter automatiquement.
@@ -75,8 +76,11 @@ Les corrections nécessaires aux temps seront isolées et vérifiées séparéme
 ### 6. Afficher les classements et les vainqueurs
 
 - **`public_2/client.js`** : utiliser les classements calculés par le serveur ; afficher le classement général après chaque mini-jeu ; gérer plusieurs vainqueurs ex æquo.
+- Supprimer l’écran vide observé entre la fin des animations d’un mini-jeu Liste et le tirage suivant ; afficher pendant cette transition le classement général calculé par le serveur et ajuster la durée des attentes sans couper les animations existantes.
+- Conditionner au mode Liste toute modification des écrans ou des délais de transition ; conserver à l’identique les animations et leur durée en Battle Royale.
+- Prévoir une introduction et une annonce des vainqueurs propres au mode Liste, dans la direction artistique et sonore du jeu.
 - Conditionner introduction, élimination, tête de mort et annonce des finalistes au Battle Royale.
-- **`public_2/index.html`** : ajouter les composants Liste avec styles isolés, pseudonymes longs, défilement interne et bouton Quitter accessible.
+- **`public_2/index.html`** : ajouter les composants Liste avec styles isolés, pseudonymes longs, défilement interne et bouton Quitter accessible ; vérifier leur rendu mobile.
 
 **Validation :** portrait de 320 à 430 pixels, nombreux joueurs, égalités, reconnexion sur un classement et victoire partagée.
 
