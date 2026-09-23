@@ -339,6 +339,12 @@ function stopRuleSounds() {
 // Utilitaire pour savoir si je suis spectateur (éliminé ou spectateur pur)
 
 
+function isListePlayerInactive(player) {
+  return currentRoom?.gameMode === "liste" && !!player &&
+    (player.withdrawn || (currentRoom.listeTournament?.started &&
+      !currentRoom.listeTournament.initialParticipantIds.includes(player.playerId)));
+}
+
 function amISpectator() {
 
 
@@ -348,7 +354,7 @@ function amISpectator() {
   const me = currentRoom.players.find((p) => p.playerId === playerId);
 
 
-  return me && (me.eliminated || me.isSpectator);
+  return isListePlayerInactive(me) || (me && (me.eliminated || me.isSpectator));
 
 
 }
@@ -4622,7 +4628,7 @@ function updateGameStateUI(gs) {
         const me = currentRoom ? currentRoom.players.find(p => p.playerId === playerId) : null;
 
 
-        const isSpectator = me && (me.eliminated || me.isSpectator);
+        const isSpectator = isListePlayerInactive(me) || (me && (me.eliminated || me.isSpectator));
 
 
         if (isSpectator) {
@@ -4631,7 +4637,8 @@ function updateGameStateUI(gs) {
           readyBtn.disabled = true;
 
 
-          readyBtn.textContent = "Mode Spectateur";
+          readyBtn.textContent = isListePlayerInactive(me)
+            ? (me.withdrawn ? "Retiré du tournoi" : "Hors tournoi") : "Mode Spectateur";
 
 
           readyBtn.classList.remove("btn-outline");
@@ -4924,6 +4931,7 @@ function updateReadyPlayersListUI() {
 
 
     if (p.eliminated || p.isSpectator) return;
+    if (isListePlayerInactive(p)) return;
 
 
     const line = document.createElement("div");
@@ -5007,7 +5015,7 @@ function readListeConfigForm() {
 
 function canEditListeConfig() {
   return socket.connected && currentRoom?.gameMode === "liste" &&
-    currentRoom.hostId === playerId && currentGameState.phase === "idle";
+    currentRoom.hostId === playerId && currentGameState.phase === "idle" && !currentRoom.listeTournament?.started;
 }
 
 function updateListeConfigControls() {
@@ -5076,7 +5084,7 @@ function updateListeConfigUI() {
 function updateGameModeUI() {
   const isListe = currentRoom?.gameMode === "liste";
   const isHost = currentRoom?.hostId === playerId;
-  const canChangeMode = isHost && currentGameState.phase === "idle";
+  const canChangeMode = isHost && currentGameState.phase === "idle" && !currentRoom?.listeTournament?.started;
   body.classList.toggle("mode-liste", isListe);
 
   gameModeButtons.forEach((button) => {
@@ -5154,10 +5162,12 @@ function updateRoomUI(room) {
     statusSpan.className = "player-status";
 
 
-    if (!player.isConnected) {
+    if (isListePlayerInactive(player)) {
+      statusSpan.textContent = player.withdrawn ? "retiré du tournoi" : "hors tournoi";
+    } else if (!player.isConnected) {
 
 
-      statusSpan.textContent = "déconnecté";
+      statusSpan.textContent = currentRoom.gameMode === "liste" ? "déconnecté temporairement" : "déconnecté";
 
 
     } else if (player.eliminated) {
@@ -5217,7 +5227,11 @@ function updateRoomUI(room) {
   updateGameModeUI();
 
 
-  setRoomError("");
+  const me = room.players.find((p) => p.playerId === playerId);
+  setRoomError(isListePlayerInactive(me)
+    ? (me.withdrawn ? "Vous vous êtes retiré du tournoi Liste. Votre retrait est définitif."
+      : "Vous ne faites pas partie des participants de ce tournoi Liste.")
+    : "");
 
 
   updateReadyPlayersListUI();
@@ -5500,6 +5514,7 @@ if (readyBtn) {
 
 
   readyBtn.addEventListener("click", () => {
+    if (isListePlayerInactive(currentRoom?.players.find((p) => p.playerId === playerId))) return;
 
 
     // AJOUT : On coupe immédiatement le son des règles quand le joueur clique
@@ -6787,6 +6802,8 @@ socket.on("playCorrectionArrow", () => {
 
 
 socket.on("correctionUpdate", (data) => {
+  if (data.gameMode === "liste" &&
+      (currentRoom?.gameMode !== "liste" || data.roomCode !== currentRoom.roomCode)) return;
 
 
   stopBlindTestAudio(); // On coupe le son avant tout
@@ -6806,6 +6823,10 @@ socket.on("correctionUpdate", (data) => {
 
   if (pbContainer) pbContainer.classList.add("hidden");
 
+  if (currentRoom?.gameMode === "liste" && data.gameMode === "liste" && data.empty) {
+    setRoomError("Aucun participant à corriger pour le moment.");
+    return;
+  }
 
   if (data.miniGameType === "petit_bac") {
 
@@ -8702,6 +8723,7 @@ if (btnValidGame) {
 
 
 socket.on("playerEliminated", (data) => {
+  if (currentRoom?.gameMode === "liste") return;
   // 1. Suppression de l'alerte pour le joueur concerné (éliminé ou sortant)
   if (data.playerId === playerId) {
       return; 
@@ -8974,6 +8996,11 @@ if (showPlayersBtn) {
 
 
       li.className = "modal-player-item";
+      if (currentRoom.gameMode === "liste") {
+        li.style.flexWrap = "wrap";
+        li.style.gap = "8px";
+        li.style.overflowWrap = "anywhere";
+      }
 
 
       const isOnline = p.isConnected;
@@ -8982,13 +9009,16 @@ if (showPlayersBtn) {
       const statusColorClass = isOnline ? "online" : "offline";
 
 
-      const statusText = isOnline ? "Connecté" : "Déconnecté";
+      const statusText = isListePlayerInactive(p)
+        ? (p.withdrawn ? "Retiré du tournoi" : "Hors tournoi")
+        : (isOnline ? "Connecté" : (currentRoom.gameMode === "liste" ? "Déconnecté temporairement" : "Déconnecté"));
 
 
       let extraInfo = "";
 
 
-      if (p.eliminated) extraInfo = " <span style='color:#e74c3c; font-size:0.8em; margin-left:5px;'>(Éliminé)</span>";
+      if (isListePlayerInactive(p)) extraInfo = "";
+      else if (p.eliminated) extraInfo = " <span style='color:#e74c3c; font-size:0.8em; margin-left:5px;'>(Éliminé)</span>";
 
 
       else if (p.isSpectator) extraInfo = " <span style='color:#aaa; font-size:0.8em; margin-left:5px;'>(Spectateur)</span>";

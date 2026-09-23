@@ -1,9 +1,9 @@
 # Mode Liste — plan validé et règles de reprise
 
-- État actuel : étapes 1 et 2 implémentées, testées, validées et poussées.
+- État actuel : étapes 1 et 2 implémentées, testées, validées et poussées ; étape 3 terminée et validée par les tests automatisés rapportés et les tests manuels.
 - Commits : étape 1 — `286eb9f` ; étape 2 — `1513a7b`.
-- Étape 3 : non commencée.
-- Prochaine action : étape 3, à ne pas commencer sans autorisation explicite.
+- Vérification restante : les scénarios Liste après lancement devront être vérifiés en conditions réelles à l’étape 5.
+- Prochaine action : étape 4, non commencée.
 - Aucun commit ni push sans autorisation.
 
 La demande de cette session porte uniquement sur la mise à jour de cet état d’avancement. La consigne actuelle « Aucun commit ni push sans autorisation » prévaut sur l’autorisation générale de commits mentionnée dans les échanges antérieurs recopiés ci-dessous. Les points Git du plan sont des propositions, pas des commandes à exécuter automatiquement.
