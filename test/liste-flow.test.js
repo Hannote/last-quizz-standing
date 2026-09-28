@@ -205,6 +205,62 @@ for (const game of ["le_faux_du_vrai", "qui_veut_gagner_des_leugtas", "le_bon_or
   });
 }
 
+for (const game of ["qui_suis_je", "blind_test", "le_tour_du_monde", "le_bon_ordre",
+  "petit_bac", "qui_veut_gagner_des_leugtas", "le_faux_du_vrai"]) {
+  test(`classement ${game} : toutes les émissions scoreUpdate fournissent les places serveur`, () => {
+    const h = harness();
+    const { room, clients } = h.create();
+    h.configure(room, clients[0], "manual", [game]);
+    clients[0].send("hostStartGame", {});
+    playRound(h, room, clients, true);
+    const scores = h.events.filter((e) => e.target === room.roomCode && e.name === "scoreUpdate");
+    assert.ok(scores.length > 0);
+    for (const { data } of scores) {
+      assert.equal(data.gameMode, "liste");
+      assert.ok(data.players.every((p) => Number.isInteger(p.place) && p.place >= 1));
+      for (let i = 1; i < data.players.length; i++) {
+        const previous = data.players[i - 1];
+        const current = data.players[i];
+        assert.ok(previous.score > current.score ||
+          (previous.score === current.score && previous.time <= current.time));
+        assert.equal(current.place, previous.score === current.score && previous.time === current.time
+          ? previous.place : i + 1);
+      }
+    }
+    assert.deepEqual(Array.from(scores.at(-1).data.players, (p) => p.place), [1, 1, 1]);
+    room.players.forEach((p) => assert.equal(p.tournamentPoints, 3));
+    assert.equal(room.listeTournament.roundResults.length, 1);
+  });
+}
+
+test("abandon pendant le classement de mini-jeu : snapshot actualisé et aucun point attribué", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["petit_bac"]);
+  clients[0].send("hostStartGame", {});
+  h.advance(9300);
+  clients.forEach((s) => s.send("playerSetReady", { isReady: true }));
+  h.advance(2500);
+  clients.forEach((s) => s.send("petitBacAnswer", { roomCode: room.roomCode, answers: {} }));
+  h.advance(3000);
+  for (let i = 0; i < 3; i++) {
+    clients[0].send("correctionNavigate", { direction: i === 0 ? -99 : 1 });
+    clients[0].send("hostGradePlayer", { points: 0, details: {} });
+  }
+  clients[0].send("endPetitBacCorrection");
+  assert.equal(room.gameState.phase, "listeRoundEnd");
+  clients[2].send("leaveRoom");
+  const score = h.events.filter((e) => e.name === "scoreUpdate").at(-1).data;
+  assert.equal(score.refreshLeaderboard, true);
+  assert.deepEqual(Array.from(score.players, (p) => p.id), ["p0", "p1"]);
+  assert.deepEqual(Array.from(score.players, (p) => p.place), [1, 1]);
+  room.players.forEach((p) => assert.equal(p.tournamentPoints, 0));
+  assert.equal(room.listeTournament.roundResults.length, 0);
+  h.advance(8500);
+  assert.equal(room.listeTournament.roundResults.length, 1);
+  assert.deepEqual(Array.from(room.listeTournament.roundResults[0].placements, (p) => p.points), [3, 3]);
+});
+
 test("classement Liste : snapshot serveur, reconnexion pendant l'affichage et transition après 8 s", () => {
   const h = harness();
   const { room, clients } = h.create();
@@ -523,4 +579,259 @@ test("règles : transfert d'hôte, secours du tirage et absence temporaire sans 
   assert.equal(room.listeTournament.finished, true);
   assert.equal(room.listeTournament.winners.length, 0);
   assert.equal(h.timers.size, 0);
+});
+
+// Compléments de l'étape 7 : vrais handlers, reconnexions et échéances serveur.
+for (const [game, event, questionEvent] of [
+  ["qui_suis_je", "quiSuisJeAnswer", "quiSuisJeQuestion"],
+  ["blind_test", "blindTestAnswer", "blindTestQuestion"],
+  ["le_tour_du_monde", "leTourDuMondeAnswer", "leTourDuMondeQuestion"],
+  ["le_bon_ordre", "leBonOrdreAnswer", "leBonOrdreQuestion"],
+  ["petit_bac", "petitBacAnswer", "petitBacStart"],
+  ["qui_veut_gagner_des_leugtas", "leugtasAnswer", "leugtasQuestion"],
+  ["le_faux_du_vrai", "fauxVraiAnswer", "fauxVraiQuestion"]
+]) {
+  test(`étape 7 : reconnexion en question ${game}, réponse et temps conservés`, () => {
+    const h = harness();
+    const { room, clients } = h.create();
+    h.configure(room, clients[0], "manual", [game]);
+    clients[0].send("hostStartGame", {});
+    h.advance(9300);
+    clients.forEach((s) => s.send("playerSetReady", { isReady: true }));
+    h.advance(6500);
+    const mini = room.gameState.currentMiniGameState || room.mini;
+    const payload = game === "le_faux_du_vrai" ? 1
+      : game === "qui_veut_gagner_des_leugtas"
+        ? { roomCode: room.roomCode, playerId: "p0", answerId: mini.questions[0].correct_answer_id }
+        : game === "petit_bac" ? { roomCode: room.roomCode, answers: { 0: "Paris" } }
+          : { roomCode: room.roomCode, answer: "Paris" };
+    clients[0].send(event, payload);
+    const saved = () => JSON.stringify({
+      answer: (mini.playerAnswers || mini.answers).p0,
+      time: mini.responseTimes?.p0 ?? mini.answerTimes?.p0 ?? mini.playerAnswers?.p0?.timeTaken,
+      history: mini.history?.p0, responseHistory: mini.responseTimesByQuestion?.[0]?.p0,
+      score: room.players[0].roundScore, roundTime: room.players[0].roundTime
+    });
+    const original = saved();
+    assert.notEqual((mini.playerAnswers || mini.answers).p0, undefined);
+    assert.equal(mini.responseTimes?.p0 ?? mini.answerTimes?.p0 ?? mini.playerAnswers?.p0?.timeTaken, 4);
+    clients[0].send("disconnect");
+    assert.equal(room.hostId, "p1");
+    h.advance(1000);
+    const returned = h.socket("p0");
+    returned.send("joinRoom", { roomCode: room.roomCode, playerId: "p0", pseudo: "Retour" });
+    assert.ok(h.events.some((e) => e.target === returned.id && e.name === questionEvent));
+    const question = h.events.filter((e) => e.target === returned.id && e.name === questionEvent).at(-1).data;
+    if (game === "petit_bac") {
+      assert.equal(question.hasAnswered, true);
+      assert.equal(question.savedAnswers[0], "Paris");
+    } else if (game === "le_faux_du_vrai") {
+      assert.equal(question.hasAnswered, true);
+      assert.equal(question.selectedAnswerIndex, 1);
+    }
+    assert.equal(room.players[0].withdrawn, false);
+    assert.equal(room.listeTournament.initialParticipantCount, 3);
+    returned.send(event, payload);
+    clients[0].send(event, payload);
+    clients[0].send("leaveRoom");
+    clients[0].send("disconnect");
+    assert.equal(saved(), original);
+    assert.equal(room.players[0].socketId, returned.id);
+    assert.equal(room.players[0].isConnected, true);
+    assert.equal(room.players[0].withdrawn, false);
+    assert.equal(room.gameState.phase, "playing");
+  });
+}
+
+test("étape 7 : reconnexion en correction, transfert d'hôte et vainqueur unique", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["petit_bac"]);
+  clients[0].send("hostStartGame", {});
+  h.advance(9300);
+  clients.forEach((s) => s.send("playerSetReady", { isReady: true }));
+  h.advance(6500);
+  clients.forEach((s) => s.send("petitBacAnswer", { roomCode: room.roomCode, answers: { 0: "Paris" } }));
+  h.advance(3000);
+  const mini = room.gameState.currentMiniGameState;
+  clients[0].send("hostGradePlayer", { points: 1, details: { 0: 1 } });
+  const savedStats = JSON.stringify(room.players.map((p) => [p.roundScore, p.roundTime]));
+  const savedGrades = JSON.stringify(mini.scoresGiven);
+  const cursor = [mini.correctionIndex, mini.gradingPlayerIndex];
+  clients[0].send("disconnect");
+  assert.equal(room.hostId, "p1");
+  const returned = h.socket("p0");
+  returned.send("joinRoom", { roomCode: room.roomCode, playerId: "p0", pseudo: "Retour" });
+  const correction = h.events.filter((e) => e.target === returned.id && e.name === "correctionUpdate").at(-1).data;
+  assert.equal(correction.currentGrade, 1);
+  assert.equal(correction.petitBacData.answers[0], "Paris");
+  assert.deepEqual([mini.correctionIndex, mini.gradingPlayerIndex], cursor);
+  clients[0].send("hostGradePlayer", { points: 0, details: {} });
+  clients[0].send("correctionNavigate", { direction: 1 });
+  assert.equal(JSON.stringify(mini.scoresGiven), savedGrades);
+  clients[1].send("hostGradePlayer", { points: 1, details: { 0: 1 } });
+  assert.equal(JSON.stringify(room.players.map((p) => [p.roundScore, p.roundTime])), savedStats);
+  for (let i = 0; i < 2; i++) {
+    clients[1].send("correctionNavigate", { direction: 1 });
+    clients[1].send("hostGradePlayer", { points: 0, details: {} });
+  }
+  const token = h.api.getListeContext(room);
+  clients[1].send("endPetitBacCorrection");
+  clients[1].send("endPetitBacCorrection", null, token);
+  h.advance(16500);
+  assert.equal(room.gameState.phase, "listeFinished");
+  assert.deepEqual(Array.from(room.listeTournament.winners), ["p0"]);
+  assert.equal(room.listeTournament.roundResults.length, 1);
+  assert.equal(room.players[0].tournamentTime, 4);
+});
+
+test("étape 7 : reconnexion et abandon à mi-classement sans décaler les 8 secondes", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["petit_bac", "qui_suis_je"]);
+  clients[0].send("hostStartGame", {});
+  room.gameState.phase = "listeRoundEnd";
+  room.players.forEach((p) => { p.roundScore = 1; p.roundTime = 5; });
+  h.api.endMiniGame(room.roomCode);
+  h.advance(3500);
+  clients[2].send("disconnect");
+  const returned = h.socket("p2");
+  returned.send("joinRoom", { roomCode: room.roomCode, playerId: "p2", pseudo: "Retour" });
+  assert.equal(h.events.filter((e) => e.target === returned.id && e.name === "gameStateUpdate").at(-1).data.phase,
+    "listeLeaderboard");
+  clients[0].send("leaveRoom");
+  assert.equal(room.hostId, "p1");
+  const snapshot = h.events.filter((e) => e.name === "gameStateUpdate").at(-1).data;
+  assert.deepEqual(Array.from(snapshot.listeLeaderboard.ranking, (p) => p.playerId), ["p1", "p2"]);
+  const withdrawn = h.socket("p0");
+  withdrawn.send("joinRoom", { roomCode: room.roomCode, playerId: "p0", pseudo: "Retiré" });
+  const late = h.socket("late");
+  late.send("joinRoom", { roomCode: room.roomCode, playerId: "late", pseudo: "Tardif" });
+  assert.equal(late.roomCode, null);
+  h.advance(4499);
+  assert.equal(room.gameState.phase, "listeLeaderboard");
+  h.advance(1);
+  assert.equal(room.gameState.phase, "drawingGame");
+  assert.equal(room.gameState.roundNumber, 2);
+  h.advance(9300);
+  clients[1].send("playerSetReady", { isReady: true });
+  returned.send("playerSetReady", { isReady: true });
+  h.advance(2500);
+  const mini = room.gameState.currentMiniGameState;
+  const event = mini.type === "petit_bac" ? "petitBacAnswer" : "quiSuisJeAnswer";
+  withdrawn.send(event, { roomCode: room.roomCode, answer: "Interdit", answers: {} });
+  assert.equal(mini.playerAnswers.p0, undefined);
+  assert.equal(room.players[0].withdrawn, true);
+  assert.equal(room.listeTournament.initialParticipantCount, 3);
+});
+
+test("étape 7 : reconnexion tardive au tirage ne décale pas son échéance serveur", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["petit_bac"]);
+  clients[0].send("hostStartGame", {});
+  h.advance(8500);
+  clients[0].send("disconnect");
+  const returned = h.socket("p0");
+  returned.send("joinRoom", { roomCode: room.roomCode, playerId: "p0", pseudo: "Retour" });
+  assert.equal(h.events.filter((e) => e.target === returned.id && e.name === "gameStateUpdate").at(-1).data.phase,
+    "drawingGame");
+  h.advance(799);
+  assert.equal(room.gameState.phase, "drawingGame");
+  h.advance(1);
+  assert.equal(room.gameState.phase, "rules");
+  clients[1].send("playerSetReady", { isReady: true });
+  clients[2].send("playerSetReady", { isReady: true });
+  returned.send("playerSetReady", { isReady: true });
+  assert.equal(room.gameState.phase, "playing");
+});
+
+test("étape 7 : classement final permanent, co-vainqueurs puis aucun participant admissible", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["petit_bac"]);
+  clients[0].send("hostStartGame", {});
+  room.gameState.phase = "listeRoundEnd";
+  room.players.forEach((p) => { p.roundScore = 1; p.roundTime = 5; });
+  h.api.endMiniGame(room.roomCode);
+  h.advance(608000);
+  assert.equal(room.gameState.phase, "listeFinished");
+  assert.deepEqual(Array.from(room.listeTournament.winners), ["p0", "p1", "p2"]);
+  clients[2].send("disconnect");
+  const returned = h.socket("p2");
+  returned.send("joinRoom", { roomCode: room.roomCode, playerId: "p2", pseudo: "Retour" });
+  const final = h.events.filter((e) => e.target === returned.id && e.name === "gameStateUpdate").at(-1).data;
+  assert.equal(final.listeLeaderboard.isFinal, true);
+  assert.deepEqual(Array.from(final.listeLeaderboard.winners), ["p0", "p1", "p2"]);
+  clients[0].send("leaveRoom");
+  clients[1].send("leaveRoom");
+  returned.send("leaveRoom");
+  assert.equal(room.hostId, null);
+  assert.equal(room.listeTournament.initialParticipantCount, 3);
+  assert.equal(room.listeTournament.generalRanking.length, 0);
+  assert.equal(room.listeTournament.winners.length, 0);
+  assert.equal(h.timers.size, 0);
+  const count = h.events.length;
+  h.allTimers.forEach((t) => t.fn());
+  assert.equal(h.events.length, count);
+});
+
+test("étape 7 : Battle Royale de la correction réelle jusqu'à la victoire Enchères", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  clients[0].send("hostStartGame", { forcedMiniGame: "petit_bac" });
+  h.advance(32500);
+  clients[0].send("drawingFinished");
+  clients.forEach((s) => s.send("playerSetReady", { isReady: true }));
+  h.advance(6500);
+  clients.forEach((s) => s.send("petitBacAnswer", { roomCode: room.roomCode, answers: {} }));
+  h.advance(3000);
+  for (let i = 0; i < 3; i++) {
+    clients[0].send("correctionNavigate", { direction: i === 0 ? -99 : 1 });
+    const points = 2 - i;
+    clients[0].send("hostGradePlayer", { points,
+      details: Object.fromEntries(Array.from({ length: points }, (_, n) => [n, 1])), soundValue: 1 });
+  }
+  clients[0].send("correctionNextQuestion");
+  const scores = h.events.filter((e) => e.name === "scoreUpdate");
+  assert.equal(scores.length, 4);
+  scores.forEach(({ data }) => {
+    assert.equal(data.gameMode, undefined);
+    assert.deepEqual(Array.from(data.players, (p) => p.id), ["p0", "p1", "p2"]);
+    assert.ok(data.players.every((p) => p.place === undefined));
+  });
+  assert.deepEqual(Array.from(scores.at(-1).data.players, (p) => p.score), [2, 1, 0]);
+  assert.deepEqual(Array.from(scores.at(-1).data.players, (p) => p.time), [4, 4, 4]);
+  assert.equal(h.events.filter((e) => e.name === "playGradeSound").length, 3);
+  h.advance(11999);
+  assert.equal(room.players[2].eliminated, false);
+  h.advance(1);
+  assert.equal(room.players[2].eliminated, true);
+  assert.ok(h.events.some((e) => e.name === "playerEliminated" && e.data.playerId === "p2"));
+  assert.ok(h.events.some((e) => e.name === "playFinaleAnimation"));
+  h.advance(23000);
+  assert.equal(room.gameState.currentMiniGame, "les_encheres");
+  clients.slice(0, 2).forEach((s) => s.send("playerSetReady", { isReady: true }));
+  const mini = room.gameState.currentMiniGameState;
+  const themes = h.events.filter((e) => e.name === "encheresSetup").at(-1).data.themes;
+  const theme = themes.find((t) => !t.outOfStock).id;
+  clients.slice(0, 2).forEach((s) => s.send("encheresVoteTheme", theme));
+  h.advance(3500);
+  assert.equal(mini.subPhase, "bidding");
+  clients[0].send("encheresPlaceBid", 1);
+  h.advance(69000);
+  assert.equal(mini.subPhase, "collecting");
+  clients[0].send("encheresSendAnswer", "Test");
+  h.advance(90000);
+  assert.equal(mini.subPhase, "correction");
+  clients[0].send("encheresToggleCorrection", { index: 0, status: true });
+  clients[0].send("encheresFinalizeGame");
+  assert.ok(h.events.some((e) => e.name === "encheresVictory" && e.data.winnerPseudo === "Hôte"));
+  assert.equal(h.events.some((e) => e.name === "gameOver"), false);
+  h.advance(2499);
+  assert.equal(h.events.some((e) => e.name === "gameOver"), false);
+  h.advance(1);
+  assert.ok(h.events.some((e) => e.name === "gameOver" && e.data.winner === "Hôte"));
+  assert.equal(room.listeTournament.started, false);
+  assert.equal(room.listeTournament.roundResults.length, 0);
 });

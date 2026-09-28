@@ -3788,7 +3788,47 @@ if (btPassBtn) {
    */
 
 
-function handleInterimLeaderboard(players, callback, duration = 4000, customTitle = "Classement") {
+let miniGameLeaderboardVersion = 0;
+
+function invalidateMiniGameLeaderboard() {
+  miniGameLeaderboardVersion++;
+  document.getElementById("leaderboard-overlay")?.classList.remove("active");
+}
+
+function captureMiniGameLeaderboardContext() {
+  const version = miniGameLeaderboardVersion;
+  const roomCode = currentRoom?.roomCode;
+  const gameMode = currentRoom?.gameMode;
+  const tournamentId = currentRoom?.listeTournament?.tournamentId;
+  const actionTournamentId = listeActionContext?.tournamentId;
+  const actionRound = listeActionContext?.roundNumber;
+  const actionMiniGame = listeActionContext?.miniGame;
+  const roundNumber = currentGameState.roundNumber;
+  const miniGame = currentGameState.currentMiniGame;
+  const question = listeActionContext?.question;
+
+  return () => {
+    if (!currentRoom || version !== miniGameLeaderboardVersion ||
+        currentRoom.roomCode !== roomCode || currentRoom.gameMode !== gameMode ||
+        currentGameState.roundNumber !== roundNumber || currentGameState.currentMiniGame !== miniGame) return false;
+    if (!["playing", "listeRoundEnd"].includes(currentGameState.phase)) return false;
+    if (gameMode === "liste") {
+      if (currentRoom.listeTournament?.tournamentId !== tournamentId ||
+          listeActionContext?.tournamentId !== actionTournamentId ||
+          listeActionContext?.roundNumber !== actionRound || listeActionContext?.miniGame !== actionMiniGame) return false;
+      const phase = listeActionContext?.phase || currentGameState.phase;
+      if (!["playing", "listeRoundEnd"].includes(phase)) return false;
+      // La fin normale peut avancer l'index serveur sans nouvelle question affichée.
+      if (phase !== "listeRoundEnd" && listeActionContext?.question !== question) return false;
+    }
+    return true;
+  };
+}
+
+function handleInterimLeaderboard(players, callback, duration = 4000, customTitle = "Classement", updateOnly = false) {
+  if (!updateOnly) miniGameLeaderboardVersion++;
+  const isCurrentDisplay = captureMiniGameLeaderboardContext();
+  if (!isCurrentDisplay()) return isCurrentDisplay;
 
 
   const overlay = document.getElementById("leaderboard-overlay");
@@ -3806,7 +3846,7 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
     if (callback) callback();
 
 
-    return;
+    return isCurrentDisplay;
 
 
   }
@@ -3821,7 +3861,7 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
   }
 
 
-  const sorted = [...players].sort((a, b) => {
+  const sorted = currentRoom?.gameMode === "liste" ? players : [...players].sort((a, b) => {
 
 
     if (b.score !== a.score) {
@@ -3856,11 +3896,13 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
 
     .map((p, i) => {
 
+      const place = currentRoom?.gameMode === "liste" ? p.place : i + 1;
+
 
       const color =
 
 
-        i === 0 ? "#FFD700" : i === 1 ? "#C0C0C0" : i === 2 ? "#CD7F32" : "white";
+        place === 1 ? "#FFD700" : place === 2 ? "#C0C0C0" : place === 3 ? "#CD7F32" : "white";
 
 
       const timeDisplay =
@@ -3902,10 +3944,10 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
       return `
 
 
-        <div class="player-row ${i === 0 ? "rank-1" : ""}">
+        <div class="player-row ${place === 1 ? "rank-1" : ""}">
 
 
-          <div class="rank-num" style="color:${color}">#${i + 1}</div>
+          <div class="rank-num" style="color:${color}">#${place}</div>
 
 
           <div class="p-name">${p.nickname}</div>
@@ -3934,10 +3976,12 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
 
   overlay.classList.add("active");
 
+  // Un abandon actualise les lignes sans redémarrer le délai de cet écran.
+  if (updateOnly) return isCurrentDisplay;
+
 
   setTimeout(() => {
-
-
+    if (!isCurrentDisplay()) return;
     overlay.classList.remove("active");
 
 
@@ -3945,8 +3989,7 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
 
 
   }, duration);
-
-
+  return isCurrentDisplay;
 }
 
 
@@ -4474,6 +4517,9 @@ function animateChoicesSequentially(buttons) {
 
 
 function updateGameStateUI(gs) {
+  if (gs && (!["playing", "listeRoundEnd"].includes(gs.phase) ||
+      gs.roundNumber !== currentGameState.roundNumber || gs.currentMiniGame !== currentGameState.currentMiniGame ||
+      (gs.gameMode && gs.gameMode !== currentRoom?.gameMode))) invalidateMiniGameLeaderboard();
 
 
   const previousPhase = lastPhase;
@@ -5231,6 +5277,8 @@ function updateGameModeUI() {
 }
 
 function updateRoomUI(room) {
+  if (room?.roomCode !== currentRoom?.roomCode || room?.gameMode !== currentRoom?.gameMode ||
+      room?.listeTournament?.tournamentId !== currentRoom?.listeTournament?.tournamentId) invalidateMiniGameLeaderboard();
 
 
   currentRoom = room;
@@ -5523,6 +5571,7 @@ if (confirmQuitBtn) {
 
   confirmQuitBtn.addEventListener("click", () => {
     isQuitting = true; 
+    invalidateMiniGameLeaderboard();
     hideListeLeaderboard();
 
     // 1. COUPURE TOTALE DU SON
@@ -5789,6 +5838,7 @@ if (sandboxMiniGameSelect) {
 
 
 socket.on("leugtasQuestion", (data) => {
+  invalidateMiniGameLeaderboard();
 
 
   sfxLeugtasWin.stop();
@@ -5993,6 +6043,7 @@ socket.on("leugtasQuestion", (data) => {
 
 
 socket.on("roomJoined", (roomData) => {
+  invalidateMiniGameLeaderboard();
   hideListeLeaderboard(); // Le snapshot de partie suivant restaure le classement si nécessaire.
   listeConfigKey = null; // La reconnexion restaure toujours la configuration serveur.
 
@@ -6296,7 +6347,7 @@ socket.on("scoreUpdate", (data) => {
     scoreboard.innerHTML = "<h3>Scores</h3>";
 
 
-    data.players
+    const scorePlayers = currentRoom?.gameMode === "liste" ? currentPlayersData : data.players
 
 
       .sort((a, b) => {
@@ -6308,7 +6359,9 @@ socket.on("scoreUpdate", (data) => {
         return (parseFloat(a.time) || 0) - (parseFloat(b.time) || 0);
 
 
-      })
+      });
+
+    scorePlayers
 
 
       .forEach((p) => {
@@ -6328,14 +6381,22 @@ socket.on("scoreUpdate", (data) => {
 
   }
 
+  if (currentRoom?.gameMode === "liste" && data.refreshLeaderboard === true) {
+    const overlay = document.getElementById("leaderboard-overlay");
+    if (overlay?.classList.contains("active")) {
+      handleInterimLeaderboard(currentPlayersData, null, 0,
+        document.getElementById("leaderboardTitle")?.textContent || "Classement", true);
+    }
+  }
+
 
 });
 
 
 socket.on("leugtasReveal", (data) => {
-
-
-  if (!currentRoom) return;
+  miniGameLeaderboardVersion++;
+  const isCurrentReveal = captureMiniGameLeaderboardContext();
+  if (!isCurrentReveal()) return;
 
 
   sfxLeugtasQuestion.stop();
@@ -6468,9 +6529,7 @@ socket.on("leugtasReveal", (data) => {
 
 
   setTimeout(() => {
-
-
-    if (!currentRoom) return;
+    if (!isCurrentReveal()) return;
 
 
     const duration = isLastQuestion ? 5000 : 999999;
@@ -6479,7 +6538,7 @@ socket.on("leugtasReveal", (data) => {
     const title = isLastQuestion ? "CLASSEMENT FINAL" : "CLASSEMENT";
 
 
-    handleInterimLeaderboard(
+    const isCurrentDisplay = handleInterimLeaderboard(
 
 
       currentPlayersData,
@@ -6504,9 +6563,7 @@ socket.on("leugtasReveal", (data) => {
 
 
     setTimeout(() => {
-
-
-      if (!currentRoom) return;
+      if (!isCurrentDisplay()) return;
 
 
       if (!isLastQuestion) cleanUpBehindScenes();
@@ -6522,6 +6579,7 @@ socket.on("leugtasReveal", (data) => {
 
 
 socket.on("fauxVraiQuestion", (data) => {
+  invalidateMiniGameLeaderboard();
 
 
   fauxVraiAnswersShown = false;
@@ -6756,6 +6814,9 @@ socket.on("fauxVraiTimerUpdate", ({ remaining, total }) => {
 
 
 socket.on("fauxVraiReveal", ({ indexFausse, playerChoice, isLastQuestion }) => {
+  miniGameLeaderboardVersion++;
+  const isCurrentReveal = captureMiniGameLeaderboardContext();
+  if (!isCurrentReveal()) return;
 
 
   sfx45s.stop();
@@ -6831,6 +6892,7 @@ socket.on("fauxVraiReveal", ({ indexFausse, playerChoice, isLastQuestion }) => {
 
 
   setTimeout(() => {
+    if (!isCurrentReveal()) return;
 
 
     // MODIFICATION : Durée réduite à 4500ms (au lieu de 8000) pour synchronisation
@@ -6848,7 +6910,7 @@ socket.on("fauxVraiReveal", ({ indexFausse, playerChoice, isLastQuestion }) => {
     sfxFauxVraiLose.stop();
 
 
-    handleInterimLeaderboard(
+    const isCurrentDisplay = handleInterimLeaderboard(
 
 
       currentPlayersData,
@@ -6867,8 +6929,7 @@ socket.on("fauxVraiReveal", ({ indexFausse, playerChoice, isLastQuestion }) => {
 
 
     setTimeout(() => {
-
-
+      if (!isCurrentDisplay()) return;
       cleanUpFauxVraiScenes();
 
 

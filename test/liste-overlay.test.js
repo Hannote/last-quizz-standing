@@ -45,6 +45,7 @@ test("classement terminé → Quitter → salle Battle Royale → nouveau lobby 
     updateGameStateUI() {}
   };
   vm.createContext(c);
+  vm.runInContext(block("let miniGameLeaderboardVersion =", "// Le mode Liste ne trie"), c);
   for (const name of ["hideListeLeaderboard", "showScreen", "updateGameModeUI"]) {
     vm.runInContext(block(`function ${name}(`, "\n}") + "\n}", c);
   }
@@ -74,4 +75,47 @@ test("classement terminé → Quitter → salle Battle Royale → nouveau lobby 
 test("overlay masqué par défaut hors Liste, visible seulement avec mode-liste et active", () => {
   assert.match(html, /(?:^|\n)\s*#liste-leaderboard-overlay\s*\{\s*display:\s*none;\s*\}/);
   assert.match(html, /body\.mode-liste #liste-leaderboard-overlay\.active\s*\{\s*display:\s*flex;/);
+});
+
+test("étape 7 : retour au lobby pendant une révélation Faux du vrai annule le classement différé", () => {
+  const elements = Object.fromEntries(["leaderboard-overlay", "leaderboard-content", "leaderboardTitle",
+    "liste-leaderboard-overlay"].map((id) => [id, { ...element(), innerHTML: "", textContent: "" }]));
+  const timers = [];
+  const handlers = {};
+  let quit;
+  const sound = { play() {}, stop() {} };
+  const c = {
+    document: { getElementById: (id) => elements[id], querySelectorAll: () => [] },
+    confirmQuitBtn: { addEventListener: (_, fn) => { quit = fn; } },
+    currentRoom: { roomCode: "LIST", gameMode: "liste", listeTournament: { started: true, tournamentId: "tour" } },
+    currentGameState: { phase: "playing", roundNumber: 1, currentMiniGame: "le_faux_du_vrai" },
+    listeActionContext: { tournamentId: "tour", phase: "playing", question: 0 }, currentPlayersData: [
+      { id: "p", nickname: "Joueur", score: 1, time: 4, place: 1 }
+    ], playerId: "p", body: element(),
+    screenLobby: element(), screenRoom: element(), globalControls: element(),
+    quitConfirmOverlay: null, petitBacContainer: null, pbLetterDisplay: null, pbFormZone: null,
+    socket: { emit() {}, disconnect() {}, connect() {}, on: (name, fn) => { handlers[name] = fn; } },
+    localStorage: { removeItem() {} },
+    setTimeout: (fn, delay) => timers.push({ fn, delay }),
+    hideAllMiniGames() {}, stopDrawAnimation() {}, updateGameStateUI() {}, cleanUpFauxVraiScenes() {},
+    sfx45s: sound, sfxFauxVraiWin: sound, sfxFauxVraiLose: sound
+  };
+  vm.createContext(c);
+  for (const name of ["hideListeLeaderboard", "showScreen"]) {
+    vm.runInContext(block(`function ${name}(`, "\n}") + "\n}", c);
+  }
+  vm.runInContext(block("let miniGameLeaderboardVersion =", "// Le mode Liste ne trie"), c);
+  vm.runInContext(block("if (confirmQuitBtn) {", "// clic sur"), c);
+  vm.runInContext(block('socket.on("fauxVraiReveal",', "// --- ?COUTEUR INTRO ---"), c);
+  handlers.fauxVraiReveal({ indexFausse: 0, playerChoice: 0, isLastQuestion: true });
+  const revealTimer = timers.find((timer) => timer.delay === 2500);
+  assert.ok(revealTimer);
+  quit();
+  assert.equal(c.currentRoom, null);
+  assert.equal(c.screenLobby.classList.contains("active"), true);
+  assert.equal(elements["leaderboard-overlay"].classList.contains("active"), false);
+  timers.find((timer) => timer.delay === 500).fn(); // Reconnexion réseau à neuf.
+  revealTimer.fn(); // Ancien callback reçu après le retour au lobby.
+  assert.equal(elements["leaderboard-overlay"].classList.contains("active"), false,
+    "Un classement d'une salle quittée ne doit pas recouvrir le lobby");
 });

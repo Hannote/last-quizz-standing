@@ -238,6 +238,7 @@ test("handler serveur Petit Bac : temps indépendant des notes dans les deux mod
         io: { to: () => ({ emit: () => {} }) },
         isListeParticipant: (currentRoom, currentPlayer) => !currentPlayer.withdrawn,
         isActiveMiniGamePlayer: () => true, sendCorrectionData: () => {},
+        getMiniGameScoreUpdate: () => ({ players: [] }),
         LE_BON_ORDRE_DURATION: 45
       });
       for (const points of [0, 6, 8, 0, 0]) {

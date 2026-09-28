@@ -11,6 +11,7 @@ const { randomUUID } = require("crypto");
 const {
   calculateGradeRevision,
   getQuestionResponseTime,
+  rankMiniGameResults,
   rankTournamentPlayers,
   recordQuestionResponseTime,
   settleListeRound,
@@ -317,6 +318,28 @@ function isActiveMiniGamePlayer(room, player) {
   return room.gameMode === "liste"
     ? isListeParticipant(room, player)
     : !player.eliminated && !player.isSpectator;
+}
+
+// Snapshot d'affichage uniquement : aucune attribution de points de tournoi.
+function getMiniGameScoreUpdate(room) {
+  const players = room.players.filter((p) => isActiveMiniGamePlayer(room, p));
+  if (room.gameMode === "liste") {
+    const ranking = rankMiniGameResults(players.map((p) => ({
+      playerId: p.playerId, pseudo: p.pseudo,
+      score: p.roundScore || 0, time: p.roundTime || 0
+    })), room.listeTournament.initialParticipantCount);
+    return {
+      gameMode: "liste",
+      players: ranking.map((p) => ({
+        id: p.playerId, nickname: p.pseudo, score: p.score, time: p.time, place: p.place
+      }))
+    };
+  }
+  return {
+    players: players.map((p) => ({
+      id: p.playerId, nickname: p.pseudo, score: p.roundScore || 0, time: p.roundTime || 0
+    }))
+  };
 }
 
 function createListeTournamentState() {
@@ -859,16 +882,7 @@ function revealFauxVrai(roomCode) {
     });
   });
 
-  io.to(roomCode).emit("scoreUpdate", {
-    players: room.players
-      .filter((p) => isActiveMiniGamePlayer(room, p))
-      .map((p) => ({
-        id: p.playerId,
-        nickname: p.pseudo,
-        score: p.roundScore || 0,
-        time: p.roundTime || 0
-      }))
-  });
+  io.to(roomCode).emit("scoreUpdate", getMiniGameScoreUpdate(room));
 
   // Passage de 8500 à 7000 pour isLastQuestion afin d'aligner avec l'animation client
   const waitTime = isLastQuestion ? 7000 : 5500;
@@ -1086,16 +1100,7 @@ async function endLeugtasQuestion(roomCode, mini) {
   });
 
   // Scoreboard émis après chaque question
-  io.to(roomCode).emit("scoreUpdate", {
-    players: room.players
-      .filter((pl) => isActiveMiniGamePlayer(room, pl))
-      .map((pl) => ({
-        id: pl.playerId,
-        nickname: pl.pseudo,
-        score: pl.roundScore || 0,
-        time: pl.roundTime || 0
-      }))
-  });
+  io.to(roomCode).emit("scoreUpdate", getMiniGameScoreUpdate(room));
 
   // Reveal de la bonne réponse
   const isLastQuestion = mini.questionIndex >= mini.questions.length - 1;
@@ -2574,6 +2579,9 @@ io.on("connection", (socket) => {
         socket.roomCode = null;
         socket.room = null;
         socket.playerId = null;
+        if (["playing", "listeRoundEnd"].includes(gs.phase)) {
+          io.to(roomCode).emit("scoreUpdate", { ...getMiniGameScoreUpdate(room), refreshLeaderboard: true });
+        }
         io.to(roomCode).emit("roomUpdate", serializeRoom(room));
         io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
         if (room.activePlayersList && Number.isInteger(gs?.currentMiniGameState?.correctionIndex)) {
@@ -2951,16 +2959,7 @@ io.on("connection", (socket) => {
       mini.gradingDetails[player.playerId] = grade.details;
     }
 
-    io.to(roomCode).emit("scoreUpdate", {
-      players: room.players
-        .filter((p) => isActiveMiniGamePlayer(room, p))
-        .map((p) => ({
-          id: p.playerId,
-          nickname: p.pseudo,
-          score: p.roundScore || 0,
-          time: p.roundTime || 0
-        }))
-    });
+    io.to(roomCode).emit("scoreUpdate", getMiniGameScoreUpdate(room));
 
     sendCorrectionData(roomCode);
   });
@@ -3004,16 +3003,7 @@ io.on("connection", (socket) => {
 
     if (mini.correctionIndex >= mini.questions.length) {
       beginListeRoundEnd(room);
-      io.to(room.roomCode).emit("scoreUpdate", {
-        players: room.players
-          .filter((p) => isActiveMiniGamePlayer(room, p))
-          .map((p) => ({
-            id: p.playerId,
-            nickname: p.pseudo,
-            score: p.roundScore || 0,
-            time: p.roundTime || 0
-          }))
-      });
+      io.to(room.roomCode).emit("scoreUpdate", getMiniGameScoreUpdate(room));
 
       io.to(room.roomCode).emit("leugtasReveal", {
         isLastQuestion: true,
@@ -3044,6 +3034,7 @@ io.on("connection", (socket) => {
       if (room.players.some((p) => isListeParticipant(room, p) && grades[p.playerId] === undefined)) {
         return socket.emit("errorMessage", "Corrigez tous les participants avant de terminer.");
       }
+      io.to(room.roomCode).emit("scoreUpdate", getMiniGameScoreUpdate(room));
     }
 
     beginListeRoundEnd(room);

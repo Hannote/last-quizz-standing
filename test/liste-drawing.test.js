@@ -42,6 +42,7 @@ function client(gameMode = "liste") {
     POSSIBLE_MINI_GAMES: ["qui_suis_je"], sfxTirage: sound,
     sfxTheme: sound, sfxRuleQuiSuisJe: sound,
     updateGameModeUI() {}, clearIntroLayer() {}, hideListeLeaderboard() {},
+    invalidateMiniGameLeaderboard() {}, // Le mécanisme du classement est testé séparément.
     stopRuleSounds() {}, updateReadyPlayersListUI() {},
     miniGameCodeToLabel: (code) => code, miniGameCodeToLogoPath: (code) => code,
     rulesTextForMiniGame: () => "Règles", phaseToText: (phase) => phase,
