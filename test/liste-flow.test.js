@@ -109,9 +109,10 @@ function harness() {
   return { api, events, timers, allTimers, socket, advance, create, configure };
 }
 
-function playRound(h, room, clients) {
+function playRound(h, room, clients, finishPetitBacWithButton = false) {
   const host = () => clients.find((s) => s.playerId === room.hostId);
   host().send("drawingFinished");
+  h.advance(9300);
   clients.filter((s) => s.roomCode === room.roomCode).forEach((s) => s.send("playerSetReady", { isReady: true }));
   assert.equal(room.gameState.phase, "playing");
   const type = room.gameState.currentMiniGame;
@@ -127,7 +128,8 @@ function playRound(h, room, clients) {
           host().send("hostGradePlayer", { points: details ? mini.categories.length : 1, details });
         }
         const nextToken = h.api.getListeContext(room);
-        host().send("correctionNextQuestion");
+        host().send(finishPetitBacWithButton && type === "petit_bac"
+          ? "endPetitBacCorrection" : "correctionNextQuestion");
         const index = mini.correctionIndex;
         host().send("correctionNextQuestion", null, nextToken);
         assert.equal(mini.correctionIndex, index, "Une commande répétée ne saute pas une correction");
@@ -163,7 +165,24 @@ function playRound(h, room, clients) {
   }
   assert.equal(room.gameState.phase, "listeRoundEnd");
   const oldTimers = h.allTimers.slice();
-  h.advance(13000);
+  const logoEvent = type === "le_faux_du_vrai" ? "fauxVraiEnd"
+    : type === "qui_veut_gagner_des_leugtas" ? "leugtasEnd" : "leBonOrdreExit";
+  if (!["le_faux_du_vrai", "qui_veut_gagner_des_leugtas"].includes(type)) {
+    const count = () => h.events.filter((e) => e.target === room.roomCode && e.name === logoEvent).length;
+    const before = count();
+    h.advance(4999);
+    assert.equal(count(), before, "Les 5 s précédant le logo sont conservées");
+    h.advance(1);
+    assert.equal(count(), before + 1);
+  }
+  assert.ok(h.events.some((e) => e.target === room.roomCode && e.name === logoEvent));
+  h.advance(3499);
+  assert.equal(room.gameState.phase, "listeRoundEnd", "Ne pas couper le logo");
+  h.advance(1);
+  assert.equal(room.gameState.phase, "listeLeaderboard", "Classement dès la fin des 3,5 s du logo");
+  h.advance(7999);
+  assert.equal(room.gameState.phase, "listeLeaderboard", "Conserver les 8 s de classement");
+  h.advance(1);
   // Rejouer les callbacks d'une ancienne manche ne doit pas relancer la suivante.
   const round = room.gameState.roundNumber;
   const results = room.listeTournament.roundResults.length;
@@ -174,6 +193,82 @@ function playRound(h, room, clients) {
   assert.equal(room.listeTournament.roundResults.length, results);
   return questions;
 }
+
+for (const game of ["le_faux_du_vrai", "qui_veut_gagner_des_leugtas", "le_bon_ordre", "petit_bac"]) {
+  test(`fin ${game} : logo 3,5 s puis classement 8 s, sans attente noire`, () => {
+    const h = harness();
+    const { room, clients } = h.create();
+    h.configure(room, clients[0], "manual", [game]);
+    clients[0].send("hostStartGame", {});
+    playRound(h, room, clients, true);
+    assert.equal(room.gameState.phase, "listeFinished");
+  });
+}
+
+test("classement Liste : snapshot serveur, reconnexion pendant l'affichage et transition après 8 s", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["petit_bac", "qui_suis_je"]);
+  clients[0].send("hostStartGame", {});
+  room.gameState.phase = "listeRoundEnd";
+  room.players[0].roundScore = 2;
+  room.players[0].roundTime = 5;
+  room.players[1].roundScore = 2;
+  room.players[1].roundTime = 5;
+  room.players[2].roundScore = 1;
+  room.players[2].roundTime = 2;
+
+  h.api.endMiniGame(room.roomCode);
+  assert.equal(room.gameState.phase, "listeLeaderboard");
+  const snapshot = h.events.filter((event) => event.name === "gameStateUpdate").at(-1).data;
+  const rankedSnapshot = JSON.parse(JSON.stringify(snapshot.listeLeaderboard.ranking.map(
+    ({ playerId, place, tournamentPoints, tournamentTime }) => ({ playerId, place, tournamentPoints, tournamentTime })
+  )));
+  assert.deepEqual(rankedSnapshot, [
+    { playerId: "p0", place: 1, tournamentPoints: 3, tournamentTime: 5 },
+    { playerId: "p1", place: 1, tournamentPoints: 3, tournamentTime: 5 },
+    { playerId: "p2", place: 3, tournamentPoints: 1, tournamentTime: 2 }
+  ]);
+
+  clients[2].send("disconnect");
+  const reconnected = h.socket("p2");
+  reconnected.send("joinRoom", { roomCode: room.roomCode, playerId: "p2", pseudo: "Retour" });
+  const restored = h.events.filter((event) => event.target === reconnected.id && event.name === "gameStateUpdate").at(-1).data;
+  assert.equal(restored.phase, "listeLeaderboard");
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(restored.listeLeaderboard.ranking.map(
+      ({ playerId, place, tournamentPoints, tournamentTime }) => ({ playerId, place, tournamentPoints, tournamentTime })
+    ))),
+    rankedSnapshot
+  );
+
+  h.advance(7999);
+  assert.equal(room.gameState.phase, "listeLeaderboard");
+  h.advance(1);
+  assert.equal(room.gameState.phase, "drawingGame");
+  assert.equal(room.gameState.roundNumber, 2);
+});
+
+test("fin Liste : classement final et co-vainqueurs viennent du serveur", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["petit_bac"]);
+  clients[0].send("hostStartGame", {});
+  room.gameState.phase = "listeRoundEnd";
+  room.players.forEach((player) => { player.roundScore = 1; player.roundTime = 10; });
+
+  h.api.endMiniGame(room.roomCode);
+  assert.equal(room.gameState.phase, "listeLeaderboard");
+  h.advance(8000);
+  assert.equal(room.gameState.phase, "listeFinished");
+  assert.deepEqual(JSON.parse(JSON.stringify(room.listeTournament.winners)), ["p0", "p1", "p2"]);
+  const finalState = h.events.filter((event) => event.name === "gameStateUpdate").at(-1).data;
+  assert.equal(finalState.listeLeaderboard.isFinal, true);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(finalState.listeLeaderboard.winners)),
+    JSON.parse(JSON.stringify(room.listeTournament.winners))
+  );
+});
 
 for (const method of ["manual", "random"]) {
   test(`tournoi complet ${method} : sept vrais jeux, corrections, résultats uniques et fin sans élimination`, () => {
@@ -263,13 +358,13 @@ test("abandon pendant transition, reconnexion, N fixe et callbacks d'une autre p
   room.gameState.phase = "listeRoundEnd";
   room.players.forEach((p) => { p.roundScore = 1; p.roundTime = 10; });
   h.api.endMiniGame(room.roomCode);
-  assert.equal(room.gameState.phase, "listeTransition");
+  assert.equal(room.gameState.phase, "listeLeaderboard");
   clients[1].send("leaveRoom");
   assert.equal(room.hostId, "p0");
   const withdrawn = h.socket("p1");
   withdrawn.send("joinRoom", { roomCode: room.roomCode, playerId: "p1", pseudo: "Retiré" });
   assert.equal(room.players.find((p) => p.playerId === "p1").withdrawn, true);
-  h.advance(1000);
+  h.advance(8000);
   assert.equal(room.gameState.roundNumber, 2);
   reconnected.send("drawingFinished", null, obsolete);
   assert.equal(room.gameState.phase, "drawingGame");
@@ -319,6 +414,7 @@ test("sept jeux : expiration des minuteries serveur sous horloge simulée, sans 
     h.configure(room, clients[0], "manual", [game.id]);
     clients[0].send("hostStartGame", {});
     clients[0].send("drawingFinished");
+    h.advance(9300);
     clients[0].send("playerSetReady", { isReady: true });
     h.advance(600000);
     const mini = room.gameState.currentMiniGameState;
@@ -328,7 +424,7 @@ test("sept jeux : expiration des minuteries serveur sous horloge simulée, sans 
         clients[0].send("hostGradePlayer", { points: 0, details: {} });
         clients[0].send("correctionNextQuestion");
       }
-      h.advance(13000);
+      h.advance(20000);
     }
     assert.equal(room.listeTournament.finished, true, game.id);
     const result = room.listeTournament.roundResults[0].placements[0];
@@ -373,6 +469,7 @@ test("reconnexion et abandon du dernier joueur corrigé pendant l'animation de f
   h.configure(room, clients[0], "manual", ["petit_bac"]);
   clients[0].send("hostStartGame", {});
   clients[0].send("drawingFinished");
+  h.advance(9300);
   clients.forEach((s) => s.send("playerSetReady", { isReady: true }));
   h.advance(2500);
   clients.forEach((s) => s.send("petitBacAnswer", { roomCode: room.roomCode, answers: {} }));
@@ -394,7 +491,7 @@ test("reconnexion et abandon du dernier joueur corrigé pendant l'animation de f
   const saved = JSON.stringify(mini.playerAnswers.p2);
   withdrawn.send("petitBacAnswer", { roomCode: room.roomCode, answers: { 0: "Remplacement" } });
   assert.equal(JSON.stringify(mini.playerAnswers.p2), saved);
-  h.advance(13000);
+  h.advance(20000);
   assert.equal(room.listeTournament.finished, true);
   assert.equal(room.listeTournament.roundResults[0].placements.length, 2);
   assert.equal(room.listeTournament.initialParticipantCount, 3);
@@ -407,7 +504,7 @@ test("règles : transfert d'hôte, secours du tirage et absence temporaire sans 
   h.configure(room, clients[0], "manual", ["petit_bac"]);
   clients[0].send("hostStartGame", {});
   clients[0].send("disconnect");
-  h.advance(15000);
+  h.advance(9300);
   assert.equal(room.gameState.phase, "rules");
   clients[1].send("playerSetReady", { isReady: true });
   clients[2].send("playerSetReady", { isReady: true });

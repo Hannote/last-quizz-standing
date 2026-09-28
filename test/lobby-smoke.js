@@ -6,9 +6,9 @@ const socketUrl = process.env.TEST_SERVER_URL || "ws://127.0.0.1:3000/socket.io/
 const socket = new WebSocket(socketUrl);
 const waiters = [];
 
-function waitForEvent(eventName, predicate = () => true) {
+function waitForEvent(eventName, predicate = () => true, timeoutMs = 3000) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Délai dépassé pour ${eventName}.`)), 3000);
+    const timer = setTimeout(() => reject(new Error(`Délai dépassé pour ${eventName}.`)), timeoutMs);
     waiters.push({
       eventName,
       predicate,
@@ -79,8 +79,7 @@ async function run() {
   assert.equal(started.roundNumber, 1);
   assert.ok(started.listeContext.tournamentId);
   assert.notEqual(started.currentMiniGame, "les_encheres");
-  const rulesPromise = waitForEvent("gameStateUpdate", (state) => state.phase === "rules");
-  socket.send(`42${JSON.stringify(["drawingFinished", null, started.listeContext])}`);
+  const rulesPromise = waitForEvent("gameStateUpdate", (state) => state.phase === "rules", 10000);
   await rulesPromise;
   emit("leaveRoom");
 

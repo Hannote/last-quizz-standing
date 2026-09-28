@@ -219,6 +219,15 @@ const POSSIBLE_MINI_GAMES = [
 const LEUGTAS_TIMER_DURATION_SECONDS = 30;
 const FAUX_VRAI_TIMER_DURATION = 45;
 const LE_BON_ORDRE_DURATION = 45;
+// Durée commune et pilotée par le serveur du classement entre deux manches Liste.
+// Les animations de fin propres aux mini-jeux restent inchangées et se terminent
+// avant l'entrée dans cette phase.
+const LISTE_LEADERBOARD_DURATION_MS = 8000;
+// En Liste, aucun écran d'élimination ne précède le logo de fin (3,5 s côté client).
+const LISTE_END_LOGO_DURATION_MS = 3500;
+// L'animation de tirage Liste existante dure 6,4 s, puis 2,9 s d'affichage
+// du logo final. Le serveur avance donc toutes les salles au même instant.
+const LISTE_DRAW_DURATION_MS = 9300;
 
 // Catalogue Liste indépendant du tirage et du bac à sable Battle Royale.
 const MINI_GAME_CATALOG = [
@@ -462,6 +471,14 @@ function getGameStateSummary(room) {
     phase: gs.phase,
     roundNumber: gs.roundNumber,
     currentMiniGame: gs.currentMiniGame,
+    listeLeaderboard: room.gameMode === "liste" &&
+      ["listeLeaderboard", "listeFinished"].includes(gs.phase)
+      ? {
+        ranking: getListeGeneralRanking(room),
+        winners: [...(room.listeTournament.winners || [])],
+        isFinal: gs.phase === "listeFinished"
+      }
+      : null,
     readyPlayerIds: Object.keys(gs.readyPlayers || {}).filter((id) => room.gameMode !== "liste" ||
       isListeParticipant(room, room.players.find((p) => p.playerId === id)))
   };
@@ -573,7 +590,7 @@ function finishListeTournament(room) {
 function startNextListeRound(room) {
   const gs = room.gameState;
   if (room.gameMode !== "liste" || room.listeTournament.finished ||
-      !["idle", "listeTransition"].includes(gs.phase)) return;
+      !["idle", "listeTransition", "listeLeaderboard"].includes(gs.phase)) return;
   clearListeTimers(room);
   if (gs.roundNumber >= room.listeTournament.sequence.length ||
       !room.players.some((p) => isListeParticipant(room, p))) {
@@ -594,7 +611,7 @@ function startNextListeRound(room) {
   roomTimeout(room, () => {
     gs.phase = "rules";
     io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
-  }, 15000);
+  }, LISTE_DRAW_DURATION_MS);
 }
 
 function endListeMiniGame(room) {
@@ -605,10 +622,10 @@ function endListeMiniGame(room) {
   if (!result.applied) return;
   clearListeTimers(room);
   gs.miniGamesAlreadyPlayed.push(gs.currentMiniGame);
-  gs.phase = "listeTransition";
+  gs.phase = "listeLeaderboard";
   io.to(room.roomCode).emit("roomUpdate", serializeRoom(room));
   io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
-  roomTimeout(room, () => startNextListeRound(room), 1000);
+  roomTimeout(room, () => startNextListeRound(room), LISTE_LEADERBOARD_DURATION_MS);
 }
 
 function beginListeRoundEnd(room) {
@@ -874,7 +891,7 @@ function nextFauxVrai(roomCode) {
 
     roomTimeout(room, () => {
       endMiniGame(roomCode);
-    }, 7000); // Augment� � 7s
+    }, room.gameMode === "liste" ? LISTE_END_LOGO_DURATION_MS : 7000);
 
     return;
   }
@@ -1119,7 +1136,7 @@ async function endLeugtasQuestion(roomCode, mini) {
       activeMini.isRevealing = false;
       activeMini.finished = false;
       endMiniGame(roomCode);
-    }, 7000); // Augment� � 7s pour laisser l'�limination se faire
+    }, room.gameMode === "liste" ? LISTE_END_LOGO_DURATION_MS : 7000);
   };
 
   const waitTime = isLastQuestion ? 7700 : 5500;
@@ -2352,6 +2369,10 @@ io.on("connection", (socket) => {
     const gs = room.gameState;
     if (gs.phase !== "drawingGame") return;
 
+    // Le tirage Liste est avancé par son minuteur serveur. Battle Royale
+    // conserve ci-dessous le signal historique de l'hôte.
+    if (room.gameMode === "liste") return;
+
     gs.phase = "rules";
     gs.readyPlayers = {};
 
@@ -3006,7 +3027,7 @@ io.on("connection", (socket) => {
         // On attend 7s (3s �limination + 3s logo + 1s s�curit�)
         roomTimeout(room, () => {
           endMiniGame(room.roomCode);
-        }, 7000); 
+        }, room.gameMode === "liste" ? LISTE_END_LOGO_DURATION_MS : 7000);
       }, 5000);
     } else {
       sendCorrectionData(socket.roomCode);
@@ -3037,7 +3058,7 @@ io.on("connection", (socket) => {
       io.to(room.roomCode).emit("leBonOrdreExit");
       roomTimeout(room, () => {
         endMiniGame(room.roomCode);
-      }, 7000); // Augment� � 7s
+      }, room.gameMode === "liste" ? LISTE_END_LOGO_DURATION_MS : 7000);
     }, 5000);
   });
 

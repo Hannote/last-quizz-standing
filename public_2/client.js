@@ -980,6 +980,7 @@ let drawAnimationTimeout = null;
 
 
 let drawAnimationFinalTimeout = null;
+let cancelListeDrawAnimation = null;
 
 
 // ===============================
@@ -996,6 +997,7 @@ function showScreen(screenName) {
   screenRoom.classList.remove("active");
 
   if (screenName === "lobby") {
+    hideListeLeaderboard();
     screenLobby.classList.add("active");
   } else if (screenName === "room") {
     screenRoom.classList.add("active");
@@ -1290,6 +1292,12 @@ function rulesTextForMiniGame(code) {
 
 
 function stopDrawAnimation() {
+  // Le serveur Liste peut terminer le tirage avant le dernier callback local.
+  // Invalide aussi les frames déjà programmées avant de nettoyer le visuel.
+  if (cancelListeDrawAnimation) {
+    cancelListeDrawAnimation();
+    cancelListeDrawAnimation = null;
+  }
 
 
   if (drawAnimationInterval) {
@@ -1353,6 +1361,16 @@ function startDrawAnimation(finalCode, isHost) {
   const list = [...drawPool].sort(() => Math.random() - 0.5);
   let index = 0;
   let isShuffling = true; // Flag pour empêcher les mises à jour après l'arrêt
+  let cancelled = false;
+  if (currentRoom?.gameMode === "liste") {
+    cancelListeDrawAnimation = () => {
+      cancelled = true;
+      isShuffling = false;
+      document.body.classList.remove("drawing-active");
+      if (drawLogo) drawLogo.classList.remove("draw-logo-fullscreen");
+      if (sfxTirage) sfxTirage.stop();
+    };
+  }
 
   // Défilement rapide des logos
   drawAnimationInterval = setInterval(() => {
@@ -1370,6 +1388,7 @@ function startDrawAnimation(finalCode, isHost) {
 
   // Fin de l'animation après 6.4 secondes
   drawAnimationTimeout = setTimeout(() => {
+    if (cancelled) return;
     isShuffling = false; // On bloque immédiatement les mises à jour aléatoires
 
     if (drawAnimationInterval) {
@@ -1380,6 +1399,7 @@ function startDrawAnimation(finalCode, isHost) {
     // --- FORCE L'AFFICHAGE DU RÉSULTAT RÉEL ---
     // On synchronise avec le prochain frame pour être sûr que c'est le dernier mot
     requestAnimationFrame(() => {
+      if (cancelled) return;
       if (drawLogo) drawLogo.src = miniGameCodeToLogoPath(finalCode);
       if (drawGameLabel) drawGameLabel.textContent = miniGameCodeToLabel(finalCode);
 
@@ -1391,10 +1411,11 @@ function startDrawAnimation(finalCode, isHost) {
     // if (sfxTirageFinal) sfxTirageFinal.play();
 
     drawAnimationFinalTimeout = setTimeout(() => {
+      if (cancelled) return;
       if (drawLogo) drawLogo.classList.remove("draw-logo-fullscreen");
       document.body.classList.remove("drawing-active");
 
-      if (isHost) {
+      if (isHost && currentRoom?.gameMode !== "liste") {
         emitGameAction("drawingFinished", null, drawingContext);
       }
     }, 2900);
@@ -3929,6 +3950,73 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
 }
 
 
+// Le mode Liste ne trie ni ne calcule rien côté client : le classement affiché
+// est la copie exacte du snapshot envoyé par le serveur avec gameStateUpdate.
+function renderListeLeaderboard(leaderboard) {
+  const overlay = document.getElementById("liste-leaderboard-overlay");
+  const title = document.getElementById("listeLeaderboardTitle");
+  const winners = document.getElementById("listeLeaderboardWinners");
+  const content = document.getElementById("listeLeaderboardContent");
+  if (!overlay || !title || !winners || !content) return;
+
+  const ranking = Array.isArray(leaderboard?.ranking) ? leaderboard.ranking : [];
+  const winnerIds = new Set(Array.isArray(leaderboard?.winners) ? leaderboard.winners : []);
+  const isFinal = leaderboard?.isFinal === true;
+
+  title.textContent = isFinal ? "Classement final" : "Classement général";
+  winners.textContent = "";
+  winners.classList.toggle("hidden", !isFinal);
+  if (isFinal) {
+    const winnerNames = ranking
+      .filter((entry) => winnerIds.has(entry.playerId))
+      .map((entry) => entry.pseudo || "Joueur");
+    winners.textContent = winnerNames.length === 0
+      ? "Aucun participant admissible ne reste."
+      : winnerNames.length === 1
+        ? `Vainqueur : ${winnerNames[0]}`
+        : `Vainqueurs ex æquo : ${winnerNames.join(" et ")}`;
+  }
+
+  content.replaceChildren();
+  if (ranking.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "liste-leaderboard-empty";
+    empty.textContent = "Aucun participant admissible ne reste.";
+    content.appendChild(empty);
+  } else {
+    ranking.forEach((entry) => {
+      const row = document.createElement("div");
+      row.className = `liste-leaderboard-row${entry.place === 1 ? " liste-leaderboard-first" : ""}`;
+
+      const place = document.createElement("div");
+      place.className = "liste-leaderboard-place";
+      place.textContent = `${entry.place}.`;
+
+      const pseudo = document.createElement("div");
+      pseudo.className = "liste-leaderboard-pseudo";
+      pseudo.textContent = entry.pseudo || "Joueur";
+
+      const points = document.createElement("div");
+      points.className = "liste-leaderboard-points";
+      points.textContent = `${entry.tournamentPoints} pts`;
+
+      const time = document.createElement("div");
+      time.className = "liste-leaderboard-time";
+      const totalTime = Number.isFinite(entry.tournamentTime) ? entry.tournamentTime : 0;
+      time.textContent = `${totalTime.toFixed(1)} s`;
+
+      row.append(place, pseudo, points, time);
+      content.appendChild(row);
+    });
+  }
+
+  overlay.classList.add("active");
+}
+
+function hideListeLeaderboard() {
+  document.getElementById("liste-leaderboard-overlay")?.classList.remove("active");
+}
+
 function cleanUpBehindScenes() {
 
 
@@ -4466,6 +4554,20 @@ function updateGameStateUI(gs) {
 
 
   gamePhaseText.textContent = phaseText;
+  if (gs.gameMode === "liste" && ["listeLeaderboard", "listeFinished"].includes(gs.phase)) {
+    stopDrawAnimation();
+    stopRuleSounds();
+    hideAllMiniGames();
+    showMainZone("default");
+    renderListeLeaderboard(gs.listeLeaderboard);
+    gamePhaseText.textContent = gs.phase === "listeFinished" ? "Tournoi terminé" : "Classement général en cours";
+    currentMiniGameText.textContent = gs.phase === "listeFinished"
+      ? "Les résultats du tournoi sont enregistrés. Vous pouvez quitter la salle."
+      : "Le prochain mini-jeu sera tiré après le classement.";
+    return;
+  }
+  hideListeLeaderboard();
+
   if (gs.gameMode === "liste" && ["listeRoundEnd", "listeTransition", "listeFinished"].includes(gs.phase)) {
     stopDrawAnimation();
     stopRuleSounds();
@@ -5105,6 +5207,7 @@ function updateListeConfigUI() {
 
 function updateGameModeUI() {
   const isListe = currentRoom?.gameMode === "liste";
+  if (!isListe || !currentRoom?.listeTournament?.started) hideListeLeaderboard();
   const isHost = currentRoom?.hostId === playerId;
   const canChangeMode = isHost && currentGameState.phase === "idle" && !currentRoom?.listeTournament?.started;
   body.classList.toggle("mode-liste", isListe);
@@ -5420,6 +5523,7 @@ if (confirmQuitBtn) {
 
   confirmQuitBtn.addEventListener("click", () => {
     isQuitting = true; 
+    hideListeLeaderboard();
 
     // 1. COUPURE TOTALE DU SON
     // On arrête tout ce qui joue via Howler (musiques, sfx, voix) d'un coup.
@@ -5889,6 +5993,7 @@ socket.on("leugtasQuestion", (data) => {
 
 
 socket.on("roomJoined", (roomData) => {
+  hideListeLeaderboard(); // Le snapshot de partie suivant restaure le classement si nécessaire.
   listeConfigKey = null; // La reconnexion restaure toujours la configuration serveur.
 
 

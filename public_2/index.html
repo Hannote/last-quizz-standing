@@ -732,6 +732,132 @@
         animation: fadeIn 0.4s ease-out;
       }
 
+      /* Classement du tournoi Liste : isolé des classements Battle Royale. */
+      #liste-leaderboard-overlay { display: none; }
+
+      body.mode-liste #liste-leaderboard-overlay {
+        position: fixed;
+        inset: 0;
+        display: none;
+        z-index: 9000;
+        box-sizing: border-box;
+        padding: clamp(58px, 10vh, 84px) clamp(12px, 4vw, 28px) clamp(18px, 4vh, 34px);
+        color: #fff;
+        background: rgba(10, 10, 10, 0.93);
+        backdrop-filter: blur(10px);
+      }
+
+      body.mode-liste #liste-leaderboard-overlay.active {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        animation: fadeIn 0.4s ease-out;
+      }
+
+      body.mode-liste .liste-leaderboard-panel {
+        width: min(100%, 620px);
+        max-height: calc(100vh - clamp(76px, 14vh, 118px));
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        padding: clamp(12px, 4vw, 24px);
+        border: 1px solid rgba(255, 204, 0, 0.55);
+        border-radius: 14px;
+        background: rgba(31, 31, 31, 0.94);
+        box-shadow: 0 0 24px rgba(255, 204, 0, 0.16);
+      }
+
+      body.mode-liste .liste-leaderboard-title {
+        margin: 0 0 8px;
+        color: #ffcc00;
+        font-size: clamp(1.2rem, 6vw, 2rem);
+        letter-spacing: 0.06em;
+        text-align: center;
+        text-transform: uppercase;
+      }
+
+      body.mode-liste .liste-leaderboard-winners {
+        margin: 0 0 12px;
+        color: #4cd137;
+        font-size: clamp(0.95rem, 4vw, 1.15rem);
+        font-weight: 800;
+        overflow-wrap: anywhere;
+        text-align: center;
+      }
+
+      body.mode-liste .liste-leaderboard-head,
+      body.mode-liste .liste-leaderboard-row {
+        display: grid;
+        grid-template-columns: minmax(34px, 0.45fr) minmax(0, 2fr) minmax(58px, 0.8fr) minmax(58px, 0.85fr);
+        gap: clamp(4px, 2vw, 12px);
+        align-items: center;
+      }
+
+      body.mode-liste .liste-leaderboard-head {
+        padding: 0 8px 7px;
+        color: #b9dfff;
+        font-size: clamp(0.7rem, 3.1vw, 0.85rem);
+        font-weight: 700;
+      }
+
+      body.mode-liste .liste-leaderboard-content {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-right: 2px;
+      }
+
+      body.mode-liste .liste-leaderboard-row {
+        min-width: 0;
+        padding: clamp(9px, 2.5vw, 12px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.07);
+        font-size: clamp(0.78rem, 3.5vw, 1rem);
+      }
+
+      body.mode-liste .liste-leaderboard-first {
+        border-color: #ffcc00;
+        box-shadow: 0 0 12px rgba(255, 204, 0, 0.18);
+      }
+
+      body.mode-liste .liste-leaderboard-place,
+      body.mode-liste .liste-leaderboard-points {
+        color: #ffcc00;
+        font-weight: 800;
+      }
+
+      body.mode-liste .liste-leaderboard-pseudo {
+        min-width: 0;
+        overflow-wrap: anywhere;
+        font-weight: 700;
+      }
+
+      body.mode-liste .liste-leaderboard-time {
+        color: #33ccff;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      body.mode-liste .liste-leaderboard-empty {
+        margin: auto 0;
+        color: #ffcc00;
+        overflow-wrap: anywhere;
+        text-align: center;
+      }
+
+      @media (max-width: 340px) {
+        body.mode-liste .liste-leaderboard-head,
+        body.mode-liste .liste-leaderboard-row {
+          grid-template-columns: 28px minmax(0, 1fr) 48px 48px;
+          gap: 3px;
+        }
+      }
+
       .leaderboard-list {
         display: flex;
         flex-direction: column;
@@ -2672,6 +2798,17 @@
     Classement
   </h2>
   <div id="leaderboard-content" class="leaderboard-list"></div>
+</div>
+
+<div id="liste-leaderboard-overlay" aria-live="polite" aria-modal="true" role="dialog" aria-labelledby="listeLeaderboardTitle">
+  <section class="liste-leaderboard-panel">
+    <h2 id="listeLeaderboardTitle" class="liste-leaderboard-title">Classement général</h2>
+    <p id="listeLeaderboardWinners" class="liste-leaderboard-winners hidden"></p>
+    <div class="liste-leaderboard-head" aria-hidden="true">
+      <span>Pl.</span><span>Joueur</span><span>Points</span><span>Temps</span>
+    </div>
+    <div id="listeLeaderboardContent" class="liste-leaderboard-content"></div>
+  </section>
 </div>
 
 <div id="imageViewer" class="image-viewer hidden" onclick="closeImageViewer()">
