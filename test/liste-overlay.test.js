@@ -39,7 +39,7 @@ test("classement terminé → Quitter → salle Battle Royale → nouveau lobby 
     socket: { emit() {}, disconnect() {}, connect() {}, on: (_, fn) => { joined = fn; } },
     localStorage: { removeItem() {}, setItem() {} }, console: { log() {} },
     setTimeout: (fn) => fn(), hideAllMiniGames() {}, stopDrawAnimation() {},
-    updateListeConfigUI() {},
+    updateListeConfigUI() {}, stopListeLeaderboardSound() {},
     // Seul le rafraîchissement général est remplacé : vérifier le nettoyage
     // explicite même sans gameStateUpdate reçu ou rendu après le départ.
     updateGameStateUI() {}
@@ -98,6 +98,7 @@ test("étape 7 : retour au lobby pendant une révélation Faux du vrai annule le
     localStorage: { removeItem() {} },
     setTimeout: (fn, delay) => timers.push({ fn, delay }),
     hideAllMiniGames() {}, stopDrawAnimation() {}, updateGameStateUI() {}, cleanUpFauxVraiScenes() {},
+    stopListeLeaderboardSound() {},
     sfx45s: sound, sfxFauxVraiWin: sound, sfxFauxVraiLose: sound
   };
   vm.createContext(c);

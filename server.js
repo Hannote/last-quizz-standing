@@ -225,6 +225,9 @@ const LE_BON_ORDRE_DURATION = 45;
 // Les animations de fin propres aux mini-jeux restent inchangées et se terminent
 // avant l'entrée dans cette phase.
 const LISTE_LEADERBOARD_DURATION_MS = 8000;
+const LISTE_LEADERBOARD_SOUNDS = Array.from(
+  { length: 15 }, (_, index) => `/sons/classement_general_${index + 1}.mp3`
+);
 // En Liste, aucun écran d'élimination ne précède le logo de fin (3,5 s côté client).
 const LISTE_END_LOGO_DURATION_MS = 3500;
 // L'animation de tirage Liste existante dure 6,4 s, puis 2,9 s d'affichage
@@ -352,7 +355,9 @@ function createListeTournamentState() {
     winners: [],
     initialParticipantIds: [],
     initialParticipantCount: 0,
-    roundResults: []
+    roundResults: [],
+    leaderboardSoundsUsed: [],
+    leaderboardSound: null
   };
 }
 
@@ -500,7 +505,14 @@ function getGameStateSummary(room) {
       ? {
         ranking: getListeGeneralRanking(room),
         winners: [...(room.listeTournament.winners || [])],
-        isFinal: gs.phase === "listeFinished"
+        isFinal: gs.phase === "listeFinished",
+        sound: gs.phase === "listeLeaderboard" && room.listeTournament.leaderboardSound
+          ? {
+            ...room.listeTournament.leaderboardSound,
+            elapsedMs: Math.min(LISTE_LEADERBOARD_DURATION_MS,
+              Math.max(0, Date.now() - room.listeTournament.leaderboardSound.startedAt))
+          }
+          : null
       }
       : null,
     readyPlayerIds: Object.keys(gs.readyPlayers || {}).filter((id) => room.gameMode !== "liste" ||
@@ -603,6 +615,7 @@ function prepareListeSequence(config, random = Math.random) {
 function finishListeTournament(room) {
   clearListeTimers(room);
   room.listeTournament.finished = true;
+  room.listeTournament.leaderboardSound = null;
   room.gameState.phase = "listeFinished";
   room.listeTournament.generalRanking = getListeGeneralRanking(room);
   room.listeTournament.winners = room.listeTournament.generalRanking
@@ -624,6 +637,7 @@ function startNextListeRound(room) {
   gs.currentMiniGame = room.listeTournament.sequence[gs.roundNumber];
   gs.roundNumber++;
   gs.phase = "drawingGame";
+  room.listeTournament.leaderboardSound = null;
   gs.readyPlayers = {};
   gs.currentMiniGameState = null;
   room.mini = null;
@@ -646,6 +660,18 @@ function endListeMiniGame(room) {
   if (!result.applied) return;
   clearListeTimers(room);
   gs.miniGamesAlreadyPlayed.push(gs.currentMiniGame);
+  const tournament = room.listeTournament;
+  const unusedSounds = LISTE_LEADERBOARD_SOUNDS.filter(
+    (sound) => !tournament.leaderboardSoundsUsed.includes(sound)
+  );
+  const sound = unusedSounds.length ? shuffleCopy(unusedSounds)[0] : null;
+  if (sound) tournament.leaderboardSoundsUsed.push(sound);
+  tournament.leaderboardSound = sound ? {
+    url: sound,
+    tournamentId: tournament.tournamentId,
+    roundNumber: gs.roundNumber,
+    startedAt: Date.now()
+  } : null;
   gs.phase = "listeLeaderboard";
   io.to(room.roomCode).emit("roomUpdate", serializeRoom(room));
   io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));

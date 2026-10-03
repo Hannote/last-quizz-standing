@@ -326,6 +326,99 @@ test("fin Liste : classement final et co-vainqueurs viennent du serveur", () => 
   );
 });
 
+test("sons Liste : un tirage par classement, par salle, sans répétition ni son final", () => {
+  const h = harness();
+  const first = h.create();
+  const second = h.create();
+  for (const { room, clients } of [first, second]) {
+    h.configure(room, clients[0], "manual", ["petit_bac"]);
+    clients[0].send("hostStartGame", {});
+  }
+  const room = first.room;
+  room.listeTournament.sequence = Array(16).fill("petit_bac");
+  for (let round = 1; round <= 16; round++) {
+    room.gameState.phase = "listeRoundEnd";
+    h.api.endMiniGame(room.roomCode);
+    const snapshot = h.events.filter((event) => event.target === room.roomCode &&
+      event.name === "gameStateUpdate").at(-1).data;
+    const chosen = snapshot.listeLeaderboard.sound;
+    assert.equal(snapshot.phase, "listeLeaderboard");
+    if (round <= 15) {
+      assert.equal(chosen.roundNumber, round);
+      assert.equal(chosen.tournamentId, room.listeTournament.tournamentId);
+      assert.equal(chosen.elapsedMs, 0);
+      assert.match(chosen.url, /^\/sons\/classement_general_(?:[1-9]|1[0-5])\.mp3$/);
+    } else assert.equal(chosen, null);
+    const before = room.listeTournament.leaderboardSoundsUsed.length;
+    h.api.endMiniGame(room.roomCode);
+    first.clients[1].send("requestRoomState");
+    first.clients[2].send("requestRoomState");
+    assert.equal(room.listeTournament.leaderboardSoundsUsed.length, before);
+    for (const client of first.clients.slice(1)) {
+      const received = h.events.filter((event) => event.target === client.id &&
+        event.name === "gameStateUpdate").at(-1).data;
+      assert.equal(received.listeLeaderboard.sound?.url || null, chosen?.url || null);
+    }
+    if (round === 1) {
+      const other = second.room;
+      other.gameState.phase = "listeRoundEnd";
+      h.api.endMiniGame(other.roomCode);
+      assert.equal(other.listeTournament.leaderboardSoundsUsed.length, 1);
+      assert.equal(room.listeTournament.leaderboardSoundsUsed.length, 1);
+      const reconnected = h.socket("p1");
+      reconnected.send("joinRoom", { roomCode: room.roomCode, playerId: "p1", pseudo: "Retour" });
+      const restored = h.events.filter((event) => event.target === reconnected.id &&
+        event.name === "gameStateUpdate").at(-1).data;
+      assert.equal(restored.listeLeaderboard.sound.url, chosen.url);
+      assert.equal(room.listeTournament.leaderboardSoundsUsed.length, 1);
+      first.clients[0].send("disconnect"); // Transfert d'hôte sans nouveau tirage.
+      assert.equal(room.listeTournament.leaderboardSoundsUsed.length, 1);
+      h.advance(3000);
+      reconnected.send("requestRoomState");
+      const midRound = h.events.filter((event) => event.target === reconnected.id &&
+        event.name === "gameStateUpdate").at(-1).data;
+      assert.equal(midRound.listeLeaderboard.sound.url, chosen.url);
+      assert.equal(midRound.listeLeaderboard.sound.elapsedMs, 3000);
+      assert.equal(room.listeTournament.leaderboardSoundsUsed.length, 1);
+      h.advance(5000);
+    } else {
+      h.advance(8000);
+    }
+  }
+  assert.equal(new Set(room.listeTournament.leaderboardSoundsUsed).size, 15);
+  const final = h.events.filter((event) => event.target === room.roomCode &&
+    event.name === "gameStateUpdate").at(-1).data;
+  assert.equal(final.phase, "listeFinished");
+  assert.equal(final.listeLeaderboard.sound, null);
+  assert.equal(second.room.listeTournament.leaderboardSoundsUsed.length, 1);
+  const fresh = h.create();
+  h.configure(fresh.room, fresh.clients[0], "manual", ["petit_bac"]);
+  fresh.clients[0].send("hostStartGame", {});
+  assert.equal(fresh.room.listeTournament.leaderboardSoundsUsed.length, 0);
+  const battle = h.create();
+  battle.clients[0].send("hostStartGame", { forcedMiniGame: "les_encheres" });
+  assert.equal(battle.room.listeTournament.leaderboardSoundsUsed.length, 0);
+});
+
+test("son Liste : abandon pendant le classement ne consomme aucun second son", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["petit_bac"]);
+  clients[0].send("hostStartGame", {});
+  room.gameState.phase = "listeRoundEnd";
+  h.api.endMiniGame(room.roomCode);
+  const sound = room.listeTournament.leaderboardSound.url;
+  clients[2].send("leaveRoom");
+  assert.equal(room.gameState.phase, "listeLeaderboard");
+  assert.equal(room.listeTournament.leaderboardSound.url, sound);
+  assert.equal(room.listeTournament.leaderboardSoundsUsed.length, 1);
+  clients[1].send("requestRoomState");
+  const refreshed = h.events.filter((event) => event.target === clients[1].id &&
+    event.name === "gameStateUpdate").at(-1).data;
+  assert.equal(refreshed.listeLeaderboard.sound.url, sound);
+  assert.equal(room.listeTournament.leaderboardSoundsUsed.length, 1);
+});
+
 for (const method of ["manual", "random"]) {
   test(`tournoi complet ${method} : sept vrais jeux, corrections, résultats uniques et fin sans élimination`, () => {
     const h = harness();

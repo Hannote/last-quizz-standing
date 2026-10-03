@@ -3995,6 +3995,82 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
 
 // Le mode Liste ne trie ni ne calcule rien côté client : le classement affiché
 // est la copie exacte du snapshot envoyé par le serveur avec gameStateUpdate.
+const listeLeaderboardHowls = new Map();
+let listeLeaderboardAudio = null;
+let listeLeaderboardAudioVersion = 0;
+
+function preloadListeLeaderboardSounds() {
+  if (listeLeaderboardHowls.size) return;
+  for (let number = 1; number <= 15; number++) {
+    const url = `/sons/classement_general_${number}.mp3`;
+    try {
+      listeLeaderboardHowls.set(url, new Howl({
+        src: [url], volume: 0.5, preload: true, loop: false,
+        onloaderror: (_id, error) => console.warn(`Son de classement indisponible : ${url}`, error)
+      }));
+    } catch (error) {
+      console.warn(`Son de classement indisponible : ${url}`, error);
+    }
+  }
+}
+
+function stopListeLeaderboardSound() {
+  listeLeaderboardAudioVersion++;
+  if (!listeLeaderboardAudio) return;
+  clearTimeout(listeLeaderboardAudio.timer);
+  if (listeLeaderboardAudio.playId !== null) {
+    listeLeaderboardAudio.howl.stop(listeLeaderboardAudio.playId);
+  }
+  listeLeaderboardAudio = null;
+}
+
+function syncListeLeaderboardSound(sound) {
+  const roomCode = currentRoom?.roomCode;
+  const tournamentId = currentRoom?.listeTournament?.tournamentId;
+  if (isQuitting || currentRoom?.gameMode !== "liste" ||
+      currentGameState?.phase !== "listeLeaderboard" || !sound ||
+      sound.tournamentId !== tournamentId ||
+      sound.roundNumber !== currentGameState.roundNumber) {
+    stopListeLeaderboardSound();
+    return;
+  }
+  const key = `${roomCode}:${tournamentId}:${sound.roundNumber}:${sound.url}`;
+  if (listeLeaderboardAudio?.key === key) return;
+  stopListeLeaderboardSound();
+  const remainingMs = Math.max(0, 8000 - Number(sound.elapsedMs));
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return;
+  const howl = listeLeaderboardHowls.get(sound.url);
+  if (!howl) return;
+  const version = listeLeaderboardAudioVersion;
+  const receivedAt = Date.now();
+  const audio = { key, howl, playId: null, timer: null };
+  listeLeaderboardAudio = audio;
+  const isCurrent = () => listeLeaderboardAudio === audio &&
+    listeLeaderboardAudioVersion === version && !isQuitting &&
+    currentRoom?.roomCode === roomCode && currentRoom?.gameMode === "liste" &&
+    currentRoom?.listeTournament?.tournamentId === tournamentId &&
+    currentGameState?.phase === "listeLeaderboard" &&
+    currentGameState.roundNumber === sound.roundNumber &&
+    currentGameState.listeLeaderboard?.sound?.url === sound.url;
+  audio.timer = setTimeout(() => {
+    if (isCurrent()) stopListeLeaderboardSound();
+  }, remainingMs);
+  const start = () => {
+    if (!isCurrent()) return;
+    const elapsedSeconds = (Number(sound.elapsedMs) + Date.now() - receivedAt) / 1000;
+    const duration = howl.duration();
+    if (elapsedSeconds >= duration || elapsedSeconds >= 8) return;
+    try {
+      audio.playId = howl.play();
+      howl.seek(elapsedSeconds, audio.playId);
+    } catch (error) {
+      console.warn(`Lecture du classement impossible : ${sound.url}`, error);
+    }
+  };
+  if (howl.state() === "loaded") start();
+  else howl.once("load", start);
+}
+
 function renderListeLeaderboard(leaderboard) {
   const overlay = document.getElementById("liste-leaderboard-overlay");
   const title = document.getElementById("listeLeaderboardTitle");
@@ -4057,6 +4133,7 @@ function renderListeLeaderboard(leaderboard) {
 }
 
 function hideListeLeaderboard() {
+  stopListeLeaderboardSound();
   document.getElementById("liste-leaderboard-overlay")?.classList.remove("active");
 }
 
@@ -4606,6 +4683,7 @@ function updateGameStateUI(gs) {
     hideAllMiniGames();
     showMainZone("default");
     renderListeLeaderboard(gs.listeLeaderboard);
+    syncListeLeaderboardSound(gs.phase === "listeLeaderboard" ? gs.listeLeaderboard?.sound : null);
     gamePhaseText.textContent = gs.phase === "listeFinished" ? "Tournoi terminé" : "Classement général en cours";
     currentMiniGameText.textContent = gs.phase === "listeFinished"
       ? "Les résultats du tournoi sont enregistrés. Vous pouvez quitter la salle."
@@ -5253,6 +5331,7 @@ function updateListeConfigUI() {
 
 function updateGameModeUI() {
   const isListe = currentRoom?.gameMode === "liste";
+  if (isListe && typeof Howl === "function") preloadListeLeaderboardSounds();
   if (!isListe || !currentRoom?.listeTournament?.started) hideListeLeaderboard();
   const isHost = currentRoom?.hostId === playerId;
   const canChangeMode = isHost && currentGameState.phase === "idle" && !currentRoom?.listeTournament?.started;
@@ -5278,7 +5357,10 @@ function updateGameModeUI() {
 
 function updateRoomUI(room) {
   if (room?.roomCode !== currentRoom?.roomCode || room?.gameMode !== currentRoom?.gameMode ||
-      room?.listeTournament?.tournamentId !== currentRoom?.listeTournament?.tournamentId) invalidateMiniGameLeaderboard();
+      room?.listeTournament?.tournamentId !== currentRoom?.listeTournament?.tournamentId) {
+    invalidateMiniGameLeaderboard();
+    stopListeLeaderboardSound();
+  }
 
 
   currentRoom = room;
