@@ -8,6 +8,7 @@ const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
 const { randomUUID } = require("crypto");
+const { shuffleCopy } = require("./question-shuffle");
 const {
   calculateGradeRevision,
   getQuestionResponseTime,
@@ -732,7 +733,7 @@ function startFauxVrai(roomCode) {
   }
 
   const pickFromPool = (pool, count) => {
-    return [...pool].sort(() => Math.random() - 0.5).slice(0, count);
+    return shuffleCopy(pool).slice(0, count);
   };
 
   const selected = [
@@ -745,7 +746,7 @@ function startFauxVrai(roomCode) {
 
   markQuestionsAsPlayed(selected, "faux_vrai");
 
-  const finalQuestions = selected.sort(() => Math.random() - 0.5);
+  const finalQuestions = shuffleCopy(selected);
 
   room.mini = {
     type: "faux_vrai",
@@ -1270,7 +1271,7 @@ function pickLeBonOrdreQuestions() {
   });
   
   markQuestionsAsPlayed(selectedQuestions, "le_bon_ordre");
-  return selectedQuestions.sort(() => Math.random() - 0.5);
+  return shuffleCopy(selectedQuestions);
 }
 
 function sendLeBonOrdreQuestion(roomCode) {
@@ -1490,16 +1491,18 @@ function pickBlindTestQuestions() {
     const allMusic = BLIND_TEST_QUESTIONS.filter(q => ["musique", "music"].includes(q.theme_id));
     
     var rawGameSet = [
-        ...allTv.sort(() => 0.5 - Math.random()).slice(0, 2),
-        ...allMusic.sort(() => 0.5 - Math.random()).slice(0, 6)
-    ].sort(() => 0.5 - Math.random());
+        ...shuffleCopy(allTv).slice(0, 2),
+        ...shuffleCopy(allMusic).slice(0, 6)
+    ];
+    rawGameSet = shuffleCopy(rawGameSet);
     
     markQuestionsAsPlayed(rawGameSet, "blind_test");
   } else {
     var rawGameSet = [
-        ...tvPool.sort(() => 0.5 - Math.random()).slice(0, 2),
-        ...musicPool.sort(() => 0.5 - Math.random()).slice(0, 6)
-    ].sort(() => 0.5 - Math.random());
+        ...shuffleCopy(tvPool).slice(0, 2),
+        ...shuffleCopy(musicPool).slice(0, 6)
+    ];
+    rawGameSet = shuffleCopy(rawGameSet);
     
     markQuestionsAsPlayed(rawGameSet, "blind_test");
   }
@@ -1625,7 +1628,7 @@ function pickLeTourDuMondeQuestions() {
   });
 
   markQuestionsAsPlayed(selectedQuestions, "le_tour_du_monde");
-  return selectedQuestions.sort(() => Math.random() - 0.5);
+  return shuffleCopy(selectedQuestions);
 }
 
 function sendLeTourDuMondeQuestion(roomCode) {
@@ -1719,7 +1722,7 @@ function pickQuiSuisJeQuestions() {
     available = QUI_SUIS_JE_QUESTIONS;
   }
 
-  const shuffled = [...available].sort(() => Math.random() - 0.5);
+  const shuffled = shuffleCopy(available);
   const selected = shuffled.slice(0, 8);
 
   markQuestionsAsPlayed(selected, "qui_suis_je");
@@ -1839,9 +1842,7 @@ function startPetitBac(roomCode) {
   const letter = availableLetters[Math.floor(Math.random() * availableLetters.length)];
   markQuestionsAsPlayed([{id: letter}], "petit_bac");
 
-  const selectedCategories = PETIT_BAC_CATEGORIES
-    .sort(() => 0.5 - Math.random())
-    .slice(0, 9);
+  const selectedCategories = shuffleCopy(PETIT_BAC_CATEGORIES).slice(0, 9);
 
   gs.currentMiniGameState = {
     type: "petit_bac",
