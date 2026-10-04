@@ -956,7 +956,7 @@ function securityLeugtasQuestion(room) {
   room.gameState.currentMiniGame = "qui_veut_gagner_des_leugtas";
   room.gameState.currentMiniGameState = {
     type: "qui_veut_gagner_des_leugtas", questionIndex: 0,
-    questions: [{ correct_answer_id: "good" }], playerAnswers: {},
+    questions: [{ correct_answer_id: "good", answers: [{ id: "good" }] }], playerAnswers: {},
     leugtasTimer: { running: true, totalSeconds: 20, remainingSeconds: 15 }
   };
 }
@@ -1172,4 +1172,278 @@ test("sécurité Liste : transfert d'hôte et retrait définitif après reconnex
   assert.equal(room.gameState.phase, "rules");
   returning.send("playerSetReady", { isReady: true });
   assert.equal(room.gameState.readyPlayers.p1, undefined);
+});
+
+test("entrées Socket.IO : createRoom et joinRoom refusent les identités malformées sans créer de salle", () => {
+  const h = harness();
+  for (const pseudo of [7, null, [], {}, "x".repeat(33)]) {
+    const client = h.socket("bad");
+    client.send("createRoom", { pseudo, playerId: "bad" });
+    assert.equal(client.roomCode, null);
+    assert.equal(Object.keys(h.api.rooms).length, 0);
+  }
+  for (const payload of [undefined, null, [], 7, { pseudo: "A" },
+    { pseudo: "A", playerId: "__proto__" },
+    { pseudo: "A", playerId: "constructor" },
+    { pseudo: "A", playerId: "x".repeat(65) }]) {
+    const client = h.socket("bad");
+    client.send("createRoom", payload);
+    assert.equal(client.roomCode, null);
+  }
+  const host = h.socket("host");
+  host.send("createRoom", { pseudo: "Hôte", playerId: "host" });
+  const room = h.api.rooms[host.roomCode];
+  for (const payload of [null, [], 7, { pseudo: "Invité", roomCode: room.roomCode },
+    { pseudo: "Invité", roomCode: [], playerId: "guest" },
+    { pseudo: "Invité", roomCode: room.roomCode, playerId: "toString" },
+    { pseudo: "x".repeat(33), roomCode: room.roomCode, playerId: "guest" }]) {
+    const guest = h.socket("guest");
+    guest.send("joinRoom", payload);
+    assert.equal(guest.roomCode, null);
+    assert.equal(room.players.length, 1);
+  }
+  const guest = h.socket("guest");
+  guest.send("joinRoom", { pseudo: "Invité", roomCode: room.roomCode, playerId: "guest" });
+  assert.equal(room.players.length, 2);
+});
+
+test("entrées Socket.IO : configuration, démarrage et disponibilité refusent les mauvais types", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  for (const payload of [null, [], 7, { gameMode: {} }, { gameMode: "inconnu" }]) {
+    clients[0].send("hostSetGameMode", payload);
+    assert.equal(room.gameMode, "battle_royale");
+  }
+  for (const payload of [null, [], 7, { forcedMiniGame: "inconnu" },
+    { forcedMiniGame: [] }]) {
+    clients[0].send("hostStartGame", payload);
+    assert.equal(room.gameState.phase, "idle");
+  }
+  clients[0].send("hostSetGameMode", { gameMode: "liste" });
+  for (const payload of [null, [], 7,
+    { gameCount: 1, selectionMethod: "manual", selectedMiniGames: Array(100).fill("petit_bac") },
+    { gameCount: 1, selectionMethod: "manual", selectedMiniGames: ["__proto__"] }]) {
+    clients[0].send("hostValidateListeConfig", payload);
+    assert.equal(room.listeConfig.gameCount, null);
+  }
+  h.configure(room, clients[0], "manual", ["petit_bac"]);
+  clients[0].send("hostStartGame", {});
+  h.advance(9300);
+  assert.equal(room.gameState.phase, "rules");
+  for (const payload of [null, [], 7, {}, { isReady: "true" }, { isReady: 1 }]) {
+    clients[1].send("playerSetReady", payload);
+    assert.equal(room.gameState.readyPlayers.p1, undefined);
+  }
+  clients[1].send("playerSetReady", { isReady: true });
+  assert.equal(room.gameState.readyPlayers.p1, true);
+});
+
+for (const mode of ["battle_royale", "liste"]) {
+  test(`entrées ${mode} : Leugtas refuse les choix absents, invalides ou hors phase`, () => {
+    const h = harness();
+    const { room, clients } = securityRoom(h, mode);
+    if (mode === "liste") clients[0].send("hostStartGame", {});
+    securityLeugtasQuestion(room);
+    const mini = room.gameState.currentMiniGameState;
+    for (const payload of [undefined, null, [], 7, {}, { answerId: "bad" },
+      { answerId: [] }, { answerId: "good", roomCode: [] },
+      { answerId: "good", playerId: "x".repeat(100) }]) {
+      clients[1].send("leugtasAnswer", payload);
+      assert.equal(mini.playerAnswers.p1, undefined);
+      assert.equal(room.players[1].score, 0);
+    }
+    room.gameState.phase = "rules";
+    clients[1].send("leugtasAnswer", { answerId: "good" });
+    assert.equal(mini.playerAnswers.p1, undefined);
+    room.gameState.phase = "playing";
+    mini.leugtasTimer.running = false;
+    clients[1].send("leugtasAnswer", { answerId: "good" });
+    assert.equal(mini.playerAnswers.p1, undefined);
+    mini.leugtasTimer.running = true;
+    clients[1].send("leugtasAnswer", { answerId: "good" });
+    assert.equal(mini.playerAnswers.p1.answerId, "good");
+    assert.equal(room.players[1].score, 1);
+  });
+
+  test(`entrées ${mode} : réponses texte, Petit Bac et Faux du vrai restent bornés`, () => {
+    const h = harness();
+    const { room, clients } = securityRoom(h, mode);
+    if (mode === "liste") clients[0].send("hostStartGame", {});
+    for (const [event, type] of [
+      ["quiSuisJeAnswer", "qui_suis_je"], ["leBonOrdreAnswer", "le_bon_ordre"],
+      ["leTourDuMondeAnswer", "le_tour_du_monde"], ["blindTestAnswer", "blind_test"]
+    ]) {
+      room.gameState.phase = "playing";
+      room.gameState.currentMiniGame = type;
+      room.gameState.currentMiniGameState = {
+        type, timer: { running: true }, playerAnswers: {}, history: {},
+        questionIndex: 0, questions: [{}], startTime: 1000
+      };
+      const mini = room.gameState.currentMiniGameState;
+      for (const payload of [null, [], 7, {}, { answer: [] },
+        { answer: "" }, { answer: "x".repeat(121) }]) {
+        clients[1].send(event, payload);
+        assert.equal(mini.playerAnswers.p1, undefined);
+      }
+      clients[1].send(event, { answer: "JE PASSE" });
+      assert.equal(mini.playerAnswers.p1, "JE PASSE");
+    }
+    room.gameState.currentMiniGame = "petit_bac";
+    room.gameState.currentMiniGameState = {
+      type: "petit_bac", categories: ["A", "B"], timer: { running: true },
+      playerAnswers: {}, history: {}, startTime: 1000
+    };
+    const petitBac = room.gameState.currentMiniGameState;
+    for (const answers of [null, [], { 0: 7 }, { 0: "x".repeat(121) },
+      { 0: "A", 1: "B", 2: "C" }, JSON.parse('{"__proto__":"A"}')]) {
+      clients[1].send("petitBacAnswer", { answers });
+      assert.equal(petitBac.playerAnswers.p1, undefined);
+    }
+    clients[1].send("petitBacAnswer", { answers: { 0: "", 1: "A" } });
+    assert.equal(petitBac.playerAnswers.p1[1], "A");
+
+    room.gameState.currentMiniGame = "le_faux_du_vrai";
+    room.gameState.currentMiniGameState = null;
+    room.mini = {
+      type: "faux_vrai", index: 0, list: [{ affirmations: ["A", "B", "C"] }],
+      timer: 1, answers: {}, answerTimes: {}, startTime: 1000
+    };
+    for (const index of [null, [], {}, "1", -1, 3, 1.5, Infinity]) {
+      clients[1].send("fauxVraiAnswer", index);
+      assert.equal(room.mini.answers.p1, undefined);
+    }
+    clients[1].send("fauxVraiAnswer", 1);
+    assert.equal(room.mini.answers.p1, 1);
+  });
+
+  test(`entrées ${mode} : correction invalide sans mutation, note valide conservée`, () => {
+    const h = harness();
+    const { room, clients } = securityRoom(h, mode);
+    if (mode === "liste") clients[0].send("hostStartGame", {});
+    room.gameState.phase = "playing";
+    room.gameState.currentMiniGame = "qui_suis_je";
+    room.gameState.currentMiniGameState = {
+      type: "qui_suis_je", finished: true, correctionIndex: 0,
+      gradingPlayerIndex: 0, questions: [{}], scoresGiven: {}, history: {}
+    };
+    room.activePlayersList = room.players;
+    const mini = room.gameState.currentMiniGameState;
+    for (const payload of [null, [], 7, {}, { direction: Infinity },
+      { direction: 1.5 }, { direction: 1000000 }]) {
+      clients[0].send("correctionNavigate", payload);
+      assert.equal(mini.gradingPlayerIndex, 0);
+    }
+    clients[0].send("correctionNavigate", { direction: 1 });
+    assert.equal(mini.gradingPlayerIndex, 1);
+    for (const payload of [null, [], 7, {}, { points: Infinity },
+      { points: 1, soundValue: "1" }]) {
+      clients[0].send("hostGradePlayer", payload);
+      assert.equal(room.players[1].score, 0);
+    }
+    clients[0].send("hostGradePlayer", { points: 1, soundValue: 1 });
+    assert.equal(room.players[1].score, 1);
+  });
+}
+
+test("entrées Enchères : votes, mises 1 à 50, réponses et correction sont validés sans mutation sur refus", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  room.gameState.phase = "playing";
+  room.gameState.currentMiniGame = "les_encheres";
+  const mini = {
+    type: "les_encheres", subPhase: "theme_selection", timer: { running: true, remaining: 4, total: 60 },
+    themesAvailable: [{ id: "Football", outOfStock: false }, { id: "NBA", outOfStock: true }],
+    playerVotes: {}, currentMaxBid: 0, currentBidder: null, bids: [],
+    activePlayerId: null, answersGiven: [], validatedStatus: [], finalized: false
+  };
+  room.gameState.currentMiniGameState = mini;
+  for (const vote of [null, [], {}, "NBA", "inconnu"]) {
+    clients[0].send("encheresVoteTheme", vote);
+    assert.equal(mini.playerVotes.p0, undefined);
+  }
+  clients[0].send("encheresVoteTheme", "Football");
+  assert.equal(mini.playerVotes.p0, "Football");
+  mini.subPhase = "bidding";
+  for (const bid of [null, [], {}, 0, 51, 1.5, Infinity, NaN, 10 ** 100,
+    "12abc", "1e3", "1.5", "Infinity", "9007199254740993", "00", "51"]) {
+    clients[0].send("encheresPlaceBid", bid);
+    assert.equal(mini.currentMaxBid, 0);
+    assert.equal(mini.currentBidder, null);
+    assert.equal(mini.timer.remaining, 4);
+    assert.equal(mini.bids.length, 0);
+  }
+  clients[0].send("encheresPlaceBid", "4");
+  assert.equal(mini.currentMaxBid, 4);
+  assert.equal(mini.currentBidder, "p0");
+  assert.equal(mini.timer.remaining, 14);
+  assert.equal(mini.bids[0].sound, "calme_4.mp3");
+  clients[0].send("encheresPlaceBid", "5");
+  assert.equal(mini.bids[1].sound, "5.mp3");
+  mini.subPhase = "collecting";
+  mini.activePlayerId = "p0";
+  clients[0].send("encheresPlaceBid", "6");
+  clients[0].send("encheresVoteTheme", "Football");
+  assert.equal(mini.currentMaxBid, 5);
+  assert.equal(mini.playerVotes.p0, "Football");
+  for (const answer of [null, [], {}, "", "x".repeat(121)]) {
+    clients[0].send("encheresSendAnswer", answer);
+    assert.equal(mini.answersGiven.length, 0);
+  }
+  for (let n = 0; n < 6; n++) clients[0].send("encheresSendAnswer", `Réponse ${n}`);
+  assert.equal(mini.answersGiven.length, 6);
+  clients[0].send("encheresSendAnswer", "En trop");
+  assert.equal(mini.answersGiven.length, 6);
+  for (const index of [null, [], -1, 1.5, 6, Infinity]) {
+    clients[0].send("encheresDeleteAnswer", index);
+    assert.equal(mini.answersGiven.length, 6);
+  }
+  clients[0].send("encheresDeleteAnswer", 0);
+  assert.equal(mini.answersGiven.length, 5);
+  mini.subPhase = "correction";
+  mini.timer.running = false;
+  clients[0].send("encheresSendAnswer", "Trop tard");
+  assert.equal(mini.answersGiven.length, 5);
+  for (const payload of [null, [], 7, { index: 0, status: "true" },
+    { index: 5, status: true }, { index: 0, status: null }]) {
+    clients[0].send("encheresToggleCorrection", payload);
+    assert.equal(mini.validatedStatus[0], null);
+  }
+  clients[0].send("encheresToggleCorrection", { index: 0, status: true });
+  assert.equal(mini.validatedStatus[0], true);
+  clients[0].send("encheresFinalizeGame");
+  assert.equal(mini.finalized, true);
+  const victories = h.events.filter((e) => e.name === "encheresVictory").length;
+  clients[0].send("encheresFinalizeGame");
+  assert.equal(h.events.filter((e) => e.name === "encheresVictory").length, victories);
+});
+
+test("entrées Enchères : la borne 50 est acceptée, puis aucune mise supérieure", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  room.gameState.phase = "playing";
+  room.gameState.currentMiniGame = "les_encheres";
+  const mini = {
+    type: "les_encheres", subPhase: "bidding", currentMaxBid: 0, currentBidder: null,
+    bids: [], timer: { running: true, remaining: 20, total: 60 }
+  };
+  room.gameState.currentMiniGameState = mini;
+  clients[0].send("encheresPlaceBid", "50");
+  assert.equal(mini.currentMaxBid, 50);
+  clients[1].send("encheresPlaceBid", 51);
+  assert.equal(mini.currentMaxBid, 50);
+  assert.equal(mini.bids.length, 1);
+});
+
+test("entrées Liste : les commandes Enchères restent refusées", () => {
+  const h = harness();
+  const { room, clients } = securityRoom(h, "liste");
+  clients[0].send("hostStartGame", {});
+  room.gameState.phase = "playing";
+  room.gameState.currentMiniGame = "les_encheres";
+  room.gameState.currentMiniGameState = {
+    type: "les_encheres", subPhase: "bidding", timer: { running: true, remaining: 4 },
+    currentMaxBid: 0, currentBidder: null, bids: []
+  };
+  clients[0].send("encheresPlaceBid", "4");
+  assert.equal(room.gameState.currentMiniGameState.currentMaxBid, 0);
 });

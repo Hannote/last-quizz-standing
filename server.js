@@ -208,6 +208,189 @@ app.use(express.static(path.join(__dirname, "public_2")));
 
 const rooms = {};
 
+const MAX_PSEUDO_LENGTH = 32;
+const MAX_PLAYER_ID_LENGTH = 64;
+const MAX_ANSWER_LENGTH = 120;
+const MAX_BID = 50;
+
+function isMessageObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function hasMessageKeys(value, allowed) {
+  return isMessageObject(value) && Object.keys(value).every((key) => allowed.includes(key));
+}
+
+function isText(value, maxLength, allowEmpty = false) {
+  return typeof value === "string" && value.length <= maxLength &&
+    (allowEmpty || value.trim().length > 0);
+}
+
+function isSafePlayerId(value) {
+  return isText(value, MAX_PLAYER_ID_LENGTH) && /^[A-Za-z0-9_-]+$/.test(value.trim()) &&
+    !Object.hasOwn(Object.prototype, value.trim()) && value.trim() !== "prototype";
+}
+
+function isRoomCode(value) {
+  return typeof value === "string" && /^[A-HJ-NP-Z2-9]{4}$/.test(value.trim().toUpperCase());
+}
+
+function validHistoricalFields(data) {
+  return (data.roomCode === undefined || isText(data.roomCode, 8)) &&
+    (data.playerId === undefined || isText(data.playerId, MAX_PLAYER_ID_LENGTH));
+}
+
+function currentActionMini(room, type) {
+  if (room.gameState?.phase !== "playing") return null;
+  if (type === "faux_vrai") {
+    return room.gameState.currentMiniGame === "le_faux_du_vrai" && room.mini?.type === type
+      ? room.mini : null;
+  }
+  const mini = room.gameState.currentMiniGameState;
+  return room.gameState.currentMiniGame === type && mini?.type === type ? mini : null;
+}
+
+function validSocketMessage(event, data, room) {
+  const historical = ["roomCode", "playerId"];
+  if (event === "createRoom" || event === "joinRoom") {
+    const keys = event === "createRoom" ? ["pseudo", "playerId"]
+      : ["pseudo", "playerId", "roomCode", "reconnectSecret"];
+    if (!hasMessageKeys(data, keys) ||
+        !isText(data.pseudo, MAX_PSEUDO_LENGTH) || !isSafePlayerId(data.playerId)) return false;
+    if (event === "joinRoom" && !isRoomCode(data.roomCode)) return false;
+    return event === "createRoom" || data.reconnectSecret == null ||
+      (typeof data.reconnectSecret === "string" && /^[0-9a-f]{64}$/.test(data.reconnectSecret));
+  }
+  if (["drawingFinished", "leaveRoom", "requestRoomState", "correctionPrevQuestion",
+       "correctionNextQuestion", "endPetitBacCorrection", "encheresFinalizeGame"].includes(event)) {
+    return data == null;
+  }
+  if (event === "hostSetGameMode") {
+    return hasMessageKeys(data, ["gameMode"]) && ["battle_royale", "liste"].includes(data.gameMode);
+  }
+  if (event === "hostValidateListeConfig") {
+    return hasMessageKeys(data, ["gameCount", "selectionMethod", "selectedMiniGames"]) &&
+      Array.isArray(data.selectedMiniGames) && data.selectedMiniGames.length <= getListeOptions().maxGames;
+  }
+  if (event === "hostStartGame") {
+    return hasMessageKeys(data, ["forcedMiniGame"]) &&
+      (data.forcedMiniGame === undefined ||
+        (typeof data.forcedMiniGame === "string" && POSSIBLE_MINI_GAMES.includes(data.forcedMiniGame)));
+  }
+  if (event === "playerSetReady") {
+    return hasMessageKeys(data, ["isReady"]) && typeof data.isReady === "boolean";
+  }
+  if (event === "leugtasAnswer") {
+    const q = currentActionMini(room, "qui_veut_gagner_des_leugtas")?.questions?.[
+      room.gameState.currentMiniGameState.questionIndex];
+    return hasMessageKeys(data, ["answerId", ...historical]) && validHistoricalFields(data) &&
+      q?.answers?.some((answer) => answer.id === data.answerId) === true;
+  }
+  if (event === "fauxVraiAnswer") {
+    const game = currentActionMini(room, "faux_vrai");
+    return Number.isInteger(data) && data >= 0 &&
+      data < (game?.list?.[game.index]?.affirmations?.length || 0);
+  }
+  const textGames = {
+    quiSuisJeAnswer: "qui_suis_je", leBonOrdreAnswer: "le_bon_ordre",
+    leTourDuMondeAnswer: "le_tour_du_monde", blindTestAnswer: "blind_test"
+  };
+  if (Object.hasOwn(textGames, event)) {
+    return hasMessageKeys(data, ["answer", ...historical]) && validHistoricalFields(data) &&
+      isText(data.answer, MAX_ANSWER_LENGTH) &&
+      !!currentActionMini(room, textGames[event]);
+  }
+  if (event === "petitBacAnswer") {
+    const mini = currentActionMini(room, "petit_bac");
+    const answers = data?.answers;
+    if (!hasMessageKeys(data, ["answers", ...historical]) || !validHistoricalFields(data) ||
+        !isMessageObject(answers) ||
+        !Array.isArray(mini?.categories)) return false;
+    const entries = Object.entries(answers);
+    return entries.length <= mini.categories.length && entries.every(([key, value]) =>
+      /^(0|[1-9]\d*)$/.test(key) && Number(key) < mini.categories.length &&
+      isText(value, MAX_ANSWER_LENGTH, true));
+  }
+  if (event === "correctionNavigate") {
+    return hasMessageKeys(data, ["direction"]) && Number.isInteger(data.direction) &&
+      data.direction !== 0 && Math.abs(data.direction) <= 100;
+  }
+  if (event === "hostGradePlayer") {
+    const mini = room?.gameState?.currentMiniGameState;
+    return hasMessageKeys(data, ["points", "details", "soundValue", ...historical]) &&
+      validHistoricalFields(data) &&
+      Number.isFinite(data.points) &&
+      (data.soundValue == null || [0, 0.5, 1].includes(data.soundValue)) &&
+      (data.details === undefined || (isMessageObject(data.details) &&
+        Object.keys(data.details).length <= (mini?.categories?.length || 0)));
+  }
+  if (event === "encheresVoteTheme") {
+    const mini = currentActionMini(room, "les_encheres");
+    return typeof data === "string" && !!mini?.themesAvailable?.some((theme) =>
+      theme.id === data && !theme.outOfStock);
+  }
+  if (event === "encheresPlaceBid") {
+    const bid = typeof data === "string" && /^(?:[1-9]|[1-4]\d|50)$/.test(data)
+      ? Number(data) : data;
+    return Number.isSafeInteger(bid) && bid >= 1 && bid <= MAX_BID;
+  }
+  if (event === "encheresSendAnswer") return isText(data, MAX_ANSWER_LENGTH);
+  if (event === "encheresDeleteAnswer") {
+    const mini = currentActionMini(room, "les_encheres");
+    return Number.isInteger(data) && data >= 0 && data < (mini?.answersGiven?.length || 0);
+  }
+  if (event === "encheresToggleCorrection") {
+    const mini = currentActionMini(room, "les_encheres");
+    return hasMessageKeys(data, ["index", "status"]) &&
+      Number.isInteger(data.index) && data.index >= 0 &&
+      data.index < (mini?.validatedStatus?.length || 0) && typeof data.status === "boolean";
+  }
+  return true;
+}
+
+function validActionPhase(event, room) {
+  const types = {
+    leugtasAnswer: "qui_veut_gagner_des_leugtas", fauxVraiAnswer: "faux_vrai",
+    quiSuisJeAnswer: "qui_suis_je", leBonOrdreAnswer: "le_bon_ordre",
+    leTourDuMondeAnswer: "le_tour_du_monde", blindTestAnswer: "blind_test",
+    petitBacAnswer: "petit_bac", encheresVoteTheme: "les_encheres",
+    encheresPlaceBid: "les_encheres", encheresSendAnswer: "les_encheres",
+    encheresDeleteAnswer: "les_encheres", encheresToggleCorrection: "les_encheres",
+    encheresFinalizeGame: "les_encheres"
+  };
+  if (Object.hasOwn(types, event) && !currentActionMini(room, types[event])) return false;
+  const answerEvents = ["leugtasAnswer", "fauxVraiAnswer", "quiSuisJeAnswer",
+    "leBonOrdreAnswer", "leTourDuMondeAnswer", "blindTestAnswer", "petitBacAnswer"];
+  if (answerEvents.includes(event)) {
+    const mini = currentActionMini(room, types[event]);
+    if (!mini || mini.finished) return false;
+    if (event === "fauxVraiAnswer") return !!mini.timer;
+    if (event === "leugtasAnswer") return !!mini.leugtasTimer?.running;
+    return !!mini.timer?.running;
+  }
+  if (event === "playerSetReady") return room.gameState?.phase === "rules";
+  if (event === "drawingFinished") return room.gameState?.phase === "drawingGame";
+  if (["correctionNavigate", "hostGradePlayer", "correctionPrevQuestion",
+       "correctionNextQuestion", "endPetitBacCorrection"].includes(event)) {
+    const mini = room.gameState?.currentMiniGameState;
+    return room.gameState?.phase === "playing" && !!mini?.finished &&
+      room.gameState.currentMiniGame === mini.type && Array.isArray(mini.questions) &&
+      Number.isInteger(mini.correctionIndex) && mini.correctionIndex >= 0 &&
+      mini.correctionIndex < mini.questions.length && Array.isArray(room.activePlayersList) &&
+      (event !== "endPetitBacCorrection" || mini.type === "petit_bac");
+  }
+  const mini = room.gameState?.currentMiniGameState;
+  if (event === "encheresVoteTheme") return mini.subPhase === "theme_selection" && !!mini.timer?.running;
+  if (event === "encheresPlaceBid") return mini.subPhase === "bidding" && !!mini.timer?.running;
+  if (["encheresSendAnswer", "encheresDeleteAnswer"].includes(event)) {
+    return mini.subPhase === "collecting" && !!mini.timer?.running;
+  }
+  if (["encheresToggleCorrection", "encheresFinalizeGame"].includes(event)) {
+    return mini.subPhase === "correction" && !mini.finalized;
+  }
+  return true;
+}
+
 function getSocketRoom(socket) {
   const room = rooms[socket.roomCode];
   if (!room || !socket.playerId || room.roomCode !== socket.roomCode) return null;
@@ -2144,6 +2327,11 @@ io.on("connection", (socket) => {
   socket.use(([event, payload, context], next) => {
     if (event !== "createRoom" && event !== "joinRoom" && !getSocketRoom(socket)) return;
     const room = getSocketRoom(socket);
+    if (!validSocketMessage(event, payload, room)) {
+      socket.emit("errorMessage", "Message invalide.");
+      return;
+    }
+    if (room && !validActionPhase(event, room)) return;
     if (!room || room.gameMode !== "liste") return next();
     if (event.startsWith("encheres")) return;
     const phases = {
@@ -3149,7 +3337,8 @@ io.on("connection", (socket) => {
     const activePlayers = room.players.filter((p) => isActiveMiniGamePlayer(room, p));
     activePlayers.forEach((p) => {
       if (!mini.playerVotes[p.playerId]) {
-        const randomTheme = mini.themesAvailable[Math.floor(Math.random() * mini.themesAvailable.length)];
+        const availableThemes = mini.themesAvailable.filter((theme) => !theme.outOfStock);
+        const randomTheme = availableThemes[Math.floor(Math.random() * availableThemes.length)];
         mini.playerVotes[p.playerId] = randomTheme.id;
       }
     });
@@ -3250,7 +3439,7 @@ io.on("connection", (socket) => {
     room.gameState.currentMiniGameState = {
       type: "les_encheres",
       subPhase: "theme_selection",
-      themesAvailable: themesWithStockInfo.slice(0, 3), // (Si tu utilises cette variable ailleurs)
+      themesAvailable: themesWithStockInfo,
       playerVotes: {},
       question: null,
       bids: [],
@@ -3260,7 +3449,8 @@ io.on("connection", (socket) => {
       activePlayerId: null,
       targetScore: 0,
       answersGiven: [],
-      validatedStatus: []
+      validatedStatus: [],
+      finalized: false
     };
 
     io.to(roomCode).emit("encheresSetup", {
@@ -3347,7 +3537,8 @@ io.on("connection", (socket) => {
     // ------------------------
 
     const mini = room.gameState.currentMiniGameState;
-    if (!mini || mini.subPhase !== "theme_selection") return;
+    if (!mini || mini.type !== "les_encheres" || mini.subPhase !== "theme_selection" ||
+        !mini.timer?.running || !mini.themesAvailable.some((theme) => theme.id === themeId && !theme.outOfStock)) return;
 
     mini.playerVotes[socket.playerId] = themeId;
 
@@ -3369,9 +3560,11 @@ io.on("connection", (socket) => {
     if (!canUseMiniGameSocket(room, player, socket)) return;
 
     const mini = room.gameState.currentMiniGameState;
-    if (!mini || mini.subPhase !== "bidding") return;
+    if (!mini || mini.type !== "les_encheres" || mini.subPhase !== "bidding" || !mini.timer?.running) return;
 
-    const val = parseInt(amount);
+    const val = typeof amount === "string" && /^(?:[1-9]|[1-4]\d|50)$/.test(amount)
+      ? Number(amount) : amount;
+    if (!Number.isSafeInteger(val) || val < 1 || val > MAX_BID) return;
     if (val > mini.currentMaxBid) {
       // Vérifie si ce joueur a DÉJÀ enchéri auparavant dans ce round
       const hasBidBefore = mini.bids.some((b) => b.playerId === socket.playerId);
@@ -3420,13 +3613,14 @@ io.on("connection", (socket) => {
 
     const mini = room.gameState.currentMiniGameState;
     if (
-      !mini ||
+      !mini || mini.type !== "les_encheres" || !mini.timer?.running ||
       mini.subPhase !== "collecting" ||
       socket.playerId !== mini.activePlayerId
     )
       return;
 
-    const limit = mini.currentMaxBid + 1;
+    if (!isText(text, MAX_ANSWER_LENGTH)) return;
+    const limit = Math.min(MAX_BID, mini.currentMaxBid) + 1;
     if (mini.answersGiven.length >= limit) {
       return;
     }
@@ -3447,13 +3641,13 @@ io.on("connection", (socket) => {
     if (!canUseMiniGameSocket(room, player, socket)) return;
     const mini = room.gameState.currentMiniGameState;
     if (
-      !mini ||
+      !mini || mini.type !== "les_encheres" || !mini.timer?.running ||
       mini.subPhase !== "collecting" ||
       socket.playerId !== mini.activePlayerId
     )
       return;
 
-    if (typeof index === "number" && index >= 0 && index < mini.answersGiven.length) {
+    if (Number.isInteger(index) && index >= 0 && index < mini.answersGiven.length) {
       mini.answersGiven.splice(index, 1);
       mini.validatedStatus.splice(index, 1);
 
@@ -3467,7 +3661,9 @@ io.on("connection", (socket) => {
     const room = getHostRoom(socket);
     if (!room) return;
     const mini = room.gameState.currentMiniGameState;
-    if (!mini || mini.validatedStatus[index] === undefined) return;
+    if (!mini || mini.type !== "les_encheres" || mini.subPhase !== "correction" || mini.finalized ||
+        !Number.isInteger(index) || index < 0 || index >= mini.validatedStatus.length ||
+        typeof status !== "boolean") return;
 
     mini.validatedStatus[index] = status;
 
@@ -3485,7 +3681,8 @@ io.on("connection", (socket) => {
     const room = getHostRoom(socket);
     if (!room) return;
     const mini = room.gameState.currentMiniGameState;
-    if (!mini) return;
+    if (!mini || mini.type !== "les_encheres" || mini.subPhase !== "correction" || mini.finalized) return;
+    mini.finalized = true;
 
     const errors = mini.validatedStatus.filter((s) => s === false).length;
     const valids = mini.validatedStatus.filter((s) => s === true).length;
