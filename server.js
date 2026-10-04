@@ -7,7 +7,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
-const { randomUUID } = require("crypto");
+const { randomBytes, randomUUID, timingSafeEqual } = require("crypto");
 const { shuffleCopy } = require("./question-shuffle");
 const {
   calculateGradeRevision,
@@ -208,6 +208,41 @@ app.use(express.static(path.join(__dirname, "public_2")));
 
 const rooms = {};
 
+function getSocketRoom(socket) {
+  const room = rooms[socket.roomCode];
+  if (!room || !socket.playerId || room.roomCode !== socket.roomCode) return null;
+  const player = room.players.find((candidate) => candidate.playerId === socket.playerId);
+  return player?.socketId === socket.id && player.isConnected ? room : null;
+}
+
+function getHostRoom(socket) {
+  const room = getSocketRoom(socket);
+  return room?.hostId === socket.playerId ? room : null;
+}
+
+function clearSocketRoom(socket) {
+  if (socket.roomCode) socket.leave(socket.roomCode);
+  socket.playerId = null;
+  socket.roomCode = null;
+  socket.room = null;
+}
+
+function hasReconnectSecret(player, secret) {
+  if (typeof secret !== "string" || !/^[0-9a-f]{64}$/.test(secret) ||
+      typeof player.reconnectSecret !== "string") return false;
+  const received = Buffer.from(secret, "hex");
+  const expected = Buffer.from(player.reconnectSecret, "hex");
+  return timingSafeEqual(received, expected);
+}
+
+function sendReconnectSecret(socket, room, player) {
+  socket.emit("reconnectCredential", {
+    roomCode: room.roomCode,
+    playerId: player.playerId,
+    reconnectSecret: player.reconnectSecret
+  });
+}
+
 const POSSIBLE_MINI_GAMES = [
   "qui_suis_je",
   "blind_test",
@@ -313,9 +348,8 @@ function isListeParticipant(room, player) {
 }
 
 function canUseMiniGameSocket(room, player, socket) {
-  if (room.gameMode !== "liste") return true;
-  return isListeParticipant(room, player) && player.socketId === socket.id &&
-    player.playerId === socket.playerId && room.roomCode === socket.roomCode;
+  if (!player || getSocketRoom(socket) !== room || player.playerId !== socket.playerId) return false;
+  return room.gameMode !== "liste" || isListeParticipant(room, player);
 }
 
 function isActiveMiniGamePlayer(room, player) {
@@ -2108,7 +2142,8 @@ function startReadyMiniGame(room, startEncheres) {
 
 io.on("connection", (socket) => {
   socket.use(([event, payload, context], next) => {
-    const room = rooms[socket.roomCode];
+    if (event !== "createRoom" && event !== "joinRoom" && !getSocketRoom(socket)) return;
+    const room = getSocketRoom(socket);
     if (!room || room.gameMode !== "liste") return next();
     if (event.startsWith("encheres")) return;
     const phases = {
@@ -2148,6 +2183,7 @@ io.on("connection", (socket) => {
   //            CREATE ROOM
   // -----------------------------------
   socket.on("createRoom", (data) => {
+    if (getSocketRoom(socket)) return socket.emit("errorMessage", "Quittez votre salle avant d'en créer une autre.");
     const pseudo = (data?.pseudo || "").trim();
     const playerId = (data?.playerId || "").trim();
 
@@ -2171,6 +2207,7 @@ io.on("connection", (socket) => {
       id: socket.id,
       pseudo,
       socketId: socket.id,
+      reconnectSecret: randomBytes(32).toString("hex"),
       isConnected: true,
       eliminated: false,
       withdrawn: false,
@@ -2197,6 +2234,7 @@ io.on("connection", (socket) => {
 
     console.log(`Salle ${roomCode} créée par ${pseudo}`);
 
+    sendReconnectSecret(socket, room, player);
     socket.emit("roomJoined", serializeRoom(room));
     socket.emit("gameStateUpdate", getGameStateSummary(room));
     io.to(roomCode).emit("roomUpdate", serializeRoom(room));
@@ -2219,6 +2257,18 @@ io.on("connection", (socket) => {
     const room = rooms[roomCode];
     if (!room) return socket.emit("errorMessage", "Cette salle n'existe pas.");
 
+    const currentRoom = getSocketRoom(socket);
+    if (currentRoom) {
+      if (currentRoom !== room || socket.playerId !== playerId) {
+        return socket.emit("errorMessage", "Quittez votre salle avant d'en rejoindre une autre.");
+      }
+      sendReconnectSecret(socket, room, room.players.find((p) => p.playerId === playerId));
+      socket.emit("roomJoined", serializeRoom(room));
+      socket.emit("gameStateUpdate", getGameStateSummary(room));
+      syncPlayerWithGame(socket, room);
+      return;
+    }
+
     if (room.gameMode === "liste" && !canJoinListeRoom(room, playerId)) {
       return socket.emit("errorMessage", "Ce tournoi Liste a déjà commencé. Seuls ses participants initiaux peuvent se reconnecter.");
     }
@@ -2226,6 +2276,11 @@ io.on("connection", (socket) => {
     let player = room.players.find((p) => p.playerId === playerId);
 
     if (player) {
+      if (!hasReconnectSecret(player, data?.reconnectSecret)) {
+        return socket.emit("errorMessage", "Reconnexion refusée : identité non vérifiée.");
+      }
+      const oldSocket = io.sockets?.sockets?.get(player.socketId);
+      if (oldSocket && oldSocket !== socket) clearSocketRoom(oldSocket);
       player.socketId = socket.id;
       player.id = socket.id;
       player.isConnected = true;
@@ -2237,6 +2292,7 @@ io.on("connection", (socket) => {
         id: socket.id,
         pseudo,
         socketId: socket.id,
+        reconnectSecret: randomBytes(32).toString("hex"),
         isConnected: true,
         eliminated: false,
         withdrawn: false,
@@ -2261,6 +2317,7 @@ io.on("connection", (socket) => {
     socket.room = roomCode;
     if (room.gameMode === "liste") ensureListeHost(room);
 
+    sendReconnectSecret(socket, room, player);
     socket.emit("roomJoined", serializeRoom(room));
     socket.emit("gameStateUpdate", getGameStateSummary(room));
     io.to(roomCode).emit("roomUpdate", serializeRoom(room));
@@ -2271,7 +2328,7 @@ io.on("connection", (socket) => {
   //         HOST SET GAME MODE (LOBBY)
   // -----------------------------------
   socket.on("hostSetGameMode", (data) => {
-    const room = rooms[socket.roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return;
 
     const host = room.players.find((p) => p.playerId === room.hostId);
@@ -2295,7 +2352,7 @@ io.on("connection", (socket) => {
   // -----------------------------------
   socket.on("hostValidateListeConfig", (data) => {
     const reject = (message) => socket.emit("listeConfigResult", { gameMode: "liste", roomCode: socket.roomCode, ok: false, message });
-    const room = rooms[socket.roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return reject("La salle n'existe plus. Rejoignez une salle.");
     const host = room.players.find((p) => p.playerId === room.hostId);
     if (room.hostId !== socket.playerId || host?.socketId !== socket.id) {
@@ -2319,13 +2376,10 @@ io.on("connection", (socket) => {
   //         HOST START GAME
   // -----------------------------------
   socket.on("hostStartGame", (data) => {
-    const roomCode = socket.roomCode;
+    const room = getHostRoom(socket);
+    if (!room) return;
+    const roomCode = room.roomCode;
     const playerId = socket.playerId;
-
-    if (!roomCode || !playerId) return;
-
-    const room = rooms[roomCode];
-    if (!room || room.hostId !== playerId) return;
 
     if (room.gameMode === "liste") {
       const host = room.players.find((p) => p.playerId === playerId);
@@ -2389,11 +2443,10 @@ io.on("connection", (socket) => {
   //         FIN ANIMATION TIRAGE
   // -----------------------------------
   socket.on("drawingFinished", () => {
-    const roomCode = socket.roomCode;
-    const playerId = socket.playerId;
-
-    const room = rooms[roomCode];
+    const room = getHostRoom(socket);
     if (!room) return;
+    const roomCode = room.roomCode;
+    const playerId = socket.playerId;
 
     // Seul l'hôte peut signaler la fin de l'animation pour changer de phase
     if (room.hostId !== playerId) return;
@@ -2415,11 +2468,10 @@ io.on("connection", (socket) => {
   //         READY / NOT READY
   // -----------------------------------
   socket.on("playerSetReady", (data) => {
-    const roomCode = socket.roomCode;
-    const playerId = socket.playerId;
-
-    const room = rooms[roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return;
+    const roomCode = room.roomCode;
+    const playerId = socket.playerId;
 
     const gs = room.gameState;
     if (gs.phase !== "rules") return;
@@ -2441,9 +2493,11 @@ io.on("connection", (socket) => {
     startReadyMiniGame(room, startLesEncheres);
   });
 
-  socket.on("leugtasAnswer", ({ roomCode, playerId, answerId }) => {
-    const room = rooms[roomCode];
+  socket.on("leugtasAnswer", ({ answerId } = {}) => {
+    const room = getSocketRoom(socket);
     if (!room) return;
+    const roomCode = room.roomCode;
+    const playerId = socket.playerId;
 
     // 1. Définition UNIQUE de player (Sécurité Spectateur)
     const player = room.players.find((p) => p.playerId === playerId);
@@ -2509,7 +2563,7 @@ io.on("connection", (socket) => {
     }
   });
   socket.on("fauxVraiAnswer", (index) => {
-    const room = rooms[socket.roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return;
 
     const player = room.players.find((p) => p.playerId === socket.playerId);
@@ -2546,9 +2600,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("quiSuisJeAnswer", ({ roomCode, answer }) => {
-    const room = rooms[roomCode];
+  socket.on("quiSuisJeAnswer", ({ answer } = {}) => {
+    const room = getSocketRoom(socket);
     if (!room) return;
+    const roomCode = room.roomCode;
     const player = room.players.find((p) => p.playerId === socket.playerId);
     if (!player || player.eliminated || player.isSpectator) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
@@ -2584,13 +2639,10 @@ io.on("connection", (socket) => {
   //         LEAVE ROOM
   // -----------------------------------
   socket.on("leaveRoom", () => {
-    const roomCode = socket.roomCode;
-    const playerId = socket.playerId;
-
-    if (!roomCode || !playerId) return;
-
-    const room = rooms[roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return;
+    const roomCode = room.roomCode;
+    const playerId = socket.playerId;
 
     const playerIdx = room.players.findIndex((p) => p.playerId === playerId);
     if (playerIdx === -1) return;
@@ -2602,10 +2654,7 @@ io.on("connection", (socket) => {
       if (player.socketId !== socket.id) return;
       if (room.listeTournament.started) {
         if (!withdrawListeParticipant(room, playerId, socket.id)) return;
-        socket.leave(roomCode);
-        socket.roomCode = null;
-        socket.room = null;
-        socket.playerId = null;
+        clearSocketRoom(socket);
         if (["playing", "listeRoundEnd"].includes(gs.phase)) {
           io.to(roomCode).emit("scoreUpdate", { ...getMiniGameScoreUpdate(room), refreshLeaderboard: true });
         }
@@ -2682,7 +2731,7 @@ io.on("connection", (socket) => {
 
     if (room.players.length === 0) {
       delete rooms[roomCode];
-      socket.leave(roomCode);
+      clearSocketRoom(socket);
       return;
     }
 
@@ -2695,7 +2744,12 @@ io.on("connection", (socket) => {
       }
     }
     
-    socket.leave(roomCode);
+    if (player.socketId === socket.id) {
+      player.socketId = null;
+      player.id = null;
+      player.isConnected = false;
+    }
+    clearSocketRoom(socket);
 
     io.to(roomCode).emit("roomUpdate", serializeRoom(room));
     if (!gs || gs.phase !== "playing") {
@@ -2707,10 +2761,7 @@ io.on("connection", (socket) => {
   //        REQUEST ROOM STATE
   // -----------------------------------
   socket.on("requestRoomState", () => {
-    const roomCode = socket.roomCode;
-    if (!roomCode) return;
-
-    const room = rooms[roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return;
 
     socket.emit("roomUpdate", serializeRoom(room));
@@ -2721,13 +2772,10 @@ io.on("connection", (socket) => {
     //           DISCONNECT
   // -----------------------------------
   socket.on("disconnect", () => {
-    const roomCode = socket.roomCode;
-    const playerId = socket.playerId;
-
-    if (!roomCode || !playerId) return;
-
-    const room = rooms[roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return;
+    const roomCode = room.roomCode;
+    const playerId = socket.playerId;
 
     if (room.gameMode === "liste") {
       if (!disconnectListePlayer(room, playerId, socket.id)) return;
@@ -2739,10 +2787,9 @@ io.on("connection", (socket) => {
     }
 
     const player = room.players.find((p) => p.playerId === playerId);
-    if (player) {
-      player.isConnected = false;
-      player.socketId = null;
-    }
+    player.isConnected = false;
+    player.socketId = null;
+    player.id = null;
 
     io.to(roomCode).emit("roomUpdate", serializeRoom(room));
   });
@@ -2750,9 +2797,10 @@ io.on("connection", (socket) => {
   // -----------------------------------
   //        LE BON ORDRE - RÉPONSE
   // -----------------------------------
-  socket.on("leBonOrdreAnswer", ({ roomCode, answer }) => {
-    const room = rooms[roomCode];
+  socket.on("leBonOrdreAnswer", ({ answer } = {}) => {
+    const room = getSocketRoom(socket);
     if (!room) return;
+    const roomCode = room.roomCode;
     const player = room.players.find((p) => p.playerId === socket.playerId);
     if (!player || player.eliminated || player.isSpectator) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
@@ -2786,9 +2834,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("leTourDuMondeAnswer", ({ roomCode, answer }) => {
-    const room = rooms[roomCode];
+  socket.on("leTourDuMondeAnswer", ({ answer } = {}) => {
+    const room = getSocketRoom(socket);
     if (!room) return;
+    const roomCode = room.roomCode;
     const player = room.players.find((p) => p.playerId === socket.playerId);
     if (!player || player.eliminated || player.isSpectator) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
@@ -2821,9 +2870,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("blindTestAnswer", ({ roomCode, answer }) => {
-    const room = rooms[roomCode];
+  socket.on("blindTestAnswer", ({ answer } = {}) => {
+    const room = getSocketRoom(socket);
     if (!room) return;
+    const roomCode = room.roomCode;
     const player = room.players.find((p) => p.playerId === socket.playerId);
     if (!player || player.eliminated || player.isSpectator) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
@@ -2856,9 +2906,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("petitBacAnswer", ({ roomCode, answers }) => {
-    const room = rooms[roomCode];
+  socket.on("petitBacAnswer", ({ answers } = {}) => {
+    const room = getSocketRoom(socket);
     if (!room) return;
+    const roomCode = room.roomCode;
     const player = room.players.find((p) => p.playerId === socket.playerId);
     if (!player || player.eliminated || player.isSpectator) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
@@ -2889,8 +2940,8 @@ io.on("connection", (socket) => {
   //      CORRECTION (LE JUGE)
   // -----------------------------------
   socket.on("correctionNavigate", ({ direction }) => {
-    const room = rooms[socket.roomCode];
-    if (!room || room.hostId !== socket.playerId) return;
+    const room = getHostRoom(socket);
+    if (!room) return;
     const mini = room.gameState.currentMiniGameState;
     if (room.gameMode === "liste") {
       pruneListeCorrectionPlayers(room);
@@ -2913,9 +2964,8 @@ io.on("connection", (socket) => {
   socket.on("hostGradePlayer", function (data = {}) {
     const { points, details } = data;
     const roomCode = socket.roomCode;
-    const room = rooms[roomCode];
-    const host = room?.players.find((candidate) => candidate.playerId === room.hostId);
-    if (!room || room.hostId !== socket.playerId || host?.socketId !== socket.id) return;
+    const room = getHostRoom(socket);
+    if (!room) return;
 
     const gs = room.gameState;
     const mini = gs.currentMiniGameState;
@@ -2992,8 +3042,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("correctionPrevQuestion", () => {
-    const room = rooms[socket.roomCode];
-    if (!room || room.hostId !== socket.playerId) return;
+    const room = getHostRoom(socket);
+    if (!room) return;
     const mini = room.gameState.currentMiniGameState;
 
     if (mini && mini.correctionIndex > 0) {
@@ -3004,8 +3054,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("correctionNextQuestion", () => {
-    const room = rooms[socket.roomCode];
-    if (!room || room.hostId !== socket.playerId) return;
+    const room = getHostRoom(socket);
+    if (!room) return;
     const mini = room.gameState.currentMiniGameState;
     if (room.gameMode === "liste") {
       pruneListeCorrectionPlayers(room);
@@ -3052,8 +3102,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("endPetitBacCorrection", () => {
-    const room = rooms[socket.roomCode];
-    if (!room || room.hostId !== socket.playerId) return;
+    const room = getHostRoom(socket);
+    if (!room) return;
     if (room.gameMode === "liste") {
       const mini = room.gameState.currentMiniGameState;
       if (mini?.type !== "petit_bac") return;
@@ -3287,7 +3337,7 @@ io.on("connection", (socket) => {
   }
 
   socket.on("encheresVoteTheme", (themeId) => {
-    const room = rooms[socket.roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return;
     
     // --- SÉCURITÉ AJOUTÉE ---
@@ -3311,7 +3361,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("encheresPlaceBid", (amount) => {
-    const room = rooms[socket.roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return;
 
     const player = room.players.find(p => p.playerId === socket.playerId);
@@ -3361,7 +3411,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("encheresSendAnswer", (text) => {
-    const room = rooms[socket.roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return;
 
     const player = room.players.find(p => p.playerId === socket.playerId);
@@ -3391,7 +3441,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("encheresDeleteAnswer", (index) => {
-    const room = rooms[socket.roomCode];
+    const room = getSocketRoom(socket);
     if (!room) return;
     const player = room.players.find((p) => p.playerId === socket.playerId);
     if (!canUseMiniGameSocket(room, player, socket)) return;
@@ -3414,8 +3464,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("encheresToggleCorrection", ({ index, status }) => {
-    const room = rooms[socket.roomCode];
-    if (!room || room.hostId !== socket.playerId) return;
+    const room = getHostRoom(socket);
+    if (!room) return;
     const mini = room.gameState.currentMiniGameState;
     if (!mini || mini.validatedStatus[index] === undefined) return;
 
@@ -3432,8 +3482,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("encheresFinalizeGame", () => {
-    const room = rooms[socket.roomCode];
-    if (!room || room.hostId !== socket.playerId) return;
+    const room = getHostRoom(socket);
+    if (!room) return;
     const mini = room.gameState.currentMiniGameState;
     if (!mini) return;
 
@@ -3460,7 +3510,7 @@ io.on("connection", (socket) => {
 }); // <--- ICI : C'est la fermeture cruciale de io.on("connection")
 
 function syncPlayerWithGame(socket, room) {
-  if (!room || !room.gameState) return;
+  if (!room || !room.gameState || getSocketRoom(socket) !== room) return;
   if (room.gameMode === "liste" &&
       !isListeParticipant(room, room.players.find((p) => p.playerId === socket.playerId))) return;
   const gs = room.gameState;

@@ -19,10 +19,13 @@ function harness() {
   let id = 0;
   let connection;
   let history = "{}";
+  const credentials = new Map();
+  const sockets = new Map();
   const io = {
     on: (name, fn) => { if (name === "connection") connection = fn; },
     to: (target) => ({ emit: (name, data) => events.push({ target, name, data }) }),
-    in: () => ({ disconnectSockets() {} })
+    in: () => ({ disconnectSockets() {} }),
+    sockets: { sockets }
   };
   function schedule(fn, delay, repeat) {
     const timer = { id: ++id, fn, delay, repeat, at: now + delay };
@@ -40,7 +43,7 @@ function harness() {
     }
   };
   const context = {
-    __dirname: root, process: { env: {} }, console: { log() {}, error: assert.fail },
+    __dirname: root, Buffer, process: { env: {} }, console: { log() {}, error: assert.fail },
     Date: class extends Date { static now() { return now; } },
     setTimeout: (fn, delay) => schedule(fn, delay, false),
     setInterval: (fn, delay) => schedule(fn, delay, true),
@@ -62,19 +65,30 @@ function harness() {
   const api = context.api;
   function socket(playerId) {
     const handlers = {};
+    const joinedRooms = new Set();
     let middleware;
     const sock = {
-      id: `socket-${++id}`, handlers,
+      id: `socket-${++id}`, handlers, joinedRooms,
       on: (event, fn) => { handlers[event] = fn; }, use: (fn) => { middleware = fn; },
-      emit: (name, data) => events.push({ target: sock.id, name, data }),
-      join() {}, leave() {},
+      emit: (name, data) => {
+        if (name === "reconnectCredential") {
+          credentials.set(`${data.roomCode}:${data.playerId}`, data.reconnectSecret);
+        }
+        events.push({ target: sock.id, name, data });
+      },
+      join(roomCode) { joinedRooms.add(roomCode); },
+      leave(roomCode) { joinedRooms.delete(roomCode); },
       send(event, payload, token) {
+        if (event === "joinRoom" && payload && !Object.hasOwn(payload, "reconnectSecret")) {
+          payload = { ...payload, reconnectSecret: credentials.get(`${payload.roomCode}:${payload.playerId}`) };
+        }
         const room = api.rooms[sock.roomCode];
         const metadata = token === undefined && room ? api.getListeContext(room) : token;
         middleware([event, payload, metadata], () => handlers[event]?.(payload));
       }
     };
     connection(sock);
+    sockets.set(sock.id, sock);
     sock.identity = playerId;
     return sock;
   }
@@ -106,7 +120,7 @@ function harness() {
       selectedMiniGames: selectionMethod === "manual" ? selected : []
     });
   }
-  return { api, events, timers, allTimers, socket, advance, create, configure };
+  return { api, events, timers, allTimers, socket, advance, create, configure, credentials };
 }
 
 function playRound(h, room, clients, finishPetitBacWithButton = false) {
@@ -367,6 +381,7 @@ test("sons Liste : un tirage par classement, par salle, sans répétition ni son
       assert.equal(room.listeTournament.leaderboardSoundsUsed.length, 1);
       const reconnected = h.socket("p1");
       reconnected.send("joinRoom", { roomCode: room.roomCode, playerId: "p1", pseudo: "Retour" });
+      first.clients[1] = reconnected;
       const restored = h.events.filter((event) => event.target === reconnected.id &&
         event.name === "gameStateUpdate").at(-1).data;
       assert.equal(restored.listeLeaderboard.sound.url, chosen.url);
@@ -927,4 +942,234 @@ test("étape 7 : Battle Royale de la correction réelle jusqu'à la victoire Enc
   assert.ok(h.events.some((e) => e.name === "gameOver" && e.data.winner === "Hôte"));
   assert.equal(room.listeTournament.started, false);
   assert.equal(room.listeTournament.roundResults.length, 0);
+});
+
+// Sécurité des identités : le transport et la persistance restent simulés en mémoire.
+function securityRoom(h, mode) {
+  const { room, clients } = h.create(3);
+  if (mode === "liste") h.configure(room, clients[0], "manual", ["petit_bac"]);
+  return { room, clients };
+}
+
+function securityLeugtasQuestion(room) {
+  room.gameState.phase = "playing";
+  room.gameState.currentMiniGame = "qui_veut_gagner_des_leugtas";
+  room.gameState.currentMiniGameState = {
+    type: "qui_veut_gagner_des_leugtas", questionIndex: 0,
+    questions: [{ correct_answer_id: "good" }], playerAnswers: {},
+    leugtasTimer: { running: true, totalSeconds: 20, remainingSeconds: 15 }
+  };
+}
+
+for (const mode of ["battle_royale", "liste"]) {
+  test(`sécurité ${mode} : un playerId public ne reprend ni l'hôte ni un invité`, () => {
+    const h = harness();
+    const { room, clients } = securityRoom(h, mode);
+    for (const target of [clients[0], clients[1]]) {
+      const player = room.players.find((p) => p.playerId === target.identity);
+      const originalSocket = player.socketId;
+      const originalPseudo = player.pseudo;
+      for (const reconnectSecret of [null, "0".repeat(64)]) {
+        const attacker = h.socket(target.identity);
+        attacker.send("joinRoom", {
+          roomCode: room.roomCode, playerId: target.identity, pseudo: "Usurpateur", reconnectSecret
+        });
+        assert.equal(attacker.roomCode, null);
+        assert.equal(player.socketId, originalSocket);
+        assert.equal(player.pseudo, originalPseudo);
+        assert.equal(target.joinedRooms.has(room.roomCode), true);
+        assert.ok(h.events.some((e) => e.target === attacker.id && e.name === "errorMessage"));
+        assert.equal(h.events.some((e) => e.target === attacker.id && e.name === "reconnectCredential"), false);
+      }
+    }
+    assert.equal(room.hostId, "p0");
+  });
+
+  test(`sécurité ${mode} : reprise légitime, secret privé et ancien socket révoqué`, () => {
+    const h = harness();
+    const { room, clients } = securityRoom(h, mode);
+    if (mode === "liste") clients[0].send("hostStartGame", {});
+    const host = room.players[0];
+    host.score = 7;
+    host.totalTime = 12;
+    host.tournamentPoints = 4;
+    const secret = h.credentials.get(`${room.roomCode}:p0`);
+    assert.match(secret, /^[0-9a-f]{64}$/);
+    assert.equal(JSON.stringify(h.api.serializeRoom(room)).includes(secret), false);
+    assert.equal(h.events.filter((e) => e.target === room.roomCode)
+      .some((e) => JSON.stringify(e.data).includes(secret)), false);
+    const replacement = h.socket("p0");
+    replacement.send("joinRoom", { roomCode: room.roomCode, playerId: "p0", pseudo: "Retour" });
+    assert.equal(host.socketId, replacement.id);
+    assert.equal(host.score, 7);
+    assert.equal(host.totalTime, 12);
+    assert.equal(host.tournamentPoints, 4);
+    assert.equal(room.hostId, "p0");
+    assert.equal(clients[0].joinedRooms.has(room.roomCode), false);
+    assert.equal(clients[0].roomCode, null);
+    assert.equal(replacement.joinedRooms.has(room.roomCode), true);
+    const before = h.events.length;
+    clients[0].send("requestRoomState");
+    clients[0].send("leaveRoom");
+    clients[0].send("hostStartGame", {});
+    clients[0].send("disconnect");
+    assert.equal(h.events.length, before);
+    assert.equal(host.socketId, replacement.id);
+    assert.equal(host.isConnected, true);
+    assert.equal(room.hostId, "p0");
+    if (mode === "liste") {
+      assert.equal(room.gameState.phase, "drawingGame");
+      replacement.send("drawingFinished");
+      h.advance(9300);
+      assert.equal(room.gameState.phase, "rules");
+    } else {
+      replacement.send("hostStartGame", {});
+      assert.equal(room.gameState.phase, "intro");
+      h.advance(32500);
+      assert.equal(room.gameState.phase, "drawingGame");
+    }
+    securityLeugtasQuestion(room);
+    clients[0].send("leugtasAnswer", { roomCode: room.roomCode, playerId: "p0", answerId: "good" });
+    assert.equal(host.score, 7);
+    assert.equal(room.gameState.currentMiniGameState.playerAnswers.p0, undefined);
+    replacement.send("leugtasAnswer", { roomCode: room.roomCode, playerId: "p0", answerId: "good" });
+    assert.equal(host.score, 8);
+  });
+
+  test(`sécurité ${mode} : secret d'un autre joueur ou d'une autre salle refusé`, () => {
+    const h = harness();
+    const first = securityRoom(h, mode);
+    const second = securityRoom(h, mode);
+    const target = first.room.players[1];
+    for (const wrongSecret of [
+      h.credentials.get(`${first.room.roomCode}:p0`),
+      h.credentials.get(`${second.room.roomCode}:p1`)
+    ]) {
+      const attacker = h.socket("p1");
+      attacker.send("joinRoom", {
+        roomCode: first.room.roomCode, playerId: "p1", pseudo: "Faux", reconnectSecret: wrongSecret
+      });
+      assert.equal(attacker.roomCode, null);
+      assert.equal(target.socketId, first.clients[1].id);
+      assert.equal(target.pseudo, "p1");
+    }
+  });
+
+  test(`sécurité ${mode} : un invité reconnecté garde son état sans obtenir les droits hôte`, () => {
+    const h = harness();
+    const { room, clients } = securityRoom(h, mode);
+    const guest = room.players[1];
+    guest.score = 3;
+    guest.roundTime = 9;
+    const replacement = h.socket("p1");
+    replacement.send("joinRoom", { roomCode: room.roomCode, playerId: "p1", pseudo: "Retour" });
+    assert.equal(guest.socketId, replacement.id);
+    assert.equal(guest.score, 3);
+    assert.equal(guest.roundTime, 9);
+    assert.equal(room.hostId, "p0");
+    replacement.send("hostStartGame", {});
+    assert.equal(room.gameState.phase, "idle");
+    clients[0].send("hostStartGame", {});
+    assert.equal(room.gameState.phase, mode === "liste" ? "drawingGame" : "intro");
+  });
+
+  test(`sécurité ${mode} : roomCode et playerId fournis ne dirigent pas une réponse dans une autre salle`, () => {
+    const h = harness();
+    const first = securityRoom(h, mode);
+    const second = securityRoom(h, mode);
+    if (mode === "liste") {
+      first.clients[0].send("hostStartGame", {});
+      second.clients[0].send("hostStartGame", {});
+    }
+    for (const { room } of [first, second]) securityLeugtasQuestion(room);
+    const target = second.room.players[1];
+    first.clients[1].send("leugtasAnswer", {
+      roomCode: second.room.roomCode, playerId: target.playerId, answerId: "good"
+    });
+    assert.equal(target.score, 0);
+    assert.equal(second.room.gameState.currentMiniGameState.playerAnswers.p1, undefined);
+    assert.equal(first.room.players[1].score, 1);
+    assert.equal(first.room.gameState.currentMiniGameState.playerAnswers.p1.answerId, "good");
+  });
+
+  test(`sécurité ${mode} : la correction reste réservée à l'hôte de la salle`, () => {
+    const h = harness();
+    const first = securityRoom(h, mode);
+    const second = securityRoom(h, mode);
+    if (mode === "liste") {
+      first.clients[0].send("hostStartGame", {});
+      second.clients[0].send("hostStartGame", {});
+    }
+    for (const { room } of [first, second]) {
+      room.gameState.phase = "playing";
+      room.gameState.currentMiniGame = "qui_suis_je";
+      room.gameState.currentMiniGameState = {
+        type: "qui_suis_je", finished: true, correctionIndex: 0,
+        gradingPlayerIndex: 1, questions: [{}], scoresGiven: {}, history: {}
+      };
+      room.activePlayersList = room.players;
+    }
+    const target = first.room.players[1];
+    first.clients[1].send("hostGradePlayer", { points: 1, roomCode: second.room.roomCode, playerId: "p1" });
+    assert.equal(target.score, 0);
+    first.clients[0].send("hostGradePlayer", { points: 1, roomCode: second.room.roomCode, playerId: "p1" });
+    assert.equal(target.score, 1);
+    assert.equal(second.room.players[1].score, 0);
+  });
+}
+
+test("sécurité Battle Royale : transfert d'hôte après départ volontaire", () => {
+  const h = harness();
+  const { room, clients } = h.create(4);
+  clients[0].send("leaveRoom");
+  assert.equal(room.hostId, "p1");
+  clients[0].send("hostStartGame", {});
+  assert.equal(room.gameState.phase, "idle");
+  clients[1].send("hostStartGame", {});
+  assert.equal(room.gameState.phase, "intro");
+  h.advance(32500);
+  assert.equal(room.gameState.phase, "drawingGame");
+});
+
+test("sécurité : un ancien playerId crée ou rejoint une nouvelle salle sans ancien secret", () => {
+  const h = harness();
+  const original = h.socket("known-id");
+  original.send("createRoom", { playerId: "known-id", pseudo: "Ancien" });
+  const first = h.api.rooms[original.roomCode];
+  const newHost = h.socket("new-host");
+  newHost.send("createRoom", { playerId: "new-host", pseudo: "Nouveau" });
+  const second = h.api.rooms[newHost.roomCode];
+  const returning = h.socket("known-id");
+  returning.send("joinRoom", {
+    roomCode: second.roomCode, playerId: "known-id", pseudo: "Ancien", reconnectSecret: null
+  });
+  assert.equal(returning.roomCode, second.roomCode);
+  assert.equal(second.players.find((p) => p.playerId === "known-id").socketId, returning.id);
+  assert.equal(first.players[0].socketId, original.id);
+  assert.notEqual(h.credentials.get(`${first.roomCode}:known-id`),
+    h.credentials.get(`${second.roomCode}:known-id`));
+});
+
+test("sécurité Liste : transfert d'hôte et retrait définitif après reconnexion", () => {
+  const h = harness();
+  const { room, clients } = securityRoom(h, "liste");
+  clients[0].send("hostStartGame", {});
+  const count = room.listeTournament.initialParticipantCount;
+  clients[1].send("leaveRoom");
+  const withdrawn = room.players[1];
+  assert.equal(withdrawn.withdrawn, true);
+  const returning = h.socket("p1");
+  returning.send("joinRoom", { roomCode: room.roomCode, playerId: "p1", pseudo: "Retour" });
+  assert.equal(withdrawn.socketId, returning.id);
+  assert.equal(withdrawn.withdrawn, true);
+  assert.equal(room.listeTournament.initialParticipantCount, count);
+  clients[0].send("disconnect");
+  assert.equal(room.hostId, "p2");
+  returning.send("drawingFinished");
+  assert.equal(room.gameState.phase, "drawingGame");
+  clients[2].send("drawingFinished");
+  h.advance(9300);
+  assert.equal(room.gameState.phase, "rules");
+  returning.send("playerSetReady", { isReady: true });
+  assert.equal(room.gameState.readyPlayers.p1, undefined);
 });

@@ -230,6 +230,7 @@ test("handler serveur Petit Bac : temps indépendant des notes dans les deux mod
       vm.runInNewContext(source.slice(start, end), {
         calculateGradeRevision, getQuestionResponseTime, validateManualGrade,
         rooms: { TEST: room },
+        getHostRoom: () => room,
         socket: {
           id: "socket", playerId: "host", roomCode: "TEST",
           on: (name, callback) => { handler = callback; },

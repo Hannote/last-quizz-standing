@@ -403,6 +403,20 @@ function getOrCreatePlayerId() {
 
 const playerId = getOrCreatePlayerId();
 
+function reconnectSecretKey(roomCode) {
+  return `lqs_reconnect_${roomCode}_${playerId}`;
+}
+
+function getReconnectSecret(roomCode) {
+  return localStorage.getItem(reconnectSecretKey(roomCode));
+}
+
+socket.on("reconnectCredential", ({ roomCode, playerId: credentialPlayerId, reconnectSecret }) => {
+  if (credentialPlayerId !== playerId || typeof roomCode !== "string" ||
+      typeof reconnectSecret !== "string") return;
+  localStorage.setItem(reconnectSecretKey(roomCode), reconnectSecret);
+});
+
 
 // Liste locale de tous les mini-jeux (pour l'animation)
 
@@ -5576,7 +5590,7 @@ joinRoomBtn.addEventListener("click", () => {
   localStorage.setItem("lqs_room_code", roomCode);
 
 
-  socket.emit("joinRoom", { pseudo, roomCode, playerId });
+  socket.emit("joinRoom", { pseudo, roomCode, playerId, reconnectSecret: getReconnectSecret(roomCode) });
 
 
 });
@@ -9182,7 +9196,8 @@ window.addEventListener("load", () => {
       roomCode: savedRoom,
 
 
-      playerId: playerId
+      playerId: playerId,
+      reconnectSecret: getReconnectSecret(savedRoom)
 
 
     });
@@ -9221,7 +9236,8 @@ socket.on("connect", () => {
       roomCode: savedRoom,
 
 
-      playerId: playerId
+      playerId: playerId,
+      reconnectSecret: getReconnectSecret(savedRoom)
 
 
     });

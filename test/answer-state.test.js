@@ -26,6 +26,29 @@ function loadSocketHandler(block, context, eventName) {
   return handler;
 }
 
+test("le secret de reconnexion reste stocké par salle et identité côté client", () => {
+  const block = extract(clientSource, "function reconnectSecretKey(roomCode)", "// Liste locale de tous les mini-jeux");
+  const values = new Map();
+  let receiveCredential;
+  const context = {
+    playerId: "p1",
+    localStorage: {
+      getItem: (key) => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value)
+    },
+    socket: { on: (name, callback) => {
+      if (name === "reconnectCredential") receiveCredential = callback;
+    } }
+  };
+  vm.runInNewContext(`${block}; globalThis.readSecret = getReconnectSecret;`, context);
+  receiveCredential({ roomCode: "ROOM", playerId: "p1", reconnectSecret: "secret-1" });
+  receiveCredential({ roomCode: "OTHER", playerId: "p1", reconnectSecret: "secret-2" });
+  receiveCredential({ roomCode: "ROOM", playerId: "p2", reconnectSecret: "wrong" });
+  assert.equal(context.readSecret("ROOM"), "secret-1");
+  assert.equal(context.readSecret("OTHER"), "secret-2");
+  assert.equal(context.readSecret("UNKNOWN"), null);
+});
+
 test("Petit Bac conserve le premier formulaire et son temps face à un double envoi", () => {
   const player = { playerId: "p1", socketId: "s1", eliminated: false, isSpectator: false };
   const other = { playerId: "p2", socketId: "s2", eliminated: false, isSpectator: false };
@@ -42,6 +65,7 @@ test("Petit Bac conserve le premier formulaire et son temps face à un double en
       if (name === "petitBacAnswerAck") ackCount++;
     } },
     Date: { now: () => now },
+    getSocketRoom: () => room,
     canUseMiniGameSocket: () => true,
     rememberManualResponseTime: (state, playerId, time) => {
       state.responseTimesByQuestion[0] = { [playerId]: time };
@@ -84,6 +108,7 @@ test("Faux du vrai conserve réponse et temps après double envoi et reconnexion
   const context = {
     rooms: { TEST: room }, socket,
     Date: { now: () => now },
+    getSocketRoom: () => room,
     canUseMiniGameSocket: (currentRoom, currentPlayer, currentSocket) =>
       currentPlayer.socketId === currentSocket.id,
     isActiveMiniGamePlayer: () => true,
@@ -128,6 +153,7 @@ test("la reconnexion resynchronise les 150 s du Petit Bac et le choix Faux du vr
   };
   const context = {
     socket,
+    getSocketRoom: (currentSocket) => currentSocket.currentRoom,
     isListeParticipant: () => true,
     sendCorrectionData: () => {},
     publishListeContext: () => {},
@@ -136,7 +162,7 @@ test("la reconnexion resynchronise les 150 s du Petit Bac et le choix Faux du vr
   };
   vm.runInNewContext(`${syncBlock}; globalThis.sync = syncPlayerWithGame;`, context);
 
-  context.sync(socket, {
+  const petitBacRoom = {
     gameMode: "battle_royale", roomCode: "PBAC",
     gameState: {
       phase: "playing",
@@ -146,7 +172,9 @@ test("la reconnexion resynchronise les 150 s du Petit Bac et le choix Faux du vr
         timer: { running: true, remainingSeconds: 37, totalSeconds: 150 }
       }
     }
-  });
+  };
+  socket.currentRoom = petitBacRoom;
+  context.sync(socket, petitBacRoom);
   assert.deepEqual(emitted.map(({ name }) => name), ["petitBacStart", "petitBacTimerUpdate"]);
   assert.equal(emitted[0].payload.duration, 150);
   assert.equal(emitted[0].payload.hasAnswered, true);
@@ -154,7 +182,7 @@ test("la reconnexion resynchronise les 150 s du Petit Bac et le choix Faux du vr
   assert.equal(JSON.stringify(emitted[1].payload), JSON.stringify({ remaining: 37, total: 150 }));
 
   emitted.length = 0;
-  context.sync(socket, {
+  const fauxVraiRoom = {
     gameMode: "battle_royale", roomCode: "FAUX",
     gameState: { phase: "playing", currentMiniGameState: null },
     mini: {
@@ -162,7 +190,9 @@ test("la reconnexion resynchronise les 150 s du Petit Bac et le choix Faux du vr
       list: [{ question: "Q", affirmations: ["A", "B"], themeId: 1, indexFausse: 1 }],
       answers: { p1: 1 }, timer: {}, remainingSeconds: 21, totalSeconds: 45
     }
-  });
+  };
+  socket.currentRoom = fauxVraiRoom;
+  context.sync(socket, fauxVraiRoom);
   assert.deepEqual(emitted.map(({ name }) => name), ["fauxVraiQuestion", "fauxVraiTimerUpdate"]);
   assert.equal(emitted[0].payload.hasAnswered, true);
   assert.equal(emitted[0].payload.selectedAnswerIndex, 1);
