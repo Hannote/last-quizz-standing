@@ -207,6 +207,22 @@ app.use(express.static(path.join(__dirname, "public_2")));
 // ===============================
 
 const rooms = {};
+function positiveRoomSetting(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647 ? value : fallback;
+}
+const ROOM_CREATE_WINDOW_MS = positiveRoomSetting("LQS_ROOM_CREATE_WINDOW_MS", 60_000);
+const ROOM_CREATE_LIMIT = positiveRoomSetting("LQS_ROOM_CREATE_LIMIT", 20);
+const ROOM_LIMIT = positiveRoomSetting("LQS_ROOM_LIMIT", 100);
+const ROOM_PLAYER_LIMIT = positiveRoomSetting("LQS_ROOM_PLAYER_LIMIT", 16);
+const ROOM_ABANDON_MS = positiveRoomSetting("LQS_ROOM_ABANDON_MS", 300_000);
+const roomCreationTimes = [];
+
+function pruneRoomCreationTimes(now = Date.now()) {
+  while (roomCreationTimes.length && now - roomCreationTimes[0] >= ROOM_CREATE_WINDOW_MS) {
+    roomCreationTimes.shift();
+  }
+}
 
 const MAX_PSEUDO_LENGTH = 32;
 const MAX_PLAYER_ID_LENGTH = 64;
@@ -779,32 +795,38 @@ function captureListeCallback(room) {
 }
 
 function roomTimeout(room, callback, delay) {
-  if (room.gameMode !== "liste") return setTimeout(callback, delay);
-  const current = captureListeCallback(room);
-  room.listeTimers ||= new Set();
+  const isListe = room.gameMode === "liste";
+  const current = isListe ? captureListeCallback(room) : () => rooms[room.roomCode] === room;
+  const timers = isListe ? (room.listeTimers ||= new Set()) : (room.pendingTimeouts ||= new Set());
   let fired = false;
   const timer = setTimeout(() => {
     if (fired) return;
     fired = true;
-    room.listeTimers.delete(timer);
+    timers.delete(timer);
     if (current()) callback();
   }, delay);
-  room.listeTimers.add(timer);
+  timers.add(timer);
   return timer;
 }
 
+function cancelRoomTimeout(room, timer) {
+  clearTimeout(timer);
+  room.pendingTimeouts?.delete(timer);
+  room.listeTimers?.delete(timer);
+}
+
 function roomInterval(room, callback, delay) {
-  if (room.gameMode !== "liste") return setInterval(callback, delay);
-  const current = captureListeCallback(room);
-  room.listeTimers ||= new Set();
+  const isListe = room.gameMode === "liste";
+  const current = isListe ? captureListeCallback(room) : () => rooms[room.roomCode] === room;
+  if (isListe) room.listeTimers ||= new Set();
   const timer = setInterval(() => {
     if (current()) callback();
     else {
       clearInterval(timer);
-      room.listeTimers.delete(timer);
+      room.listeTimers?.delete(timer);
     }
   }, delay);
-  room.listeTimers.add(timer);
+  if (isListe) room.listeTimers.add(timer);
   return timer;
 }
 
@@ -814,6 +836,54 @@ function clearListeTimers(room) {
     clearInterval(timer);
   }
   room.listeTimers?.clear();
+}
+
+function cancelRoomAbandon(room) {
+  if (room.abandonTimer) clearTimeout(room.abandonTimer);
+  room.abandonTimer = null;
+}
+
+function destroyRoom(room, disconnectSockets = false) {
+  if (rooms[room.roomCode] !== room) return false;
+  cancelRoomAbandon(room);
+  clearListeTimers(room);
+  for (const timer of room.pendingTimeouts || []) clearTimeout(timer);
+  room.pendingTimeouts?.clear();
+  for (const field of ["leugtasTimerInterval", "leBonOrdreInterval", "blindTestInterval",
+    "leTourDuMondeInterval", "quiSuisJeInterval", "petitBacInterval", "petitBacStartTimeout",
+    "encheresInterval"]) {
+    if (room[field]) {
+      clearTimeout(room[field]);
+      clearInterval(room[field]);
+      room[field] = null;
+    }
+  }
+  if (room.mini?.timer) {
+    clearInterval(room.mini.timer);
+    room.mini.timer = null;
+  }
+  delete rooms[room.roomCode];
+  if (disconnectSockets) io.in(room.roomCode).disconnectSockets();
+  return true;
+}
+
+function scheduleRoomAbandon(room) {
+  if (rooms[room.roomCode] !== room) return;
+  if (room.players.some((player) => player.isConnected)) {
+    cancelRoomAbandon(room);
+    return;
+  }
+  if (room.players.length === 0) {
+    destroyRoom(room);
+    return;
+  }
+  if (room.abandonTimer) return;
+  room.abandonTimer = setTimeout(() => {
+    room.abandonTimer = null;
+    if (rooms[room.roomCode] === room && !room.players.some((player) => player.isConnected)) {
+      destroyRoom(room);
+    }
+  }, ROOM_ABANDON_MS);
 }
 
 function prepareListeSequence(config, random = Math.random) {
@@ -1168,7 +1238,7 @@ function endMiniGame(roomCode) {
   // --- S�CURIT� ANTI DOUBLE-APPEL ---
   if (room.isEnding) return;
   room.isEnding = true;
-  setTimeout(() => {
+  roomTimeout(room, () => {
     if (room) room.isEnding = false;
   }, 3000);
   // ----------------------------------
@@ -1199,13 +1269,10 @@ function endMiniGame(roomCode) {
     io.to(roomCode).emit("gameOver", { winner: winner.pseudo });
 
     // FERMETURE AUTOMATIQUE
-    setTimeout(() => {
-      if (rooms[roomCode]) {
+    roomTimeout(room, () => {
+      if (rooms[roomCode] === room) {
         console.log(`Fermeture auto de la salle ${roomCode}`);
-        // Deconnecte proprement tous les sockets de la room
-        io.in(roomCode).disconnectSockets();
-        // Supprime la room
-        delete rooms[roomCode];
+        destroyRoom(room, true);
       }
     }, 22000); // 20 secondes
     return;
@@ -1222,8 +1289,9 @@ function endMiniGame(roomCode) {
     io.to(roomCode).emit("playFinaleAnimation", { player1: p1, player2: p2 });
 
     // On attend 32 secondes (dur?e de l'animation + dialogue) avant de passer aux r?gles
-    setTimeout(() => {
-        if (!rooms[roomCode]) return;
+    roomTimeout(room, () => {
+        if (rooms[roomCode] !== room || room.gameState !== gs ||
+            room.gameMode !== "battle_royale") return;
 
         gs.phase = "rules";
         gs.currentMiniGame = "les_encheres";
@@ -1396,7 +1464,7 @@ async function endLeugtasQuestion(roomCode, mini) {
   }
 
   if (mini.allAnsweredEarly) {
-    await new Promise((res) => setTimeout(res, waitTime));
+    await new Promise((res) => roomTimeout(room, res, waitTime));
     mini.allAnsweredEarly = false;
     continueToNextQuestion();
     return;
@@ -2064,7 +2132,7 @@ function startPetitBac(roomCode) {
 
   // --- SÉCURITÉ 2 : On annule tout démarrage en attente (Le CORRECTIF est ici) ---
   if (room.petitBacStartTimeout) {
-      clearTimeout(room.petitBacStartTimeout);
+      cancelRoomTimeout(room, room.petitBacStartTimeout);
       room.petitBacStartTimeout = null;
   }
   // -----------------------------------------------------------------------------
@@ -2377,6 +2445,14 @@ io.on("connection", (socket) => {
 
     if (!pseudo) return socket.emit("errorMessage", "Merci d'entrer un pseudo.");
     if (!playerId) return socket.emit("errorMessage", "playerId manquant.");
+    const now = Date.now();
+    pruneRoomCreationTimes(now);
+    if (Object.keys(rooms).length >= ROOM_LIMIT) {
+      return socket.emit("errorMessage", "Nombre maximal de salles atteint. Réessayez plus tard.");
+    }
+    if (roomCreationTimes.length >= ROOM_CREATE_LIMIT) {
+      return socket.emit("errorMessage", "Trop de salles créées récemment. Réessayez plus tard.");
+    }
 
     const roomCode = generateRoomCode();
     const room = {
@@ -2387,7 +2463,7 @@ io.on("connection", (socket) => {
       hostId: playerId,
       players: [],
       gameState: createInitialGameState(),
-      createdAt: Date.now()
+      createdAt: now
     };
 
     const player = {
@@ -2414,6 +2490,7 @@ io.on("connection", (socket) => {
 
     room.players.push(player);
     rooms[roomCode] = room;
+    roomCreationTimes.push(now);
 
     socket.join(roomCode);
     socket.playerId = playerId;
@@ -2475,6 +2552,9 @@ io.on("connection", (socket) => {
       player.pseudo = pseudo;
       ensurePlayerTournamentStats(player);
     } else {
+      if (room.players.length >= ROOM_PLAYER_LIMIT) {
+        return socket.emit("errorMessage", "Cette salle a atteint son nombre maximal de joueurs.");
+      }
       player = {
         playerId,
         id: socket.id,
@@ -2498,6 +2578,7 @@ io.on("connection", (socket) => {
       };
       room.players.push(player);
     }
+    cancelRoomAbandon(room);
 
     socket.join(roomCode);
     socket.playerId = playerId;
@@ -2605,7 +2686,7 @@ io.on("connection", (socket) => {
     // Durée de l'animation (29s) avant de lancer le tirage au sort
     const INTRO_DURATION_MS = 32500; 
 
-    setTimeout(() => {
+    roomTimeout(room, () => {
         if (rooms[roomCode] !== room || room.gameState !== gs ||
             room.gameMode !== "battle_royale" || gs.phase !== "intro" || gs.roundNumber !== 1) return;
 
@@ -2843,6 +2924,7 @@ io.on("connection", (socket) => {
       if (room.listeTournament.started) {
         if (!withdrawListeParticipant(room, playerId, socket.id)) return;
         clearSocketRoom(socket);
+        scheduleRoomAbandon(room);
         if (["playing", "listeRoundEnd"].includes(gs.phase)) {
           io.to(roomCode).emit("scoreUpdate", { ...getMiniGameScoreUpdate(room), refreshLeaderboard: true });
         }
@@ -2918,7 +3000,7 @@ io.on("connection", (socket) => {
     }
 
     if (room.players.length === 0) {
-      delete rooms[roomCode];
+      destroyRoom(room);
       clearSocketRoom(socket);
       return;
     }
@@ -2938,6 +3020,7 @@ io.on("connection", (socket) => {
       player.isConnected = false;
     }
     clearSocketRoom(socket);
+    scheduleRoomAbandon(room);
 
     io.to(roomCode).emit("roomUpdate", serializeRoom(room));
     if (!gs || gs.phase !== "playing") {
@@ -2967,6 +3050,7 @@ io.on("connection", (socket) => {
 
     if (room.gameMode === "liste") {
       if (!disconnectListePlayer(room, playerId, socket.id)) return;
+      scheduleRoomAbandon(room);
       io.to(roomCode).emit("roomUpdate", serializeRoom(room));
       if (room.activePlayersList && Number.isInteger(room.gameState?.currentMiniGameState?.correctionIndex)) {
         sendCorrectionData(roomCode);
@@ -2978,6 +3062,7 @@ io.on("connection", (socket) => {
     player.isConnected = false;
     player.socketId = null;
     player.id = null;
+    scheduleRoomAbandon(room);
 
     io.to(roomCode).emit("roomUpdate", serializeRoom(room));
   });
@@ -3375,7 +3460,8 @@ io.on("connection", (socket) => {
       candidates: votes
     });
 
-    setTimeout(() => {
+    roomTimeout(room, () => {
+      if (room.gameState.currentMiniGameState !== mini) return;
       mini.subPhase = "bidding";
       io.to(room.roomCode).emit("encheresStartBidding", {
         themeId: selectedThemeId,
@@ -3401,9 +3487,11 @@ io.on("connection", (socket) => {
           amount: winningBid
         });
 
-        setTimeout(() => {
+        roomTimeout(room, () => {
+          if (room.gameState.currentMiniGameState !== mini) return;
           io.to(room.roomCode).emit("encheresCountdown");
-          setTimeout(() => {
+          roomTimeout(room, () => {
+            if (room.gameState.currentMiniGameState !== mini) return;
             startEncheresCollection(room.roomCode);
           }, 4000);
         }, 5000);
@@ -3474,7 +3562,12 @@ io.on("connection", (socket) => {
 
     if (room.encheresInterval) clearInterval(room.encheresInterval);
 
-    room.encheresInterval = setInterval(() => {
+    room.encheresInterval = roomInterval(room, () => {
+      if (room.gameState.currentMiniGameState !== mini) {
+        clearInterval(room.encheresInterval);
+        room.encheresInterval = null;
+        return;
+      }
       // Sécurité si le timer n'existe plus
       if (!mini.timer || !mini.timer.running) {
         clearInterval(room.encheresInterval);
@@ -3700,7 +3793,7 @@ io.on("connection", (socket) => {
       winnerPseudo: winnerPseudo
     });
 
-    setTimeout(() => {
+    roomTimeout(room, () => {
       io.to(socket.roomCode).emit("gameOver", { winner: winnerPseudo });
     }, 2500);
   });

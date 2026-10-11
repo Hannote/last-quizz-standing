@@ -11,7 +11,7 @@ const realRequire = createRequire(path.join(root, "server.js"));
 
 // Charge le serveur entier, ses handlers et ses vrais jeux. Seuls les transports,
 // l'horloge et les écritures de persistance sont remplacés par des doubles mémoire.
-function harness() {
+function harness(env = {}) {
   const events = [];
   const timers = new Map();
   const allTimers = [];
@@ -43,7 +43,7 @@ function harness() {
     }
   };
   const context = {
-    __dirname: root, Buffer, process: { env: {} }, console: { log() {}, error: assert.fail },
+    __dirname: root, Buffer, process: { env }, console: { log() {}, error: assert.fail },
     Date: class extends Date { static now() { return now; } },
     setTimeout: (fn, delay) => schedule(fn, delay, false),
     setInterval: (fn, delay) => schedule(fn, delay, true),
@@ -60,7 +60,7 @@ function harness() {
   vm.runInNewContext(source + `\nglobalThis.api = {
     rooms, getListeContext, prepareListeSequence, getListeOptions,
     endMiniGame, startNextListeRound, roomTimeout, roomInterval,
-    revealFauxVrai, syncPlayerWithGame, serializeRoom
+    revealFauxVrai, syncPlayerWithGame, serializeRoom, roomCreationTimes
   };`, context);
   const api = context.api;
   function socket(playerId) {
@@ -560,6 +560,10 @@ test("Battle Royale : élimination, finale Enchères et victoire restent sur le 
   room.players[1].eliminated = true;
   h.api.endMiniGame(room.roomCode);
   assert.ok(h.events.some((e) => e.name === "gameOver" && e.data.winner === "p2"));
+  h.advance(21999);
+  assert.equal(h.api.rooms[room.roomCode], room);
+  h.advance(1);
+  assert.equal(h.api.rooms[room.roomCode], undefined);
   const next = h.create();
   next.clients[0].send("hostStartGame", {});
   h.advance(32500);
@@ -686,6 +690,9 @@ test("règles : transfert d'hôte, secours du tirage et absence temporaire sans 
   reconnected.send("leaveRoom");
   assert.equal(room.listeTournament.finished, true);
   assert.equal(room.listeTournament.winners.length, 0);
+  assert.ok(room.abandonTimer);
+  h.advance(300000);
+  assert.equal(h.api.rooms[room.roomCode], undefined);
   assert.equal(h.timers.size, 0);
 });
 
@@ -878,6 +885,9 @@ test("étape 7 : classement final permanent, co-vainqueurs puis aucun participan
   assert.equal(room.listeTournament.initialParticipantCount, 3);
   assert.equal(room.listeTournament.generalRanking.length, 0);
   assert.equal(room.listeTournament.winners.length, 0);
+  assert.ok(room.abandonTimer);
+  h.advance(300000);
+  assert.equal(h.api.rooms[room.roomCode], undefined);
   assert.equal(h.timers.size, 0);
   const count = h.events.length;
   h.allTimers.forEach((t) => t.fn());
@@ -1446,4 +1456,117 @@ test("entrées Liste : les commandes Enchères restent refusées", () => {
   };
   clients[0].send("encheresPlaceBid", "4");
   assert.equal(room.gameState.currentMiniGameState.currentMaxBid, 0);
+});
+
+test("limites configurables : créations, salles et participants sans bloquer une reconnexion", () => {
+  const h = harness({
+    LQS_ROOM_CREATE_WINDOW_MS: "1000", LQS_ROOM_CREATE_LIMIT: "2",
+    LQS_ROOM_LIMIT: "3", LQS_ROOM_PLAYER_LIMIT: "2"
+  });
+  const first = h.create(2);
+  const second = h.create(1);
+  const denied = h.socket("third-host");
+  denied.send("createRoom", { playerId: "third-host", pseudo: "Troisième" });
+  assert.equal(Object.keys(h.api.rooms).length, 2);
+  assert.equal(denied.roomCode, null);
+  assert.match(h.events.at(-1).data, /Trop de salles/);
+  h.advance(1000);
+  denied.send("createRoom", { playerId: "third-host", pseudo: "Troisième" });
+  assert.equal(Object.keys(h.api.rooms).length, 3);
+  assert.equal(h.api.roomCreationTimes.length, 1);
+  const fourth = h.socket("fourth-host");
+  fourth.send("createRoom", { playerId: "fourth-host", pseudo: "Quatrième" });
+  assert.equal(Object.keys(h.api.rooms).length, 3);
+  assert.match(h.events.at(-1).data, /maximal de salles/);
+
+  const extra = h.socket("extra");
+  extra.send("joinRoom", { roomCode: first.room.roomCode, playerId: "extra", pseudo: "En trop" });
+  assert.equal(first.room.players.length, 2);
+  assert.match(h.events.at(-1).data, /maximal de joueurs/);
+  first.clients[1].send("disconnect");
+  const returning = h.socket("p1");
+  returning.send("joinRoom", { roomCode: first.room.roomCode, playerId: "p1", pseudo: "Revenu" });
+  assert.equal(first.room.players.length, 2);
+  assert.equal(first.room.players[1].socketId, returning.id);
+  first.clients[0].send("joinRoom", { roomCode: second.room.roomCode, playerId: "p0", pseudo: "Hôte" });
+  assert.equal(first.clients[0].roomCode, first.room.roomCode);
+});
+
+test("expiration Liste : reconnexion et score conservés, puis nettoyage après abandon", () => {
+  const h = harness({ LQS_ROOM_ABANDON_MS: "1000" });
+  const { room, clients } = h.create(3);
+  h.configure(room, clients[0], "manual", ["le_faux_du_vrai"]);
+  clients[0].send("hostStartGame", {});
+  room.players[0].tournamentPoints = 7;
+  room.players[0].tournamentTime = 12;
+  clients[1].send("leaveRoom");
+  assert.equal(room.players[1].withdrawn, true);
+  for (const client of [clients[0], clients[2]]) client.send("disconnect");
+  assert.ok(room.abandonTimer);
+  h.advance(999);
+  assert.equal(h.api.rooms[room.roomCode], room);
+  const returning = h.socket("p0");
+  returning.send("joinRoom", { roomCode: room.roomCode, playerId: "p0", pseudo: "Hôte" });
+  assert.equal(room.abandonTimer, null);
+  h.advance(1001);
+  assert.equal(h.api.rooms[room.roomCode], room);
+  assert.equal(room.players[0].tournamentPoints, 7);
+  assert.equal(room.players[0].tournamentTime, 12);
+  assert.equal(room.players[1].withdrawn, true);
+  assert.equal(room.listeTournament.started, true);
+  returning.send("disconnect");
+  h.advance(1000);
+  assert.equal(h.api.rooms[room.roomCode], undefined);
+  assert.equal(h.timers.size, 0);
+});
+
+test("une salle avec participant connecté survit aux délais d'abandon pendant toutes les phases", () => {
+  for (const mode of ["battle_royale", "liste"]) {
+    for (const phase of ["idle", "drawing", "playing", "listeRoundEnd", "listeFinished"]) {
+      const h = harness({ LQS_ROOM_ABANDON_MS: "1000" });
+      const { room } = h.create(1);
+      room.gameMode = mode;
+      room.gameState.phase = phase;
+      h.advance(2000);
+      assert.equal(h.api.rooms[room.roomCode], room, `${mode} ${phase}`);
+    }
+  }
+});
+
+test("expiration : délais annulés et ancien callback sans effet sur une salle réutilisant le code", () => {
+  const h = harness({ LQS_ROOM_ABANDON_MS: "1000" });
+  const { room, clients } = h.create(1);
+  let calls = 0;
+  const staleTimeout = h.api.roomTimeout(room, () => { calls++; }, 2000);
+  room.leugtasTimerInterval = h.api.roomInterval(room, () => { calls++; }, 2000);
+  const staleInterval = room.leugtasTimerInterval;
+  clients[0].send("disconnect");
+  h.advance(1000);
+  assert.equal(h.api.rooms[room.roomCode], undefined);
+  assert.equal(h.timers.size, 0);
+  const replacement = { roomCode: room.roomCode, players: [], gameMode: "battle_royale" };
+  h.api.rooms[room.roomCode] = replacement;
+  h.allTimers.find((timer) => timer.id === staleTimeout).fn();
+  h.allTimers.find((timer) => timer.id === staleInterval).fn();
+  assert.equal(calls, 0);
+  assert.equal(h.api.rooms[room.roomCode], replacement);
+});
+
+test("expiration Battle Royale : tous déconnectés, autre salle connectée intacte", () => {
+  const h = harness({ LQS_ROOM_ABANDON_MS: "1000" });
+  const { room, clients } = h.create(2);
+  const other = h.socket("other-host");
+  other.send("createRoom", { playerId: "other-host", pseudo: "Autre" });
+  const otherRoom = h.api.rooms[other.roomCode];
+  room.gameState.phase = "playing";
+  room.players[0].score = 5;
+  clients[0].send("disconnect");
+  h.advance(1500);
+  assert.equal(h.api.rooms[room.roomCode], room);
+  assert.equal(room.players[0].score, 5);
+  clients[1].send("disconnect");
+  h.advance(1000);
+  assert.equal(h.api.rooms[room.roomCode], undefined);
+  assert.equal(h.api.rooms[otherRoom.roomCode], otherRoom);
+  assert.equal(otherRoom.players[0].isConnected, true);
 });
