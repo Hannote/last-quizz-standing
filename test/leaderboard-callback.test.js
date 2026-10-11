@@ -65,6 +65,7 @@ function client(gameMode = "liste", game = "le_faux_du_vrai") {
     }
   };
   vm.createContext(c);
+  vm.runInContext(block("function escapeHtmlText", "let listeActionContext"), c);
   const helperStart = source.includes("let miniGameLeaderboardVersion =")
     ? "let miniGameLeaderboardVersion =" : "function handleInterimLeaderboard(";
   vm.runInContext(block(helperStart, "// Le mode Liste ne trie"), c);

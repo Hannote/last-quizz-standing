@@ -50,7 +50,7 @@ function harness() {
     clearTimeout: (timer) => timers.delete(timer), clearInterval: (timer) => timers.delete(timer),
     require: (name) => {
       if (name === "fs") return fakeFs;
-      if (name === "express") return Object.assign(() => ({ use() {}, get() {} }), { static() {} });
+      if (name === "express") return Object.assign(() => ({ use() {}, get() {}, post() {} }), { static() {} });
       if (name === "http") return { createServer: () => ({ listen() {} }) };
       if (name === "socket.io") return { Server: function () { return io; } };
       return realRequire(name);

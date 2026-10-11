@@ -40,6 +40,7 @@ function client(gameMode) {
   const start = source.indexOf("let miniGameLeaderboardVersion =");
   const end = source.indexOf("// Le mode Liste ne trie", start);
   assert.ok(start >= 0 && end > start);
+  vm.runInNewContext(source.slice(source.indexOf("function escapeHtmlText"), source.indexOf("let listeActionContext")), context);
   vm.runInNewContext(source.slice(start, end), context);
   const eventStart = source.indexOf('socket.on("scoreUpdate",');
   const eventEnd = source.indexOf('socket.on("leugtasReveal",', eventStart);

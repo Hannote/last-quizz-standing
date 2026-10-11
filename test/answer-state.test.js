@@ -145,7 +145,7 @@ test("Faux du vrai conserve réponse et temps après double envoi et reconnexion
 });
 
 test("la reconnexion resynchronise les 150 s du Petit Bac et le choix Faux du vrai déjà envoyé", () => {
-  const syncBlock = extract(serverSource, "function syncPlayerWithGame", 'app.get("/admin/memory/view"');
+  const syncBlock = extract(serverSource, "function syncPlayerWithGame", "const ADMIN_MEMORY_SECRET =");
   const emitted = [];
   const socket = {
     playerId: "p1",

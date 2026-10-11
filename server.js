@@ -44,7 +44,7 @@ if (DATA_DIR !== "/data" && !fs.existsSync(DATA_DIR)){
     }
 }
 
-const HISTORY_FILE = path.join(DATA_DIR, "played_questions_history.json");
+const HISTORY_FILE = process.env.LQS_HISTORY_FILE || path.join(DATA_DIR, "played_questions_history.json");
 
 // 3. Lire l'historique
 function getPlayedHistory() {
@@ -3850,20 +3850,46 @@ function syncPlayerWithGame(socket, room) {
 //   ADMINISTRATION & DEBUG (M?MOIRE)
 // ==========================================
 
+const ADMIN_MEMORY_SECRET = process.env.LQS_ADMIN_MEMORY_SECRET;
+const ADMIN_MEMORY_ENABLED = process.env.LQS_ADMIN_MEMORY_ENABLED === "1" &&
+  typeof ADMIN_MEMORY_SECRET === "string" && ADMIN_MEMORY_SECRET.length > 0;
+const ADMIN_MEMORY_GAMES = new Set(POSSIBLE_MINI_GAMES);
+
+function requireMemoryAdmin(req, res, next) {
+  res.set("Cache-Control", "no-store");
+  res.set("X-Content-Type-Options", "nosniff");
+  if (!ADMIN_MEMORY_ENABLED) return res.status(404).json({ error: "Administration désactivée" });
+  const supplied = req.get("X-Admin-Secret");
+  if (typeof supplied !== "string") return res.status(401).json({ error: "Accès refusé" });
+  const expectedBytes = Buffer.from(ADMIN_MEMORY_SECRET);
+  const suppliedBytes = Buffer.from(supplied);
+  if (suppliedBytes.length !== expectedBytes.length || !timingSafeEqual(suppliedBytes, expectedBytes)) {
+    return res.status(401).json({ error: "Accès refusé" });
+  }
+  next();
+}
+
+app.use("/admin/memory", requireMemoryAdmin);
+
 app.get("/admin/memory/view", (req, res) => {
   const history = getPlayedHistory();
   res.json(history);
 });
 
-app.get("/admin/memory/reset-all", (req, res) => {
-  savePlayedHistory({});
-  res.send("<h1>Succ?s</h1><p>Tout l'historique des questions a ?t? effac?.</p>");
+app.get(["/admin/memory/reset-all", "/admin/memory/reset/", "/admin/memory/reset/:game"], (req, res) => {
+  res.status(405).json({ error: "Utiliser POST" });
 });
 
-app.get("/admin/memory/reset/:game", (req, res) => {
+app.post("/admin/memory/reset-all", (req, res) => {
+  savePlayedHistory({});
+  res.json({ reset: "all" });
+});
+
+app.post("/admin/memory/reset/:game", (req, res) => {
   const game = req.params.game;
+  if (!ADMIN_MEMORY_GAMES.has(game)) return res.status(400).json({ error: "Jeu inconnu" });
   resetGameHistory(game);
-  res.send(`<h1>Succ?s</h1><p>Historique effac? pour : <strong>${game}</strong></p>`);
+  res.json({ reset: game });
 });
 
 const PORT = process.env.PORT || 3000;

@@ -58,6 +58,12 @@ preloadImagesSequentially(PRIORITY_IMAGES).then(() => {
 });
 
 const socket = io();
+// À utiliser uniquement dans un nœud de texte d'un modèle HTML statique.
+function escapeHtmlText(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[char]);
+}
 let listeActionContext = null;
 socket.on("listeContext", (context) => { listeActionContext = context; });
 
@@ -3964,7 +3970,7 @@ function handleInterimLeaderboard(players, callback, duration = 4000, customTitl
           <div class="rank-num" style="color:${color}">#${place}</div>
 
 
-          <div class="p-name">${p.nickname}</div>
+          <div class="p-name">${escapeHtmlText(p.nickname)}</div>
 
 
           <div class="p-score">${p.score} pts</div>
@@ -7382,10 +7388,10 @@ function handlePetitBacCorrection(data, container) {
       row.innerHTML = `
 
 
-        <div class="pb-corr-cat">${cat}</div>
+        <div class="pb-corr-cat">${escapeHtmlText(cat)}</div>
 
 
-        <div class="pb-corr-ans">${ans}</div>
+        <div class="pb-corr-ans">${escapeHtmlText(ans)}</div>
 
 
         <div class="pb-corr-btns">${btnsHtml}</div>
@@ -8245,16 +8251,12 @@ socket.on("encheresNewBid", (bid) => {
   div.classList.add(isP1 ? "enchere-fixed-p1" : "enchere-fixed-p2");
 
 
-  div.innerHTML = `
-
-
-    <span>${pseudo}</span>
-
-
-    <span class="enchere-val">${bid.amount}</span>
-
-
-  `;
+  const name = document.createElement("span");
+  name.textContent = pseudo;
+  const amount = document.createElement("span");
+  amount.className = "enchere-val";
+  amount.textContent = bid.amount;
+  div.append(name, amount);
 
 
   history.prepend(div);
@@ -8530,7 +8532,7 @@ socket.on("encheresLiveAnswerUpdate", (data) => {
           let html = `<div class="enchere-live-answer-row">`;
 
 
-          html += `<div class="enchere-live-answer-item">${item.txt}</div>`;
+          html += `<div class="enchere-live-answer-item">${escapeHtmlText(item.txt)}</div>`;
 
 
           if (isMe) {
@@ -8815,7 +8817,7 @@ function renderEncheresCorrectionList(answers, statuses) {
       (stat === true ? "valid" : stat === false ? "invalid" : "");
 
 
-    let html = `<span class="enchere-corr-text">${ans}</span>`;
+    let html = `<span class="enchere-corr-text">${escapeHtmlText(ans)}</span>`;
 
 
     // DÃ©finition des classes d'Ã©tat (AllumÃ© / Ã©teint)
@@ -9320,7 +9322,7 @@ if (showPlayersBtn) {
         <div style="text-align:left;">
 
 
-          <span style="font-weight:bold;">${p.pseudo}</span>${extraInfo}
+          <span style="font-weight:bold;">${escapeHtmlText(p.pseudo)}</span>${extraInfo}
 
 
         </div>
@@ -9584,7 +9586,12 @@ function runEliminationSequence(players, onFinish) {
         textEl.style.fontWeight = "900";
         
         // 3. Texte : Pseudo + EST À TERRE
-        textEl.innerHTML = `${loser.nickname}<br><span style="font-size: 0.8em;">EST À TERRE</span>`;
+        textEl.textContent = loser.nickname;
+        textEl.appendChild(document.createElement("br"));
+        const eliminationLabel = document.createElement("span");
+        eliminationLabel.style.fontSize = "0.8em";
+        eliminationLabel.textContent = "EST À TERRE";
+        textEl.appendChild(eliminationLabel);
         
         overlay.classList.remove("hidden");
 
@@ -9652,7 +9659,7 @@ function typeText(text, element, speed = 30) {
             if (i < text.length) {
 
 
-                element.innerHTML += text.charAt(i);
+                element.append(document.createTextNode(text.charAt(i)));
 
 
                 i++;
@@ -9831,7 +9838,7 @@ async function runGameIntro(playerCount) {
     }
 
 
-    function addLineBreak() { textSpan.innerHTML += "<br>"; }
+    function addLineBreak() { textSpan.appendChild(document.createElement("br")); }
 
 
     textSpan.innerHTML = ""; 
@@ -10139,13 +10146,13 @@ async function runFinaleAnimation(name1, name2) {
 
     textElem.innerHTML = "";
     await sayYugiLine(`${name1}, ${name2}, félicitations pour être parvenu jusqu'ici.`);
-    textElem.innerHTML += "<br>";
+    textElem.appendChild(document.createElement("br"));
     await sayYugiLine("Vous avez su tout au long des différentes épreuves tirer votre épingle du jeu.");
     textElem.innerHTML = ""; 
     await sayYugiLine("Mais dans un battle royale il ne peut y avoir qu'un gagnant.");
-    textElem.innerHTML += "<br>";
+    textElem.appendChild(document.createElement("br"));
     await sayYugiLine("Vous allez vous affronter dans une ultime épreuve.");
-    textElem.innerHTML += "<br>";
+    textElem.appendChild(document.createElement("br"));
     await sayYugiLine("Etes-vous prêt ?");
 
     // 4. DUEL (Lancement de l'animation)
