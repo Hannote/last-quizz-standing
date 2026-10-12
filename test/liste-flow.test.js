@@ -88,7 +88,7 @@ function harness(env = {}, introAutoAdvance = true) {
         // Les scénarios historiques commencent au tirage ; la nouvelle intro
         // possède des tests dédiés avec une horloge laissée manuelle.
         if (introAutoAdvance && event === "hostStartGame" &&
-            api.rooms[sock.roomCode]?.gameState.phase === "listeIntro") advance(16000);
+            api.rooms[sock.roomCode]?.gameState.phase === "listeIntro") advance(17000);
       }
     };
     connection(sock);
@@ -127,7 +127,7 @@ function harness(env = {}, introAutoAdvance = true) {
   return { api, events, timers, allTimers, socket, advance, create, configure, credentials };
 }
 
-test("intro Liste : participants et séquence uniques, tirage serveur à 16 000 ms", () => {
+test("intro Liste : participants et séquence uniques, tirage serveur à 17 000 ms", () => {
   const h = harness({}, false);
   const { room, clients } = h.create();
   h.configure(room, clients[0], "manual", ["petit_bac"]);
@@ -143,6 +143,10 @@ test("intro Liste : participants et séquence uniques, tirage serveur à 16 000 
   assert.strictEqual(room.listeTournament, tournament);
   assert.strictEqual(tournament.sequence, sequence);
   h.advance(15999);
+  assert.equal(room.gameState.phase, "listeIntro");
+  h.advance(1);
+  assert.equal(room.gameState.phase, "listeIntro");
+  h.advance(999);
   assert.equal(room.gameState.phase, "listeIntro");
   h.advance(1);
   assert.equal(room.gameState.phase, "drawingGame");
@@ -187,6 +191,8 @@ test("intro Liste : reconnexions pendant silence et audio, transfert d'hôte san
   returnedDuringAudio.send("leaveRoom");
   assert.equal(room.players.find((p) => p.playerId === "p2").withdrawn, true);
   h.advance(9850);
+  assert.equal(room.gameState.phase, "listeIntro");
+  h.advance(1000);
   assert.equal(room.gameState.phase, "drawingGame");
   assert.equal(room.listeTournament.initialParticipantCount, 3);
   assert.equal(room.players.find((p) => p.playerId === "p2").eliminated, false);

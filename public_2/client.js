@@ -9690,7 +9690,9 @@ function stopListeIntro() {
     if (!playback) return;
     listeIntroPlayback = null;
     if (playback.timer) clearTimeout(playback.timer);
+    if (playback.rafId != null) cancelAnimationFrame(playback.rafId);
     if (playback.audioId != null) listeIntroSound?.stop(playback.audioId);
+    playback.image.style.transform = "";
     playback.overlay.remove();
 }
 
@@ -9700,16 +9702,25 @@ function renderListeIntro(playback) {
         currentRoom?.listeTournament?.tournamentId !== playback.tournamentId) return;
     if (playback.timer) clearTimeout(playback.timer);
     playback.timer = null;
+    if (playback.rafId != null) cancelAnimationFrame(playback.rafId);
+    playback.rafId = null;
     const elapsed = Math.max(0, playback.anchorElapsed + performance.now() - playback.anchorNow);
-    const { frame, nextMs } = ListeIntroTimeline.position(elapsed);
+    const { frame, nextMs, scale, offsetXPercent, opacity, animating } = ListeIntroTimeline.position(elapsed);
+    if (playback.audioId != null && elapsed >= ListeIntroTimeline.audioEndMs) {
+        listeIntroSound?.stop(playback.audioId);
+        playback.audioId = null;
+    }
     if (frame < 0) {
         playback.image.hidden = true;
     } else {
         const url = ListeIntroTimeline.frameUrls[frame];
         if (playback.image.src !== new URL(url, location.href).href) playback.image.src = url;
         playback.image.hidden = false;
+        playback.image.style.transform = frame === 0
+            ? `translateX(${offsetXPercent}%) scale(${scale})` : `scale(${scale})`;
+        playback.image.style.opacity = String(opacity);
         if (!playback.audioStarted && listeIntroSound &&
-            elapsed >= ListeIntroTimeline.audioStartMs && elapsed < ListeIntroTimeline.durationMs) {
+            elapsed >= ListeIntroTimeline.audioStartMs && elapsed < ListeIntroTimeline.audioEndMs) {
             playback.audioStarted = true;
             try {
                 playback.audioId = listeIntroSound.play();
@@ -9720,6 +9731,12 @@ function renderListeIntro(playback) {
                 console.warn("Son intro Liste bloqué", error);
             }
         }
+    }
+    if (animating) {
+        playback.rafId = requestAnimationFrame(() => {
+            playback.rafId = null;
+            renderListeIntro(playback);
+        });
     }
     if (nextMs !== null) {
         playback.timer = setTimeout(() => renderListeIntro(playback), Math.max(1, nextMs - elapsed));
@@ -9750,7 +9767,7 @@ function syncListeIntro(gs) {
         document.body.appendChild(overlay);
         listeIntroPlayback = {
             key, roomCode, tournamentId: info.tournamentId, overlay, image,
-            audioId: null, audioStarted: false, timer: null,
+            audioId: null, audioStarted: false, timer: null, rafId: null,
             anchorElapsed: 0, anchorNow: 0
         };
     }
