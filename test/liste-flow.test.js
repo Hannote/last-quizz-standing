@@ -11,7 +11,7 @@ const realRequire = createRequire(path.join(root, "server.js"));
 
 // Charge le serveur entier, ses handlers et ses vrais jeux. Seuls les transports,
 // l'horloge et les écritures de persistance sont remplacés par des doubles mémoire.
-function harness(env = {}) {
+function harness(env = {}, introAutoAdvance = true) {
   const events = [];
   const timers = new Map();
   const allTimers = [];
@@ -85,6 +85,10 @@ function harness(env = {}) {
         const room = api.rooms[sock.roomCode];
         const metadata = token === undefined && room ? api.getListeContext(room) : token;
         middleware([event, payload, metadata], () => handlers[event]?.(payload));
+        // Les scénarios historiques commencent au tirage ; la nouvelle intro
+        // possède des tests dédiés avec une horloge laissée manuelle.
+        if (introAutoAdvance && event === "hostStartGame" &&
+            api.rooms[sock.roomCode]?.gameState.phase === "listeIntro") advance(16000);
       }
     };
     connection(sock);
@@ -122,6 +126,84 @@ function harness(env = {}) {
   }
   return { api, events, timers, allTimers, socket, advance, create, configure, credentials };
 }
+
+test("intro Liste : participants et séquence uniques, tirage serveur à 16 000 ms", () => {
+  const h = harness({}, false);
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["petit_bac"]);
+  clients[0].send("hostStartGame", {});
+  const tournament = room.listeTournament;
+  const sequence = tournament.sequence;
+  const callback = h.allTimers.at(-1).fn;
+  assert.equal(room.gameState.phase, "listeIntro");
+  assert.equal(room.gameState.roundNumber, 0);
+  assert.equal(tournament.initialParticipantCount, 3);
+  assert.equal(h.events.some((e) => e.name === "playIntroAnimation"), false);
+  clients[0].send("hostStartGame", {});
+  assert.strictEqual(room.listeTournament, tournament);
+  assert.strictEqual(tournament.sequence, sequence);
+  h.advance(15999);
+  assert.equal(room.gameState.phase, "listeIntro");
+  h.advance(1);
+  assert.equal(room.gameState.phase, "drawingGame");
+  assert.equal(room.gameState.roundNumber, 1);
+  callback();
+  assert.equal(room.gameState.roundNumber, 1);
+  assert.equal(h.events.filter((e) => e.name === "gameStateUpdate" &&
+    e.target === room.roomCode && e.data.phase === "drawingGame").length, 1);
+});
+
+test("intro Liste : reconnexions pendant silence et audio, transfert d'hôte sans redémarrage", () => {
+  const h = harness({}, false);
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["blind_test"]);
+  clients[0].send("hostStartGame", {});
+  const id = room.listeTournament.tournamentId;
+  const start = room.listeTournament.introStartedAt;
+  h.advance(150);
+  clients[2].send("disconnect");
+  const returned = h.socket("p2");
+  returned.send("joinRoom", { roomCode: room.roomCode, playerId: "p2", pseudo: "Retour" });
+  let snapshot = h.events.filter((e) => e.target === returned.id && e.name === "gameStateUpdate").at(-1).data;
+  assert.equal(snapshot.phase, "listeIntro");
+  assert.equal(snapshot.listeIntro.elapsedMs, 150);
+  h.advance(3000);
+  clients[0].send("disconnect");
+  assert.equal(room.hostId, "p1");
+  const hostReturned = h.socket("p0");
+  hostReturned.send("joinRoom", { roomCode: room.roomCode, playerId: "p0", pseudo: "Hôte" });
+  snapshot = h.events.filter((e) => e.target === hostReturned.id && e.name === "gameStateUpdate").at(-1).data;
+  assert.equal(snapshot.listeIntro.elapsedMs, 3150);
+  assert.equal(room.listeTournament.tournamentId, id);
+  assert.equal(room.listeTournament.introStartedAt, start);
+  h.advance(3000);
+  returned.send("disconnect");
+  const returnedDuringAudio = h.socket("p2");
+  returnedDuringAudio.send("joinRoom", { roomCode: room.roomCode, playerId: "p2", pseudo: "Retour audio" });
+  snapshot = h.events.filter((e) => e.target === returnedDuringAudio.id && e.name === "gameStateUpdate").at(-1).data;
+  assert.equal(snapshot.listeIntro.elapsedMs, 6150);
+  assert.equal(room.listeTournament.introStartedAt, start);
+  clients[1].send("hostStartGame", {});
+  returnedDuringAudio.send("leaveRoom");
+  assert.equal(room.players.find((p) => p.playerId === "p2").withdrawn, true);
+  h.advance(9850);
+  assert.equal(room.gameState.phase, "drawingGame");
+  assert.equal(room.listeTournament.initialParticipantCount, 3);
+  assert.equal(room.players.find((p) => p.playerId === "p2").eliminated, false);
+});
+
+test("intro Liste : callback obsolète après départ du dernier participant", () => {
+  const h = harness({}, false);
+  const { room, clients } = h.create(1);
+  h.configure(room, clients[0], "manual", ["petit_bac"]);
+  clients[0].send("hostStartGame", {});
+  const callback = h.allTimers.at(-1).fn;
+  clients[0].send("leaveRoom");
+  assert.equal(room.gameState.phase, "listeFinished");
+  callback();
+  assert.equal(room.gameState.phase, "listeFinished");
+  assert.equal(room.gameState.roundNumber, 0);
+});
 
 function playRound(h, room, clients, finishPetitBacWithButton = false) {
   const host = () => clients.find((s) => s.playerId === room.hostId);

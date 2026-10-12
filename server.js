@@ -467,6 +467,7 @@ const LISTE_END_LOGO_DURATION_MS = 3500;
 // L'animation de tirage Liste existante dure 6,4 s, puis 2,9 s d'affichage
 // du logo final. Le serveur avance donc toutes les salles au même instant.
 const LISTE_DRAW_DURATION_MS = 9300;
+const LISTE_INTRO_DURATION_MS = 16000;
 
 // Catalogue Liste indépendant du tirage et du bac à sable Battle Royale.
 const MINI_GAME_CATALOG = [
@@ -590,7 +591,8 @@ function createListeTournamentState() {
     initialParticipantCount: 0,
     roundResults: [],
     leaderboardSoundsUsed: [],
-    leaderboardSound: null
+    leaderboardSound: null,
+    introStartedAt: null
   };
 }
 
@@ -733,6 +735,15 @@ function getGameStateSummary(room) {
     phase: gs.phase,
     roundNumber: gs.roundNumber,
     currentMiniGame: gs.currentMiniGame,
+    listeIntro: room.gameMode === "liste" && gs.phase === "listeIntro"
+      ? {
+        gameMode: "liste",
+        tournamentId: room.listeTournament.tournamentId,
+        startedAt: room.listeTournament.introStartedAt,
+        elapsedMs: Math.max(0, Math.min(LISTE_INTRO_DURATION_MS,
+          Date.now() - room.listeTournament.introStartedAt)),
+        durationMs: LISTE_INTRO_DURATION_MS
+      } : null,
     listeLeaderboard: room.gameMode === "liste" &&
       ["listeLeaderboard", "listeFinished"].includes(gs.phase)
       ? {
@@ -914,7 +925,7 @@ function finishListeTournament(room) {
 function startNextListeRound(room) {
   const gs = room.gameState;
   if (room.gameMode !== "liste" || room.listeTournament.finished ||
-      !["idle", "listeTransition", "listeLeaderboard"].includes(gs.phase)) return;
+      !["listeIntro", "listeTransition", "listeLeaderboard"].includes(gs.phase)) return;
   clearListeTimers(room);
   if (gs.roundNumber >= room.listeTournament.sequence.length ||
       !room.players.some((p) => isListeParticipant(room, p))) {
@@ -2659,7 +2670,20 @@ io.on("connection", (socket) => {
       const sequence = prepareListeSequence(validation.config);
       if (!initializeListeParticipants(room)) return;
       room.listeTournament.sequence = sequence;
-      startNextListeRound(room);
+      const gs = room.gameState;
+      const tournament = room.listeTournament;
+      gs.phase = "listeIntro";
+      gs.roundNumber = 0;
+      gs.currentMiniGame = null;
+      tournament.introStartedAt = Date.now();
+      io.to(roomCode).emit("roomUpdate", serializeRoom(room));
+      io.to(roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+      roomTimeout(room, () => {
+        if (rooms[roomCode] !== room || room.gameState !== gs ||
+            room.listeTournament !== tournament || room.gameMode !== "liste" ||
+            gs.phase !== "listeIntro" || gs.roundNumber !== 0) return;
+        startNextListeRound(room);
+      }, LISTE_INTRO_DURATION_MS);
       return;
     }
 

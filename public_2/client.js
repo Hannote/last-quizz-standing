@@ -1017,6 +1017,7 @@ function showScreen(screenName) {
   screenRoom.classList.remove("active");
 
   if (screenName === "lobby") {
+    stopListeIntro();
     hideListeLeaderboard();
     screenLobby.classList.add("active");
   } else if (screenName === "room") {
@@ -4625,6 +4626,11 @@ function updateGameStateUI(gs) {
   currentGameState = gs || currentGameState;
   if (currentRoom && gs?.gameMode) currentRoom.gameMode = gs.gameMode;
   updateGameModeUI();
+  if (currentGameState.phase === "listeIntro" && currentGameState.gameMode === "liste") {
+    syncListeIntro(currentGameState);
+  } else {
+    stopListeIntro();
+  }
 
 
   // Nettoyage de l'intro si la phase n'est plus "intro"
@@ -4697,6 +4703,14 @@ function updateGameStateUI(gs) {
 
 
   gamePhaseText.textContent = phaseText;
+  if (gs.gameMode === "liste" && gs.phase === "listeIntro") {
+    stopDrawAnimation();
+    hideAllMiniGames();
+    showMainZone("default");
+    gamePhaseText.textContent = "Introduction du tournoi Liste";
+    currentMiniGameText.textContent = "Le premier mini-jeu sera tiré après l'introduction.";
+    return;
+  }
   if (gs.gameMode === "liste" && ["listeLeaderboard", "listeFinished"].includes(gs.phase)) {
     stopDrawAnimation();
     stopRuleSounds();
@@ -5352,6 +5366,7 @@ function updateListeConfigUI() {
 function updateGameModeUI() {
   const isListe = currentRoom?.gameMode === "liste";
   if (isListe && typeof Howl === "function") preloadListeLeaderboardSounds();
+  if (isListe) preloadListeIntro();
   if (!isListe || !currentRoom?.listeTournament?.started) hideListeLeaderboard();
   const isHost = currentRoom?.hostId === playerId;
   const canChangeMode = isHost && currentGameState.phase === "idle" && !currentRoom?.listeTournament?.started;
@@ -5380,6 +5395,7 @@ function updateRoomUI(room) {
       room?.listeTournament?.tournamentId !== currentRoom?.listeTournament?.tournamentId) {
     invalidateMiniGameLeaderboard();
     stopListeLeaderboardSound();
+    stopListeIntro();
   }
 
 
@@ -5673,6 +5689,7 @@ if (confirmQuitBtn) {
 
   confirmQuitBtn.addEventListener("click", () => {
     isQuitting = true; 
+    stopListeIntro();
     invalidateMiniGameLeaderboard();
     hideListeLeaderboard();
 
@@ -6145,6 +6162,7 @@ socket.on("leugtasQuestion", (data) => {
 
 
 socket.on("roomJoined", (roomData) => {
+  stopListeIntro();
   invalidateMiniGameLeaderboard();
   hideListeLeaderboard(); // Le snapshot de partie suivant restaure le classement si nécessaire.
   listeConfigKey = null; // La reconnexion restaure toujours la configuration serveur.
@@ -9624,6 +9642,133 @@ function runEliminationSequence(players, onFinish) {
 
 
 const animLayer = document.getElementById('animation-layer');
+
+let listeIntroImages = null;
+let listeIntroSound = null;
+let listeIntroPlayback = null;
+
+function preloadListeIntro() {
+    if (!listeIntroImages) {
+        listeIntroImages = ListeIntroTimeline.frameUrls.map((url) => {
+            const image = new Image();
+            image.src = url;
+            return image;
+        });
+    }
+    if (!listeIntroSound && typeof Howl === "function") {
+        listeIntroSound = new Howl({
+            src: [ListeIntroTimeline.audioUrl],
+            preload: true,
+            volume: 1,
+            onplay(id) {
+                const playback = listeIntroPlayback;
+                if (playback?.audioId === id) {
+                    const elapsed = playback.anchorElapsed + performance.now() - playback.anchorNow;
+                    this.seek(Math.max(0, (elapsed - ListeIntroTimeline.audioStartMs) / 1000), id);
+                } else if (!playback || playback.audioId != null) {
+                    this.stop(id);
+                }
+            },
+            onloaderror(_id, error) { console.warn("Son intro Liste indisponible", error); },
+            onplayerror(_id, error) {
+                console.warn("Son intro Liste bloqué", error);
+                this.once("unlock", () => {
+                    const playback = listeIntroPlayback;
+                    if (playback && currentGameState.phase === "listeIntro") {
+                        playback.audioId = null;
+                        playback.audioStarted = false;
+                        renderListeIntro(playback);
+                    }
+                });
+            }
+        });
+    }
+}
+
+function stopListeIntro() {
+    const playback = listeIntroPlayback;
+    if (!playback) return;
+    listeIntroPlayback = null;
+    if (playback.timer) clearTimeout(playback.timer);
+    if (playback.audioId != null) listeIntroSound?.stop(playback.audioId);
+    playback.overlay.remove();
+}
+
+function renderListeIntro(playback) {
+    if (listeIntroPlayback !== playback || currentRoom?.roomCode !== playback.roomCode ||
+        currentGameState.phase !== "listeIntro" || currentRoom?.gameMode !== "liste" ||
+        currentRoom?.listeTournament?.tournamentId !== playback.tournamentId) return;
+    if (playback.timer) clearTimeout(playback.timer);
+    playback.timer = null;
+    const elapsed = Math.max(0, playback.anchorElapsed + performance.now() - playback.anchorNow);
+    const { frame, nextMs } = ListeIntroTimeline.position(elapsed);
+    if (frame < 0) {
+        playback.image.hidden = true;
+    } else {
+        const url = ListeIntroTimeline.frameUrls[frame];
+        if (playback.image.src !== new URL(url, location.href).href) playback.image.src = url;
+        playback.image.hidden = false;
+        if (!playback.audioStarted && listeIntroSound &&
+            elapsed >= ListeIntroTimeline.audioStartMs && elapsed < ListeIntroTimeline.durationMs) {
+            playback.audioStarted = true;
+            try {
+                playback.audioId = listeIntroSound.play();
+                if (playback.audioId != null) {
+                    listeIntroSound.seek(Math.max(0, (elapsed - ListeIntroTimeline.audioStartMs) / 1000), playback.audioId);
+                }
+            } catch (error) {
+                console.warn("Son intro Liste bloqué", error);
+            }
+        }
+    }
+    if (nextMs !== null) {
+        playback.timer = setTimeout(() => renderListeIntro(playback), Math.max(1, nextMs - elapsed));
+    }
+}
+
+function syncListeIntro(gs) {
+    const info = gs.listeIntro;
+    const roomCode = currentRoom?.roomCode;
+    if (!info || info.gameMode !== "liste" || !roomCode ||
+        info.tournamentId !== currentRoom?.listeTournament?.tournamentId ||
+        !Number.isFinite(info.elapsedMs)) {
+        stopListeIntro();
+        return;
+    }
+    const key = `${roomCode}:${info.tournamentId}`;
+    if (listeIntroPlayback?.key !== key) {
+        stopListeIntro();
+        preloadListeIntro();
+        const overlay = document.createElement("div");
+        overlay.className = "liste-intro-overlay";
+        overlay.setAttribute("aria-label", "Introduction du tournoi Liste");
+        const image = document.createElement("img");
+        image.className = "liste-intro-frame";
+        image.alt = "";
+        image.hidden = true;
+        overlay.appendChild(image);
+        document.body.appendChild(overlay);
+        listeIntroPlayback = {
+            key, roomCode, tournamentId: info.tournamentId, overlay, image,
+            audioId: null, audioStarted: false, timer: null,
+            anchorElapsed: 0, anchorNow: 0
+        };
+    }
+    listeIntroPlayback.anchorElapsed = info.elapsedMs;
+    listeIntroPlayback.anchorNow = performance.now();
+    renderListeIntro(listeIntroPlayback);
+}
+
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && listeIntroPlayback) {
+        renderListeIntro(listeIntroPlayback);
+        if (listeIntroPlayback?.audioId != null) {
+            const elapsed = listeIntroPlayback.anchorElapsed + performance.now() - listeIntroPlayback.anchorNow;
+            listeIntroSound?.seek(Math.max(0, (elapsed - ListeIntroTimeline.audioStartMs) / 1000),
+                listeIntroPlayback.audioId);
+        }
+    }
+});
 
 
 function clearIntroLayer() {

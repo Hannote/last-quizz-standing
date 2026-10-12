@@ -45,6 +45,7 @@ function client(gameMode = "liste", game = "le_faux_du_vrai") {
     screenLobby: element(), screenRoom: element(), globalControls: element(),
     localStorage: { removeItem() {}, setItem() {} },
     hideAllMiniGames() {}, stopDrawAnimation() {}, stopListeLeaderboardSound() {},
+    stopListeIntro() {}, syncListeIntro() {},
     body: element(), lastPhase: "playing", iAmReady: false, roomUpper: null,
     gamePhaseText: null, currentMiniGameText: null, updateGameModeUI() {}, clearIntroLayer() {},
     roomCodeDisplay: element(), playersList: element(), startGameBtn: null,

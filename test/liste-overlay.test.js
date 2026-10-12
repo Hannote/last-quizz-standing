@@ -44,6 +44,8 @@ test("classement terminé → Quitter → salle Battle Royale → nouveau lobby 
     // explicite même sans gameStateUpdate reçu ou rendu après le départ.
     updateGameStateUI() {}
   };
+  c.stopListeIntro = () => {};
+  c.preloadListeIntro = () => {};
   vm.createContext(c);
   vm.runInContext(block("let miniGameLeaderboardVersion =", "// Le mode Liste ne trie"), c);
   for (const name of ["hideListeLeaderboard", "showScreen", "updateGameModeUI"]) {
@@ -101,6 +103,7 @@ test("étape 7 : retour au lobby pendant une révélation Faux du vrai annule le
     stopListeLeaderboardSound() {},
     sfx45s: sound, sfxFauxVraiWin: sound, sfxFauxVraiLose: sound
   };
+  c.stopListeIntro = () => {};
   vm.createContext(c);
   for (const name of ["hideListeLeaderboard", "showScreen"]) {
     vm.runInContext(block(`function ${name}(`, "\n}") + "\n}", c);
