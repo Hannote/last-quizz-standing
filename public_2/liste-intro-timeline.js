@@ -1,13 +1,14 @@
-// La frame 0 précède l'audio de 3 s ; les autres timings restent relatifs
+// La frame 0 précède l'audio de 2,5 s ; les autres timings restent relatifs
 // au démarrage du son. La dernière image reste visible jusqu'au tirage serveur.
 const ListeIntroTimeline = (() => {
   const blackMs = 300;
-  const audioStartMs = 3300;
-  const audioEndMs = 16000;
-  const durationMs = 17000;
+  const audioStartMs = 2800;
+  const audioEndMs = 14500;
+  const durationMs = 16500;
+  const shrineStartMs = audioEndMs;
   const frameStartsMs = Object.freeze([0, 959, 1544, 3210, 3543, 3960,
     4334, 5078, 5495, 6368, 6542, 6667]);
-  const logoStartsMs = Object.freeze([13120, 13440, 13780, 13960, 14100]);
+  const logoStartsMs = Object.freeze([12620, 12940, 13280, 13460, 13600]);
   // Largeur du logo visible dans les PNG 2172 × 724 (bbox des pixels non noirs).
   const logoWidthsPx = Object.freeze([408, 1150, 2029, 2078, 2061]);
   const frameNames = Object.freeze(Array.from({ length: frameStartsMs.length + logoStartsMs.length }, (_, i) =>
@@ -15,6 +16,7 @@ const ListeIntroTimeline = (() => {
   const baseUrl = "/animation_liste/" + encodeURIComponent("début") + "/";
   const frameUrls = Object.freeze(frameNames.map((name) => baseUrl + encodeURIComponent(name)));
   const audioUrl = baseUrl + encodeURIComponent("animation_liste_debut.mp3");
+  const shrineUrl = baseUrl + encodeURIComponent("shrine.mp3");
 
   function smoothWidth(start, end, progress) {
     const eased = progress * progress * (3 - 2 * progress);
@@ -42,9 +44,9 @@ const ListeIntroTimeline = (() => {
       return { frame: 0, nextMs: audioStartMs + frameStartsMs[1],
         scale: 1.025, offsetXPercent: 0.4, opacity: 1, animating: false };
     }
-    if (elapsed >= 13000 && elapsed < logoStartsMs[0]) {
+    if (elapsed >= 12500 && elapsed < logoStartsMs[0]) {
       return { frame: 11, nextMs: null, scale: 1,
-        opacity: 1 - (elapsed - 13000) / 120, animating: true };
+        opacity: 1 - (elapsed - 12500) / 120, animating: true };
     }
     if (elapsed >= logoStartsMs[0]) {
       const [start12, start13, start14, start15, start16] = logoStartsMs;
@@ -74,7 +76,8 @@ const ListeIntroTimeline = (() => {
           scale: smoothWidth(logoWidthsPx[3], logoWidthsPx[4], progress) / logoWidthsPx[3],
           opacity: 1, animating: true };
       }
-      return { frame: 16, nextMs: elapsed < audioEndMs ? audioEndMs : null,
+      return { frame: 16, nextMs: elapsed < audioEndMs ? audioEndMs
+        : elapsed < durationMs ? durationMs : null,
         scale: 1, opacity: 1, animating: false };
     }
     const audioElapsed = elapsed - audioStartMs;
@@ -88,13 +91,13 @@ const ListeIntroTimeline = (() => {
     return {
       frame,
       nextMs: frame < frameStartsMs.length - 1
-        ? audioStartMs + frameStartsMs[frame + 1] : 13000,
+        ? audioStartMs + frameStartsMs[frame + 1] : 12500,
       scale: 1, opacity: 1, animating: false
     };
   }
 
-  return Object.freeze({ blackMs, audioStartMs, audioEndMs, durationMs, frameStartsMs,
-    logoStartsMs, logoWidthsPx, frameUrls, audioUrl, position });
+  return Object.freeze({ blackMs, audioStartMs, audioEndMs, shrineStartMs, durationMs,
+    frameStartsMs, logoStartsMs, logoWidthsPx, frameUrls, audioUrl, shrineUrl, position });
 })();
 
 if (typeof module !== "undefined" && module.exports) module.exports = ListeIntroTimeline;

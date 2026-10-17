@@ -88,7 +88,7 @@ function harness(env = {}, introAutoAdvance = true) {
         // Les scénarios historiques commencent au tirage ; la nouvelle intro
         // possède des tests dédiés avec une horloge laissée manuelle.
         if (introAutoAdvance && event === "hostStartGame" &&
-            api.rooms[sock.roomCode]?.gameState.phase === "listeIntro") advance(17000);
+            api.rooms[sock.roomCode]?.gameState.phase === "listeIntro") advance(16500);
       }
     };
     connection(sock);
@@ -127,7 +127,7 @@ function harness(env = {}, introAutoAdvance = true) {
   return { api, events, timers, allTimers, socket, advance, create, configure, credentials };
 }
 
-test("intro Liste : participants et séquence uniques, tirage serveur à 17 000 ms", () => {
+test("intro Liste : participants et séquence uniques, tirage serveur à 16 500 ms", () => {
   const h = harness({}, false);
   const { room, clients } = h.create();
   h.configure(room, clients[0], "manual", ["petit_bac"]);
@@ -137,12 +137,14 @@ test("intro Liste : participants et séquence uniques, tirage serveur à 17 000 
   const callback = h.allTimers.at(-1).fn;
   assert.equal(room.gameState.phase, "listeIntro");
   assert.equal(room.gameState.roundNumber, 0);
+  assert.equal(h.events.filter((e) => e.name === "gameStateUpdate" &&
+    e.target === room.roomCode).at(-1).data.listeIntro.durationMs, 16500);
   assert.equal(tournament.initialParticipantCount, 3);
   assert.equal(h.events.some((e) => e.name === "playIntroAnimation"), false);
   clients[0].send("hostStartGame", {});
   assert.strictEqual(room.listeTournament, tournament);
   assert.strictEqual(tournament.sequence, sequence);
-  h.advance(15999);
+  h.advance(15499);
   assert.equal(room.gameState.phase, "listeIntro");
   h.advance(1);
   assert.equal(room.gameState.phase, "listeIntro");
@@ -190,7 +192,7 @@ test("intro Liste : reconnexions pendant silence et audio, transfert d'hôte san
   clients[1].send("hostStartGame", {});
   returnedDuringAudio.send("leaveRoom");
   assert.equal(room.players.find((p) => p.playerId === "p2").withdrawn, true);
-  h.advance(9850);
+  h.advance(9350);
   assert.equal(room.gameState.phase, "listeIntro");
   h.advance(1000);
   assert.equal(room.gameState.phase, "drawingGame");

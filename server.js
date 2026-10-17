@@ -467,7 +467,7 @@ const LISTE_END_LOGO_DURATION_MS = 3500;
 // L'animation de tirage Liste existante dure 6,4 s, puis 2,9 s d'affichage
 // du logo final. Le serveur avance donc toutes les salles au même instant.
 const LISTE_DRAW_DURATION_MS = 9300;
-const LISTE_INTRO_DURATION_MS = 17000;
+const LISTE_INTRO_DURATION_MS = 16500;
 
 // Catalogue Liste indépendant du tirage et du bac à sable Battle Royale.
 const MINI_GAME_CATALOG = [

@@ -9645,7 +9645,47 @@ const animLayer = document.getElementById('animation-layer');
 
 let listeIntroImages = null;
 let listeIntroSound = null;
+let listeIntroShrineSound = null;
 let listeIntroPlayback = null;
+
+function isCurrentListeIntroPlayback(playback) {
+    return listeIntroPlayback === playback && currentRoom?.roomCode === playback.roomCode &&
+        currentGameState.phase === "listeIntro" && currentRoom?.gameMode === "liste" &&
+        currentRoom?.listeTournament?.tournamentId === playback.tournamentId;
+}
+
+function createListeIntroSound(url, startMs, endMs, idKey, startedKey, stopAtNaturalEnd = false) {
+    return new Howl({
+        src: [url], preload: true, volume: 1, loop: false,
+        onplay(id) {
+            const playback = listeIntroPlayback;
+            const elapsed = playback && playback.anchorElapsed + performance.now() - playback.anchorNow;
+            if (playback && playback[idKey] === id && isCurrentListeIntroPlayback(playback) &&
+                elapsed >= startMs && elapsed < endMs &&
+                (!stopAtNaturalEnd || !this.duration() || elapsed - startMs < this.duration() * 1000)) {
+                this.seek(Math.max(0, (elapsed - startMs) / 1000), id);
+            } else {
+                this.stop(id);
+            }
+        },
+        onloaderror(_id, error) { console.warn("Son intro Liste indisponible", error); },
+        onplayerror(id, error) {
+            console.warn("Son intro Liste bloqué", error);
+            const playback = listeIntroPlayback;
+            if (!playback || playback[idKey] !== id || !isCurrentListeIntroPlayback(playback)) return;
+            this.once("unlock", () => {
+                if (!isCurrentListeIntroPlayback(playback) || playback[idKey] !== id) return;
+                this.stop(id);
+                playback[idKey] = null;
+                const elapsed = playback.anchorElapsed + performance.now() - playback.anchorNow;
+                if (elapsed >= startMs && elapsed < endMs) {
+                    playback[startedKey] = false;
+                    renderListeIntro(playback);
+                }
+            });
+        }
+    });
+}
 
 function preloadListeIntro() {
     if (!listeIntroImages) {
@@ -9656,32 +9696,13 @@ function preloadListeIntro() {
         });
     }
     if (!listeIntroSound && typeof Howl === "function") {
-        listeIntroSound = new Howl({
-            src: [ListeIntroTimeline.audioUrl],
-            preload: true,
-            volume: 1,
-            onplay(id) {
-                const playback = listeIntroPlayback;
-                if (playback?.audioId === id) {
-                    const elapsed = playback.anchorElapsed + performance.now() - playback.anchorNow;
-                    this.seek(Math.max(0, (elapsed - ListeIntroTimeline.audioStartMs) / 1000), id);
-                } else if (!playback || playback.audioId != null) {
-                    this.stop(id);
-                }
-            },
-            onloaderror(_id, error) { console.warn("Son intro Liste indisponible", error); },
-            onplayerror(_id, error) {
-                console.warn("Son intro Liste bloqué", error);
-                this.once("unlock", () => {
-                    const playback = listeIntroPlayback;
-                    if (playback && currentGameState.phase === "listeIntro") {
-                        playback.audioId = null;
-                        playback.audioStarted = false;
-                        renderListeIntro(playback);
-                    }
-                });
-            }
-        });
+        listeIntroSound = createListeIntroSound(ListeIntroTimeline.audioUrl,
+            ListeIntroTimeline.audioStartMs, ListeIntroTimeline.audioEndMs, "audioId", "audioStarted");
+    }
+    if (!listeIntroShrineSound && typeof Howl === "function") {
+        listeIntroShrineSound = createListeIntroSound(ListeIntroTimeline.shrineUrl,
+            ListeIntroTimeline.shrineStartMs, ListeIntroTimeline.durationMs,
+            "shrineId", "shrineStarted", true);
     }
 }
 
@@ -9692,14 +9713,13 @@ function stopListeIntro() {
     if (playback.timer) clearTimeout(playback.timer);
     if (playback.rafId != null) cancelAnimationFrame(playback.rafId);
     if (playback.audioId != null) listeIntroSound?.stop(playback.audioId);
+    if (playback.shrineId != null) listeIntroShrineSound?.stop(playback.shrineId);
     playback.image.style.transform = "";
     playback.overlay.remove();
 }
 
 function renderListeIntro(playback) {
-    if (listeIntroPlayback !== playback || currentRoom?.roomCode !== playback.roomCode ||
-        currentGameState.phase !== "listeIntro" || currentRoom?.gameMode !== "liste" ||
-        currentRoom?.listeTournament?.tournamentId !== playback.tournamentId) return;
+    if (!isCurrentListeIntroPlayback(playback)) return;
     if (playback.timer) clearTimeout(playback.timer);
     playback.timer = null;
     if (playback.rafId != null) cancelAnimationFrame(playback.rafId);
@@ -9709,6 +9729,10 @@ function renderListeIntro(playback) {
     if (playback.audioId != null && elapsed >= ListeIntroTimeline.audioEndMs) {
         listeIntroSound?.stop(playback.audioId);
         playback.audioId = null;
+    }
+    if (playback.shrineId != null && elapsed >= ListeIntroTimeline.durationMs) {
+        listeIntroShrineSound?.stop(playback.shrineId);
+        playback.shrineId = null;
     }
     if (frame < 0) {
         playback.image.hidden = true;
@@ -9729,6 +9753,22 @@ function renderListeIntro(playback) {
                 }
             } catch (error) {
                 console.warn("Son intro Liste bloqué", error);
+            }
+        }
+        if (!playback.shrineStarted && listeIntroShrineSound &&
+            elapsed >= ListeIntroTimeline.shrineStartMs && elapsed < ListeIntroTimeline.durationMs) {
+            playback.shrineStarted = true;
+            const shrineDurationMs = listeIntroShrineSound.duration() * 1000;
+            if (!shrineDurationMs || elapsed - ListeIntroTimeline.shrineStartMs < shrineDurationMs) {
+                try {
+                    playback.shrineId = listeIntroShrineSound.play();
+                    if (playback.shrineId != null) {
+                        listeIntroShrineSound.seek(Math.max(0,
+                            (elapsed - ListeIntroTimeline.shrineStartMs) / 1000), playback.shrineId);
+                    }
+                } catch (error) {
+                    console.warn("Son intro Liste bloqué", error);
+                }
             }
         }
     }
@@ -9767,7 +9807,8 @@ function syncListeIntro(gs) {
         document.body.appendChild(overlay);
         listeIntroPlayback = {
             key, roomCode, tournamentId: info.tournamentId, overlay, image,
-            audioId: null, audioStarted: false, timer: null, rafId: null,
+            audioId: null, audioStarted: false, shrineId: null, shrineStarted: false,
+            timer: null, rafId: null,
             anchorElapsed: 0, anchorNow: 0
         };
     }
@@ -9781,8 +9822,19 @@ document.addEventListener("visibilitychange", () => {
         renderListeIntro(listeIntroPlayback);
         if (listeIntroPlayback?.audioId != null) {
             const elapsed = listeIntroPlayback.anchorElapsed + performance.now() - listeIntroPlayback.anchorNow;
-            listeIntroSound?.seek(Math.max(0, (elapsed - ListeIntroTimeline.audioStartMs) / 1000),
-                listeIntroPlayback.audioId);
+            if (elapsed < ListeIntroTimeline.audioEndMs) {
+                listeIntroSound?.seek(Math.max(0, (elapsed - ListeIntroTimeline.audioStartMs) / 1000),
+                    listeIntroPlayback.audioId);
+            }
+        }
+        if (listeIntroPlayback?.shrineId != null) {
+            const elapsed = listeIntroPlayback.anchorElapsed + performance.now() - listeIntroPlayback.anchorNow;
+            const shrineDurationMs = listeIntroShrineSound?.duration() * 1000;
+            if (elapsed < ListeIntroTimeline.durationMs &&
+                (!shrineDurationMs || elapsed - ListeIntroTimeline.shrineStartMs < shrineDurationMs)) {
+                listeIntroShrineSound?.seek(Math.max(0,
+                    (elapsed - ListeIntroTimeline.shrineStartMs) / 1000), listeIntroPlayback.shrineId);
+            }
         }
     }
 });

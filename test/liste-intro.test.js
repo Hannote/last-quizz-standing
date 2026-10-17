@@ -7,56 +7,61 @@ const path = require("node:path");
 const vm = require("node:vm");
 const timeline = require("../public_2/liste-intro-timeline");
 
-test("chronologie : noir, trois secondes silencieuses, frontières et maintien final", () => {
-  assert.equal(timeline.audioStartMs, 3300);
-  assert.equal(timeline.audioEndMs, 16000);
-  assert.equal(timeline.durationMs, 17000);
+test("chronologie : noir, 2,5 secondes silencieuses, frontières et maintien final", () => {
+  assert.equal(timeline.audioStartMs, 2800);
+  assert.equal(timeline.audioEndMs, 14500);
+  assert.equal(timeline.shrineStartMs, 14500);
+  assert.equal(timeline.durationMs, 16500);
+  assert.equal(timeline.durationMs - timeline.shrineStartMs, 2000);
   assert.equal(timeline.position(0).frame, -1);
   assert.equal(timeline.position(299).frame, -1);
   assert.equal(timeline.position(300).frame, 0);
   assert.equal(timeline.position(300).scale, 1);
   assert.equal(timeline.position(300).offsetXPercent, 0);
-  assert.equal(timeline.position(3299).frame, 0);
-  assert.equal(timeline.position(300).nextMs, 3300);
-  assert.equal(timeline.position(3300).frame, 0);
-  assert.equal(timeline.position(3300).scale, 1.025);
-  assert.equal(timeline.position(3300).offsetXPercent, 0.4);
-  assert.equal(timeline.position(4258).frame, 0);
-  assert.equal(timeline.position(4258).scale, 1.025);
-  assert.equal(timeline.position(4258).offsetXPercent, 0.4);
-  assert.equal(timeline.position(4259).scale, 1);
+  assert.equal(timeline.position(2799).frame, 0);
+  assert.equal(timeline.position(300).nextMs, 2800);
+  assert.equal(timeline.position(2800).frame, 0);
+  assert.equal(timeline.position(2800).scale, 1.025);
+  assert.equal(timeline.position(2800).offsetXPercent, 0.4);
+  assert.equal(timeline.position(3758).frame, 0);
+  assert.equal(timeline.position(3758).scale, 1.025);
+  assert.equal(timeline.position(3758).offsetXPercent, 0.4);
+  assert.equal(timeline.position(3759).frame, 1);
+  assert.equal(timeline.position(3759).scale, 1);
   for (let i = 0; i < timeline.frameStartsMs.length; i++) {
-    const start = 3300 + timeline.frameStartsMs[i];
+    const start = 2800 + timeline.frameStartsMs[i];
     assert.equal(timeline.position(start).frame, i);
     assert.equal(timeline.position(start - 1).frame, i === 0 ? 0 : i - 1);
   }
-  for (const ms of [9967, 12999]) {
+  for (const ms of [9467, 12499]) {
     assert.equal(timeline.position(ms).frame, 11);
   }
-  assert.equal(timeline.position(13000).frame, 11);
-  assert.equal(timeline.position(13060).opacity, 0.5);
-  assert.equal(timeline.position(13119).frame, 11);
-  assert.equal(timeline.position(13120).frame, 12);
-  assert.equal(timeline.position(13120).opacity, 0);
-  assert.equal(timeline.position(13200).opacity, 1);
-  for (const [ms, frame] of [[13439, 12], [13440, 13], [13779, 13], [13780, 14],
-    [13959, 14], [13960, 15], [14099, 15], [14100, 16],
-    [15999, 16], [16000, 16], [16999, 16], [17000, 16]]) {
+  assert.equal(timeline.position(12500).frame, 11);
+  assert.equal(timeline.position(12560).opacity, 0.5);
+  assert.equal(timeline.position(12619).frame, 11);
+  assert.equal(timeline.position(12620).frame, 12);
+  assert.equal(timeline.position(12620).opacity, 0);
+  assert.equal(timeline.position(12700).opacity, 1);
+  for (const [ms, frame] of [[12939, 12], [12940, 13], [13279, 13], [13280, 14],
+    [13459, 14], [13460, 15], [13599, 15], [13600, 16],
+    [15499, 16], [15500, 16], [16499, 16], [16500, 16]]) {
     assert.equal(timeline.position(ms).frame, frame);
   }
-  assert.equal(timeline.position(15999).nextMs, 16000);
-  assert.equal(timeline.position(16000).nextMs, null);
+  assert.equal(timeline.position(14499).nextMs, 14500);
+  assert.equal(timeline.position(14500).nextMs, 16500);
+  assert.equal(timeline.position(16500).nextMs, null);
   assert.equal(timeline.frameUrls.length, 17);
   assert.equal(timeline.frameUrls[6], "/animation_liste/d%C3%A9but/frame%206%20.png");
   assert.equal(timeline.frameUrls[16], "/animation_liste/d%C3%A9but/frame%2016.png");
   assert.equal(timeline.audioUrl, "/animation_liste/d%C3%A9but/animation_liste_debut.mp3");
+  assert.equal(timeline.shrineUrl, "/animation_liste/d%C3%A9but/shrine.mp3");
 });
 
 test("frame 0 : travelling fluide borné et stabilisé avant la frame 1", () => {
   const first = timeline.position(300);
-  const middle = timeline.position(1800);
-  const last = timeline.position(3299);
-  const settled = timeline.position(3300);
+  const middle = timeline.position(1550);
+  const last = timeline.position(2799);
+  const settled = timeline.position(2800);
   assert.equal(middle.scale, 1.0125);
   assert.equal(middle.offsetXPercent, 0.2);
   assert.ok(first.scale < middle.scale && middle.scale < last.scale && last.scale <= 1.025);
@@ -64,8 +69,8 @@ test("frame 0 : travelling fluide borné et stabilisé avant la frame 1", () => 
     middle.offsetXPercent < last.offsetXPercent && last.offsetXPercent < 1);
   assert.ok(settled.scale - last.scale < 0.000001);
   assert.ok(settled.offsetXPercent - last.offsetXPercent < 0.00001);
-  assert.equal(timeline.position(3300).animating, false);
-  assert.equal(timeline.position(4259).offsetXPercent, undefined);
+  assert.equal(timeline.position(2800).animating, false);
+  assert.equal(timeline.position(3759).offsetXPercent, undefined);
 });
 
 test("logo : largeur continue aux changements d'image et arrivée ralentie", () => {
@@ -74,16 +79,16 @@ test("logo : largeur continue aux changements d'image et arrivée ralentie", () 
     const state = timeline.position(ms);
     return widths[state.frame - 12] * state.scale;
   };
-  for (const boundary of [13440, 13780, 13960, 14100]) {
+  for (const boundary of [12940, 13280, 13460, 13600]) {
     assert.ok(Math.abs(visibleWidth(boundary) - visibleWidth(boundary - 1)) < 5,
       `Saut de largeur à ${boundary} ms`);
   }
-  assert.equal(timeline.position(14100).scale, 1);
-  assert.equal(timeline.position(15999).scale, 1);
-  assert.equal(timeline.position(15999).opacity, 1);
-  assert.equal(timeline.position(16999).scale, 1);
-  assert.equal(timeline.position(16999).opacity, 1);
-  assert.ok(visibleWidth(13780) - visibleWidth(13700) < visibleWidth(13700) - visibleWidth(13620));
+  assert.equal(timeline.position(13600).scale, 1);
+  assert.equal(timeline.position(15499).scale, 1);
+  assert.equal(timeline.position(15499).opacity, 1);
+  assert.equal(timeline.position(16499).scale, 1);
+  assert.equal(timeline.position(16499).opacity, 1);
+  assert.ok(visibleWidth(13280) - visibleWidth(13200) < visibleWidth(13200) - visibleWidth(13120));
 });
 
 const source = fs.readFileSync(path.join(__dirname, "../public_2/client.js"), "utf8");
@@ -96,6 +101,7 @@ function client(elapsedMs = 0) {
   let nextTimer = 0;
   const timers = new Map();
   const howls = [];
+  const soundEvents = [];
   const nodes = [];
   const listeners = {};
   class Element {
@@ -109,9 +115,10 @@ function client(elapsedMs = 0) {
   class Image { set src(url) { this.url = url; } }
   class Howl {
     constructor(options) { this.options = options; this.plays = []; this.seeks = []; this.stops = []; howls.push(this); }
-    play() { this.plays.push(7); return 7; }
+    play() { this.plays.push(7); soundEvents.push({ type: "play", howl: this }); return 7; }
+    duration() { return 0.938667; }
     seek(seconds, id) { this.seeks.push({ seconds, id }); }
-    stop(id) { this.stops.push(id); }
+    stop(id) { this.stops.push(id); soundEvents.push({ type: "stop", howl: this }); }
   }
   const document = {
     body: { appendChild: (node) => nodes.push(node) },
@@ -147,10 +154,10 @@ function client(elapsedMs = 0) {
     }
     now = end;
   }
-  return { c, sync, advance, howls, nodes, timers, listeners };
+  return { c, sync, advance, howls, soundEvents, nodes, timers, listeners };
 }
 
-test("client : reconnexion silencieuse puis lecture à 3 300 ms, position audio conservée", () => {
+test("client : reconnexion silencieuse puis lecture à 2 800 ms, position audio conservée", () => {
   const black = client(150);
   black.sync();
   assert.equal(black.nodes[0].children[0].hidden, true);
@@ -159,21 +166,21 @@ test("client : reconnexion silencieuse puis lecture à 3 300 ms, position audio 
   assert.equal(black.nodes[0].children[0].src, "http://localhost:3000" + timeline.frameUrls[0]);
   assert.equal(black.howls[0].plays.length, 0);
   black.sync(300);
-  black.advance(2999);
+  black.advance(2499);
   assert.equal(black.nodes[0].children[0].src, "http://localhost:3000" + timeline.frameUrls[0]);
   assert.equal(black.howls[0].plays.length, 0);
   black.advance(1);
   assert.equal(black.howls[0].plays.length, 1);
   assert.equal(black.howls[0].seeks.at(-1).seconds, 0);
 
-  const silent = client(2000);
+  const silent = client(1550);
   silent.sync();
   assert.equal(silent.nodes[0].children[0].src, "http://localhost:3000" + timeline.frameUrls[0]);
   assert.equal(silent.nodes[0].children[0].style.transform,
-    `translateX(${timeline.position(2000).offsetXPercent}%) scale(${timeline.position(2000).scale})`);
+    `translateX(${timeline.position(1550).offsetXPercent}%) scale(${timeline.position(1550).scale})`);
   assert.equal(silent.howls[0].plays.length, 0);
 
-  const resumed = client(3300 + 4000);
+  const resumed = client(2800 + 4000);
   resumed.sync();
   assert.equal(resumed.nodes[0].children[0].src, "http://localhost:3000" + timeline.frameUrls[5]);
   assert.equal(resumed.howls[0].seeks.at(-1).seconds, 4);
@@ -182,7 +189,7 @@ test("client : reconnexion silencieuse puis lecture à 3 300 ms, position audio 
 });
 
 test("client : veille, fin de phase et ancien callback ne touchent pas une autre salle", () => {
-  const h = client(3300);
+  const h = client(2800);
   h.sync();
   const stale = [...h.timers.values()][0].fn;
   h.advance(5000);
@@ -201,14 +208,14 @@ test("client : veille, fin de phase et ancien callback ne touchent pas une autre
 });
 
 test("client : reconnexion pendant le travelling reprend sa position et la frame 1 remet le cadrage normal", () => {
-  const h = client(2300);
+  const h = client(1550);
   h.sync();
   const image = h.nodes[0].children[0];
-  const position = timeline.position(2300);
+  const position = timeline.position(1550);
   assert.equal(image.style.transform,
     `translateX(${position.offsetXPercent}%) scale(${position.scale})`);
   assert.equal(h.howls[0].plays.length, 0);
-  h.advance(1000);
+  h.advance(1250);
   assert.equal(image.style.transform, "translateX(0.4%) scale(1.025)");
   assert.equal(h.howls[0].plays.length, 1);
   h.advance(959);
@@ -220,40 +227,73 @@ test("client : reconnexion pendant le travelling reprend sa position et la frame
 });
 
 test("client : reconnexion pendant l'approche et frame 16 maintenue sans rejouer l'audio", () => {
-  const h = client(13500);
+  const h = client(13000);
   h.sync();
   const image = h.nodes[0].children[0];
   assert.equal(image.src, "http://localhost:3000" + timeline.frameUrls[13]);
-  assert.equal(image.style.transform, `scale(${timeline.position(13500).scale})`);
+  assert.equal(image.style.transform, `scale(${timeline.position(13000).scale})`);
   assert.equal(h.howls[0].seeks.at(-1).seconds, 10.2);
   h.advance(160);
-  assert.equal(image.style.transform, `scale(${timeline.position(13660).scale})`);
-  h.sync(15000);
+  assert.equal(image.style.transform, `scale(${timeline.position(13160).scale})`);
+  h.sync(14500);
   assert.equal(image.src, "http://localhost:3000" + timeline.frameUrls[16]);
   assert.equal(image.style.transform, "scale(1)");
   assert.equal(h.howls[0].plays.length, 1);
+  assert.equal(h.howls[0].stops.length, 1);
+  assert.equal(h.howls[1].plays.length, 1);
   h.c.api.stopListeIntro();
   assert.equal(h.timers.size, 0);
 });
 
-test("client : frame 16 reste stable de 16 à 17 s, sans prolonger l'audio", () => {
-  const h = client(15900);
+test("client : remplacement sans superposition à 14,5 s puis arrêt à 16,5 s", () => {
+  const h = client(14400);
   h.sync();
   const image = h.nodes[0].children[0];
   assert.equal(image.src, "http://localhost:3000" + timeline.frameUrls[16]);
   assert.equal(h.howls[0].plays.length, 1);
+  assert.equal(h.howls[1].plays.length, 0);
   h.advance(100);
   assert.equal(h.howls[0].stops.length, 1);
+  assert.equal(h.howls[1].plays.length, 1);
+  assert.deepEqual(h.soundEvents.map(({ type, howl }) =>
+    `${type}:${h.howls.indexOf(howl)}`), ["play:0", "stop:0", "play:1"]);
+  assert.equal(h.howls[1].seeks.at(-1).seconds, 0);
   assert.equal(image.src, "http://localhost:3000" + timeline.frameUrls[16]);
-  h.advance(999);
+  h.advance(2000);
+  assert.equal(h.howls[1].stops.length, 1);
   assert.equal(image.style.transform, "scale(1)");
   assert.equal(image.style.opacity, "1");
   assert.equal(h.howls[0].plays.length, 1);
+  assert.equal(h.howls[1].plays.length, 1);
   assert.equal(h.timers.size, 0);
+});
 
-  const reconnected = client(16500);
+test("client : reconnexion pendant Shrine, mises à jour répétées et sortie de phase", () => {
+  const reconnected = client(15000);
   reconnected.sync();
   assert.equal(reconnected.nodes[0].children[0].src,
     "http://localhost:3000" + timeline.frameUrls[16]);
   assert.equal(reconnected.howls[0].plays.length, 0);
+  assert.equal(reconnected.howls[1].plays.length, 1);
+  assert.equal(reconnected.howls[1].seeks.at(-1).seconds, 0.5);
+  assert.equal(reconnected.howls[1].options.loop, false);
+  reconnected.sync(15000);
+  reconnected.sync(15100);
+  assert.equal(reconnected.howls[1].plays.length, 1);
+  reconnected.listeners.visibilitychange();
+  assert.equal(reconnected.howls[1].seeks.at(-1).seconds, 0.6);
+  reconnected.c.currentGameState.phase = "listeDrawing";
+  reconnected.c.api.stopListeIntro();
+  assert.equal(reconnected.howls[1].stops.length, 1);
+  assert.equal(reconnected.howls[0].stops.length, 0);
+  assert.equal(reconnected.timers.size, 0);
+  reconnected.howls[1].options.onplay.call(reconnected.howls[1], 7);
+  assert.equal(reconnected.howls[1].stops.length, 2,
+    "Un démarrage tardif de Shrine est arrêté après la sortie de phase");
+
+  const afterNaturalEnd = client(15500);
+  afterNaturalEnd.sync();
+  afterNaturalEnd.sync(15700);
+  assert.equal(afterNaturalEnd.howls[1].plays.length, 0,
+    "Après la fin naturelle du MP3, la reconnexion reste silencieuse");
 });
