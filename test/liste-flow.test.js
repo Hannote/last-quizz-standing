@@ -409,7 +409,7 @@ test("classement Liste : snapshot serveur, reconnexion pendant l'affichage et tr
   assert.equal(room.gameState.roundNumber, 2);
 });
 
-test("fin Liste : classement final et co-vainqueurs viennent du serveur", () => {
+test("fin Liste : un seul classement de huit secondes puis animation et co-vainqueurs serveur", () => {
   const h = harness();
   const { room, clients } = h.create();
   h.configure(room, clients[0], "manual", ["petit_bac"]);
@@ -419,15 +419,44 @@ test("fin Liste : classement final et co-vainqueurs viennent du serveur", () => 
 
   h.api.endMiniGame(room.roomCode);
   assert.equal(room.gameState.phase, "listeLeaderboard");
-  h.advance(8000);
+  h.advance(7999);
+  assert.equal(room.gameState.phase, "listeLeaderboard");
+  h.advance(1);
   assert.equal(room.gameState.phase, "listeFinished");
   assert.deepEqual(JSON.parse(JSON.stringify(room.listeTournament.winners)), ["p0", "p1", "p2"]);
   const finalState = h.events.filter((event) => event.name === "gameStateUpdate").at(-1).data;
-  assert.equal(finalState.listeLeaderboard.isFinal, true);
+  assert.equal(finalState.listeLeaderboard, null);
+  assert.equal(finalState.listeFinale.durationMs, 20000);
+  assert.equal(finalState.listeFinale.elapsedMs, 0);
   assert.deepEqual(
-    JSON.parse(JSON.stringify(finalState.listeLeaderboard.winners)),
+    JSON.parse(JSON.stringify(finalState.listeFinale.winners.map((winner) => winner.playerId))),
     JSON.parse(JSON.stringify(room.listeTournament.winners))
   );
+  const awarded = room.listeTournament.roundResults.length;
+  const points = room.players.map((player) => player.tournamentPoints);
+  h.api.endMiniGame(room.roomCode);
+  h.advance(20000);
+  assert.equal(room.gameState.phase, "listeFinished");
+  assert.equal(room.listeTournament.roundResults.length, awarded);
+  assert.deepEqual(room.players.map((player) => player.tournamentPoints), points);
+});
+
+test("fin Liste : abandons pendant le dernier classement gardent ses huit secondes et une fin neutre", () => {
+  const h = harness();
+  const { room, clients } = h.create();
+  h.configure(room, clients[0], "manual", ["petit_bac"]);
+  clients[0].send("hostStartGame", {});
+  room.gameState.phase = "listeRoundEnd";
+  h.api.endMiniGame(room.roomCode);
+  clients.forEach((client) => client.send("leaveRoom"));
+  h.advance(7999);
+  assert.equal(room.gameState.phase, "listeLeaderboard");
+  h.advance(1);
+  assert.equal(room.gameState.phase, "listeFinished");
+  const summary = h.events.filter((event) => event.target === room.roomCode &&
+    event.name === "gameStateUpdate").at(-1).data;
+  assert.deepEqual(Array.from(summary.listeFinale.winners), []);
+  assert.equal(summary.listeLeaderboard, null);
 });
 
 test("sons Liste : un tirage par classement, par salle, sans répétition ni son final", () => {
@@ -494,7 +523,7 @@ test("sons Liste : un tirage par classement, par salle, sans répétition ni son
   const final = h.events.filter((event) => event.target === room.roomCode &&
     event.name === "gameStateUpdate").at(-1).data;
   assert.equal(final.phase, "listeFinished");
-  assert.equal(final.listeLeaderboard.sound, null);
+  assert.equal(final.listeLeaderboard, null);
   assert.equal(second.room.listeTournament.leaderboardSoundsUsed.length, 1);
   const fresh = h.create();
   h.configure(fresh.room, fresh.clients[0], "manual", ["petit_bac"]);
@@ -966,8 +995,8 @@ test("étape 7 : classement final permanent, co-vainqueurs puis aucun participan
   const returned = h.socket("p2");
   returned.send("joinRoom", { roomCode: room.roomCode, playerId: "p2", pseudo: "Retour" });
   const final = h.events.filter((e) => e.target === returned.id && e.name === "gameStateUpdate").at(-1).data;
-  assert.equal(final.listeLeaderboard.isFinal, true);
-  assert.deepEqual(Array.from(final.listeLeaderboard.winners), ["p0", "p1", "p2"]);
+  assert.equal(final.listeLeaderboard, null);
+  assert.deepEqual(Array.from(final.listeFinale.winners, (winner) => winner.playerId), ["p0", "p1", "p2"]);
   clients[0].send("leaveRoom");
   clients[1].send("leaveRoom");
   returned.send("leaveRoom");

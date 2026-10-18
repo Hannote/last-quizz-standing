@@ -45,6 +45,8 @@ test("classement terminé → Quitter → salle Battle Royale → nouveau lobby 
     updateGameStateUI() {}
   };
   c.stopListeIntro = () => {};
+  c.stopListeFinale = () => {};
+  c.preloadListeFinale = () => {};
   c.preloadListeIntro = () => {};
   vm.createContext(c);
   vm.runInContext(block("let miniGameLeaderboardVersion =", "// Le mode Liste ne trie"), c);
@@ -104,6 +106,7 @@ test("étape 7 : retour au lobby pendant une révélation Faux du vrai annule le
     sfx45s: sound, sfxFauxVraiWin: sound, sfxFauxVraiLose: sound
   };
   c.stopListeIntro = () => {};
+  c.stopListeFinale = () => {};
   vm.createContext(c);
   for (const name of ["hideListeLeaderboard", "showScreen"]) {
     vm.runInContext(block(`function ${name}(`, "\n}") + "\n}", c);

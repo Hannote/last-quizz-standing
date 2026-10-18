@@ -873,6 +873,76 @@
         text-align: center;
       }
 
+      #liste-finale-overlay { display: none; }
+      body.mode-liste:has(#liste-finale-overlay.active) {
+        height: 100dvh;
+        min-height: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      body.mode-liste:has(#liste-finale-overlay.active) > .container {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        max-width: none;
+        height: 100dvh;
+        padding: 0;
+      }
+      body.mode-liste #liste-finale-overlay.active {
+        position: fixed;
+        inset: 0;
+        z-index: 20000;
+        box-sizing: border-box;
+        display: grid;
+        grid-template-rows: max-content minmax(0, 1fr);
+        justify-items: center;
+        gap: clamp(6px, 1.5dvh, 16px);
+        padding: clamp(64px, 9dvh, 80px) 12px 12px;
+        background: #000;
+        color: #ffcc00;
+      }
+      body.mode-liste .liste-finale-announcement {
+        width: min(100%, 760px);
+        min-height: max-content;
+        text-align: center;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: clamp(1.4rem, 6vw, 3.5rem);
+        font-weight: 900;
+        line-height: 1.15;
+        text-transform: uppercase;
+        text-shadow: 0 0 20px rgba(255, 204, 0, 0.65);
+        overflow-wrap: anywhere;
+      }
+      body.mode-liste .liste-finale-names {
+        display: block;
+        margin-top: 4px;
+        font-size: clamp(1.125rem, 5vw, 3rem);
+        text-transform: none;
+      }
+      body.mode-liste .liste-finale-art {
+        min-height: 0;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      body.mode-liste .liste-finale-frame {
+        display: block;
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+      }
+      @media (max-height: 600px) and (min-width: 600px) {
+        body.mode-liste .liste-finale-announcement {
+          font-size: clamp(1.5rem, 5vh, 2rem);
+        }
+        body.mode-liste .liste-finale-names {
+          font-size: clamp(1.25rem, 4.5vh, 1.8rem);
+        }
+      }
+
       @media (max-width: 340px) {
         body.mode-liste .liste-leaderboard-head,
         body.mode-liste .liste-leaderboard-row {
@@ -2833,6 +2903,13 @@
     </div>
     <div id="listeLeaderboardContent" class="liste-leaderboard-content"></div>
   </section>
+</div>
+
+<div id="liste-finale-overlay" aria-live="polite" aria-modal="true" role="dialog" aria-labelledby="listeFinaleTitle">
+  <div id="listeFinaleTitle" class="liste-finale-announcement">
+    <span id="listeFinaleLabel"></span><span id="listeFinaleNames" class="liste-finale-names"></span>
+  </div>
+  <div class="liste-finale-art"><img id="listeFinaleFrame" class="liste-finale-frame" alt="" /></div>
 </div>
 
 <div id="imageViewer" class="image-viewer hidden" onclick="closeImageViewer()">

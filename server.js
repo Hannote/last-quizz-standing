@@ -592,7 +592,8 @@ function createListeTournamentState() {
     roundResults: [],
     leaderboardSoundsUsed: [],
     leaderboardSound: null,
-    introStartedAt: null
+    introStartedAt: null,
+    finaleStartedAt: null
   };
 }
 
@@ -723,7 +724,8 @@ function withdrawListeParticipant(room, playerId, socketId) {
   delete room.gameState?.readyPlayers?.[playerId];
   pruneListeCorrectionPlayers(room);
   disconnectListePlayer(room, playerId, socketId);
-  if (room.listeTournament.finished || !room.players.some((p) => isListeParticipant(room, p))) finishListeTournament(room);
+  if (room.listeTournament.finished || (room.gameState.phase !== "listeLeaderboard" &&
+      !room.players.some((p) => isListeParticipant(room, p)))) finishListeTournament(room);
   return true;
 }
 
@@ -744,13 +746,10 @@ function getGameStateSummary(room) {
           Date.now() - room.listeTournament.introStartedAt)),
         durationMs: LISTE_INTRO_DURATION_MS
       } : null,
-    listeLeaderboard: room.gameMode === "liste" &&
-      ["listeLeaderboard", "listeFinished"].includes(gs.phase)
+    listeLeaderboard: room.gameMode === "liste" && gs.phase === "listeLeaderboard"
       ? {
         ranking: getListeGeneralRanking(room),
-        winners: [...(room.listeTournament.winners || [])],
-        isFinal: gs.phase === "listeFinished",
-        sound: gs.phase === "listeLeaderboard" && room.listeTournament.leaderboardSound
+        sound: room.listeTournament.leaderboardSound
           ? {
             ...room.listeTournament.leaderboardSound,
             elapsedMs: Math.min(LISTE_LEADERBOARD_DURATION_MS,
@@ -759,6 +758,19 @@ function getGameStateSummary(room) {
           : null
       }
       : null,
+    listeFinale: room.gameMode === "liste" && gs.phase === "listeFinished"
+      ? {
+        gameMode: "liste",
+        tournamentId: room.listeTournament.tournamentId,
+        roundNumber: gs.roundNumber,
+        startedAt: room.listeTournament.finaleStartedAt,
+        elapsedMs: Math.max(0, Math.min(20000,
+          Date.now() - room.listeTournament.finaleStartedAt)),
+        durationMs: 20000,
+        winners: room.listeTournament.generalRanking
+          .filter((entry) => room.listeTournament.winners.includes(entry.playerId))
+          .map(({ playerId, pseudo }) => ({ playerId, pseudo }))
+      } : null,
     readyPlayerIds: Object.keys(gs.readyPlayers || {}).filter((id) => room.gameMode !== "liste" ||
       isListeParticipant(room, room.players.find((p) => p.playerId === id)))
   };
@@ -911,9 +923,19 @@ function prepareListeSequence(config, random = Math.random) {
 }
 
 function finishListeTournament(room) {
+  if (room.gameMode !== "liste" || rooms[room.roomCode] !== room) return;
+  if (room.listeTournament.finished) {
+    room.listeTournament.generalRanking = getListeGeneralRanking(room);
+    room.listeTournament.winners = room.listeTournament.generalRanking
+      .filter((entry) => entry.place === 1).map((entry) => entry.playerId);
+    io.to(room.roomCode).emit("roomUpdate", serializeRoom(room));
+    io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+    return;
+  }
   clearListeTimers(room);
   room.listeTournament.finished = true;
   room.listeTournament.leaderboardSound = null;
+  room.listeTournament.finaleStartedAt = Date.now();
   room.gameState.phase = "listeFinished";
   room.listeTournament.generalRanking = getListeGeneralRanking(room);
   room.listeTournament.winners = room.listeTournament.generalRanking
