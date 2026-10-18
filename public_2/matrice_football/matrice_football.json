@@ -1,0 +1,18 @@
+{
+  "questions": [
+    {
+      "id": 1,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/horizontale/porto.jpg",
+        "matrice_football/horizontale/arsenal.jpg",
+        "matrice_football/horizontale/messi.jpg"
+      ],
+      "rows": [
+        "matrice_football/verticale/juventus.jpg",
+        "matrice_football/verticale/espagnol.jpg",
+        "matrice_football/verticale/afrique.jpg"
+      ]
+    }
+  ]
+}
