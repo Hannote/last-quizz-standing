@@ -19,6 +19,7 @@ const PRIORITY_IMAGES = [
   "titres/le_bon_ordre.png",
   "titres/le_faux_du_vrai.png",
   "titres/le_petit_bac.png",
+  "titres/matrice_football.png",
   "titres/le_tour_du_monde.png",
   "titres/les_encheres.png",
   "titres/qui_suis_je.png",
@@ -282,6 +283,7 @@ const sfxRuleTourDuMonde = new Howl({ src: ['sons/le_tour_du_monde.mp3'], volume
 
 
 const sfxRulePetitBac = new Howl({ src: ['sons/petit_bac.mp3'], volume: 0.6 });
+const sfxRuleMatriceFootball = new Howl({ src: ['sons/matrice_football.mp3'], volume: 0.6 });
 
 
 const sfxRuleBonOrdre = new Howl({ src: ['sons/le_bon_ordre.mp3'], volume: 0.6 });
@@ -333,6 +335,7 @@ function stopRuleSounds() {
 
 
   sfxRulePetitBac.stop();
+  sfxRuleMatriceFootball.stop();
 
 
   sfxRuleBonOrdre.stop();
@@ -443,6 +446,7 @@ const ALL_MINI_GAMES = [
 
 
   "le_petit_bac",
+  "matrice_football",
 
 
   "qui_veut_gagner_des_leugtas",
@@ -814,6 +818,16 @@ const btFeedback = document.getElementById("btFeedback");
 
 
 const petitBacContainer = document.getElementById("petitBacContainer");
+const matriceFootballContainer = document.getElementById("matriceFootballContainer");
+const mfPlayingGrid = document.getElementById("mfPlayingGrid");
+const mfValidateBtn = document.getElementById("mfValidateBtn");
+const mfFeedback = document.getElementById("mfFeedback");
+let currentMatriceFootball = null;
+let matriceFootballRoundNumber = null;
+let matriceFootballInstanceId = null;
+let matriceFootballRoomCode = null;
+let matriceFootballSubmitted = false;
+let currentMatriceFootballCorrection = null;
 
 
 const pbLetterDisplay = document.getElementById("pbLetterDisplay");
@@ -1125,6 +1139,7 @@ function miniGameCodeToLabel(code) {
 
 
     le_petit_bac: "Le petit bac",
+    matrice_football: "La Matrice Football",
 
 
     qui_veut_gagner_des_leugtas: "Qui veut gagner des leugtas ?",
@@ -1251,6 +1266,8 @@ function rulesTextForMiniGame(code) {
 
 
       );
+    case "matrice_football":
+      return "Trouve un joueur correspondant aux deux critères de chaque case. Remplis les neuf cases puis valide ta grille avant la fin des 150 secondes.";
 
 
     case "qui_veut_gagner_des_leugtas":
@@ -1509,6 +1526,7 @@ function hideAllMiniGames() {
 
 
   if (petitBacContainer) petitBacContainer.classList.add("hidden");
+  if (matriceFootballContainer) matriceFootballContainer.classList.add("hidden");
 
 
   // Cache les corrections
@@ -1521,6 +1539,7 @@ function hideAllMiniGames() {
 
 
   if (pbContainer) pbContainer.classList.add("hidden");
+  document.getElementById("matriceFootballCorrectionContainer")?.classList.add("hidden");
 
 
   // --- FIX ENCHÃRES ---
@@ -3331,6 +3350,147 @@ socket.on("petitBacStart", (data) => {
   }
 });
 
+function renderMatriceFootballGrid(target, matrix, answers = {}, grades = null, canGrade = false, onGrade = null) {
+  if (!target || !matrix || !Array.isArray(matrix.columns) || !Array.isArray(matrix.rows)) return;
+  target.replaceChildren();
+  const corner = document.createElement("div");
+  corner.className = "mf-header";
+  target.appendChild(corner);
+  const addHeader = (source, label) => {
+    const wrap = document.createElement("div");
+    wrap.className = "mf-header";
+    const img = document.createElement("img");
+    img.src = "/" + String(source).replace(/^\/+/, "");
+    img.alt = label;
+    wrap.appendChild(img);
+    target.appendChild(wrap);
+  };
+  matrix.columns.forEach((source, column) => addHeader(source, `Critère de colonne ${column + 1}`));
+  matrix.rows.forEach((source, row) => {
+    addHeader(source, `Critère de ligne ${row + 1}`);
+    for (let column = 0; column < 3; column++) {
+      const index = row * 3 + column;
+      const cell = document.createElement("div");
+      cell.className = "mf-cell";
+      if (grades === null) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.maxLength = 120;
+        input.dataset.mfIndex = String(index);
+        input.setAttribute("aria-label", `Ligne ${row + 1}, colonne ${column + 1}`);
+        input.value = answers[index] || "";
+        cell.appendChild(input);
+      } else {
+        const answer = document.createElement("div");
+        answer.className = "mf-answer";
+        answer.textContent = answers[index] || "—";
+        cell.appendChild(answer);
+        const buttons = document.createElement("div");
+        buttons.className = "mf-grade-buttons";
+        for (const [value, label, style] of [[1, "1", "pb-1"], [0.5, "0,5", "pb-05"], [0, "0", "pb-0"]]) {
+          const button = document.createElement("button");
+          button.className = `pb-btn-small ${style}${grades[index] === value ? " active" : ""}`;
+          button.textContent = label;
+          button.disabled = !canGrade || !answers[index]?.trim();
+          if (canGrade && onGrade) button.addEventListener("click", () => onGrade(index, value));
+          buttons.appendChild(button);
+        }
+        cell.appendChild(buttons);
+      }
+      target.appendChild(cell);
+    }
+  });
+}
+
+socket.on("matriceFootballStart", (data) => {
+  if (currentRoom?.gameMode !== data.gameMode || currentGameState.roundNumber !== data.roundNumber ||
+      currentGameState.currentMiniGame !== "matrice_football" ||
+      data.roomCode !== currentRoom?.roomCode || !data.instanceId) return;
+  const same = matriceFootballRoomCode === data.roomCode &&
+    matriceFootballInstanceId === data.instanceId &&
+    currentMatriceFootball?.id === data.matrix?.id &&
+    matriceFootballRoundNumber === data.roundNumber;
+  if (same && currentMatriceFootballCorrection?.instanceId === data.instanceId &&
+      !document.getElementById("matriceFootballCorrectionContainer")?.classList.contains("hidden")) return;
+  const wasSubmitting = same && !matriceFootballSubmitted && mfValidateBtn?.disabled;
+  if (!same || matriceFootballContainer?.classList.contains("hidden")) {
+    showMainZone("playing");
+    matriceFootballContainer?.classList.remove("hidden");
+  }
+  if (!same) {
+    currentMatriceFootballCorrection = null;
+    matriceFootballSubmitted = false;
+  }
+  currentMatriceFootball = data.matrix;
+  matriceFootballRoundNumber = data.roundNumber;
+  matriceFootballInstanceId = data.instanceId;
+  matriceFootballRoomCode = data.roomCode;
+  matriceFootballSubmitted = !!data.hasAnswered || (same && matriceFootballSubmitted);
+  document.getElementById("mfQuestion").textContent = data.matrix.question || "";
+  if (!same || !mfPlayingGrid?.children.length) {
+    renderMatriceFootballGrid(mfPlayingGrid, data.matrix,
+      data.hasAnswered ? data.savedAnswers || {} : {});
+  } else if (data.hasAnswered) {
+    mfPlayingGrid.querySelectorAll("input[data-mf-index]").forEach((input) => {
+      input.value = data.savedAnswers?.[input.dataset.mfIndex] || "";
+    });
+  }
+  const locked = matriceFootballSubmitted || amISpectator();
+  mfPlayingGrid?.querySelectorAll("input").forEach((input) => { input.disabled = locked; });
+  if (mfValidateBtn) {
+    mfValidateBtn.style.display = amISpectator() ? "none" : "block";
+    mfValidateBtn.disabled = locked || wasSubmitting;
+    mfValidateBtn.textContent = matriceFootballSubmitted ? "Grille validée" : "Valider ma grille";
+  }
+  if (mfFeedback) mfFeedback.textContent = matriceFootballSubmitted ? "Grille enregistrée !" :
+    wasSubmitting ? "Validation en cours…" : "";
+  document.getElementById("mfTimerNumber").textContent = data.duration;
+  document.getElementById("mfTimerFill").style.width = "100%";
+  if (!data.isReload) {
+    sfxTheme.play();
+    sfx150s.play();
+  }
+});
+
+socket.on("matriceFootballTimerUpdate", ({ remaining, total, roundNumber, instanceId }) => {
+  if (currentGameState.currentMiniGame !== "matrice_football" ||
+      roundNumber !== matriceFootballRoundNumber || instanceId !== matriceFootballInstanceId) return;
+  document.getElementById("mfTimerNumber").textContent = remaining;
+  document.getElementById("mfTimerFill").style.width = `${Math.max(0, remaining / total * 100)}%`;
+  if (remaining <= 0) sfx150s.stop();
+});
+
+mfValidateBtn?.addEventListener("click", () => {
+  if (mfValidateBtn.disabled || !currentMatriceFootball || !currentRoom || amISpectator()) return;
+  const answers = {};
+  mfPlayingGrid.querySelectorAll("input[data-mf-index]").forEach((input) => {
+    answers[input.dataset.mfIndex] = input.value.trim();
+  });
+  mfValidateBtn.disabled = true;
+  if (mfFeedback) mfFeedback.textContent = "Validation en cours…";
+  sfxBubbleClick.play();
+  emitGameAction("matriceFootballAnswer", { answers, roundNumber: matriceFootballRoundNumber,
+    matrixId: currentMatriceFootball.id, instanceId: matriceFootballInstanceId });
+});
+
+socket.on("matriceFootballAnswerAck", ({ roundNumber, matrixId, instanceId }) => {
+  if (roundNumber !== matriceFootballRoundNumber || matrixId !== currentMatriceFootball?.id ||
+      instanceId !== matriceFootballInstanceId) return;
+  matriceFootballSubmitted = true;
+  mfPlayingGrid?.querySelectorAll("input").forEach((input) => { input.disabled = true; });
+  if (mfValidateBtn) { mfValidateBtn.disabled = true; mfValidateBtn.textContent = "Grille validée"; }
+  if (mfFeedback) mfFeedback.textContent = "Grille enregistrée !";
+});
+
+socket.on("matriceFootballEnd", ({ roundNumber, instanceId }) => {
+  if (roundNumber !== matriceFootballRoundNumber || instanceId !== matriceFootballInstanceId) return;
+  sfx150s.stop();
+  mfPlayingGrid?.querySelectorAll("input").forEach((input) => { input.disabled = true; });
+  if (mfValidateBtn) mfValidateBtn.disabled = true;
+  if (mfFeedback) mfFeedback.textContent = matriceFootballSubmitted ? "Manche terminée !" :
+    "Grille non validée dans le temps imparti";
+});
+
 socket.on("petitBacTimerUpdate", ({ remaining, total }) => {
 
 
@@ -4999,6 +5159,7 @@ function updateGameStateUI(gs) {
 
 
             case "le_petit_bac": sfxRulePetitBac.play(); break;
+            case "matrice_football": sfxRuleMatriceFootball.play(); break;
 
 
             case "le_bon_ordre": sfxRuleBonOrdre.play(); break;
@@ -5339,6 +5500,34 @@ function updateGameStateUI(gs) {
         return;
 
 
+      }
+
+
+      // La Matrice est construite par matriceFootballStart. Une mise à jour
+      // générale ne doit ni recréer ses champs ni masquer sa correction.
+      if (gs.currentMiniGame === "matrice_football") {
+        if (mainDefault) mainDefault.classList.add("hidden");
+        if (mainDrawing) mainDrawing.classList.add("hidden");
+        if (mainRules) mainRules.classList.add("hidden");
+        if (mainPlaying) mainPlaying.classList.add("hidden");
+
+        const correction = document.getElementById("matriceFootballCorrectionContainer");
+        const sameInstance = gs.matriceFootballInstanceId &&
+          matriceFootballInstanceId === gs.matriceFootballInstanceId &&
+          matriceFootballRoomCode === currentRoom?.roomCode;
+        const sameCorrection = gs.matriceFootballInstanceId &&
+          currentMatriceFootballCorrection?.instanceId === gs.matriceFootballInstanceId &&
+          currentMatriceFootballCorrection?.roomCode === currentRoom?.roomCode;
+        if (sameCorrection && correction && !correction.classList.contains("hidden")) {
+          matriceFootballContainer?.classList.add("hidden");
+        } else if (sameInstance && currentMatriceFootball && matriceFootballRoundNumber === gs.roundNumber) {
+          correction?.classList.add("hidden");
+          matriceFootballContainer?.classList.remove("hidden");
+        } else {
+          correction?.classList.add("hidden");
+          matriceFootballContainer?.classList.add("hidden");
+        }
+        return;
       }
 
 
@@ -7287,6 +7476,11 @@ socket.on("playCorrectionArrow", () => {
 socket.on("correctionUpdate", (data) => {
   if (data.gameMode === "liste" &&
       (currentRoom?.gameMode !== "liste" || data.roomCode !== currentRoom.roomCode)) return;
+  if (data.miniGameType === "matrice_football" &&
+      (data.roomCode !== currentRoom?.roomCode ||
+       data.matriceFootballData?.instanceId !== currentGameState.matriceFootballInstanceId ||
+       (matriceFootballRoomCode === data.roomCode && matriceFootballInstanceId &&
+        data.matriceFootballData.instanceId !== matriceFootballInstanceId))) return;
 
 
   stopBlindTestAudio(); // On coupe le son avant tout
@@ -7315,6 +7509,10 @@ socket.on("correctionUpdate", (data) => {
 
 
     handlePetitBacCorrection(data, pbContainer);
+
+  } else if (data.miniGameType === "matrice_football") {
+
+    handleMatriceFootballCorrection(data);
 
 
   } else {
@@ -7602,6 +7800,60 @@ function handlePetitBacCorrection(data, container) {
 
 
 }
+
+function handleMatriceFootballCorrection(data) {
+  const container = document.getElementById("matriceFootballCorrectionContainer");
+  const matrixData = data.matriceFootballData;
+  if (!container || !matrixData || data.roomCode !== currentRoom?.roomCode ||
+      matrixData.instanceId !== currentGameState.matriceFootballInstanceId) return;
+  currentMatriceFootballCorrection = { ...matrixData, roomCode: data.roomCode };
+  container.classList.remove("hidden");
+  const host = currentRoom?.hostId === playerId;
+  const submitted = matrixData.submitted;
+  const answers = matrixData.answers || {};
+  const details = { ...matrixData.savedDetails };
+  document.getElementById("mfGradingPlayerName").textContent = data.playerPseudo;
+  document.getElementById("mfCorrectionStatus").textContent = submitted ? "" :
+    "Grille non validée dans le temps imparti";
+  const total = Object.values(details).reduce((sum, value) => sum + value, 0);
+  document.getElementById("mfTotalScore").textContent = `Total : ${total} / 9`;
+  const grid = document.getElementById("mfCorrectionGrid");
+  renderMatriceFootballGrid(grid, matrixData.matrix, answers, details, host && submitted,
+    (index, value) => {
+      if (!host || !submitted || currentGameState.currentMiniGame !== "matrice_football" ||
+          matrixData.roundNumber !== currentGameState.roundNumber ||
+          matrixData.instanceId !== currentGameState.matriceFootballInstanceId ||
+          !answers[index]?.trim()) return;
+      details[index] = value;
+      const revised = { ...details };
+      const points = Object.values(revised).reduce((sum, grade) => sum + grade, 0);
+      emitGameAction("hostGradePlayer", { points, details: revised, soundValue: value,
+        gradingPlayerId: matrixData.playerId, roundNumber: matrixData.roundNumber,
+        matrixId: matrixData.matrix.id, instanceId: matrixData.instanceId });
+    });
+  for (const id of ["mfPrevPlayer", "mfNextPlayer", "mfFinishCorrection"]) {
+    document.getElementById(id).style.display = host ? "block" : "none";
+  }
+  container.querySelector(".mf-wait-msg").style.display = host ? "none" : "block";
+}
+
+function matriceCorrectionActionPayload() {
+  const data = currentMatriceFootballCorrection;
+  return data ? { roundNumber: data.roundNumber, matrixId: data.matrix.id,
+    instanceId: data.instanceId, gradingPlayerId: data.playerId } : null;
+}
+document.getElementById("mfPrevPlayer")?.addEventListener("click", () => {
+  const context = matriceCorrectionActionPayload();
+  if (context) emitGameAction("correctionNavigate", { ...context, direction: -1 });
+});
+document.getElementById("mfNextPlayer")?.addEventListener("click", () => {
+  const context = matriceCorrectionActionPayload();
+  if (context) emitGameAction("correctionNavigate", { ...context, direction: 1 });
+});
+document.getElementById("mfFinishCorrection")?.addEventListener("click", () => {
+  const context = matriceCorrectionActionPayload();
+  if (context) emitGameAction("endMatriceFootballCorrection", context);
+});
 
 
 if (btnPrevPlayer) {

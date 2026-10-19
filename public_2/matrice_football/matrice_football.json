@@ -13,6 +13,48 @@
         "matrice_football/verticale/espagnol.jpg",
         "matrice_football/verticale/afrique.jpg"
       ]
+    },
+    {
+      "id": 2,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/horizontale/copa_america.jpg",
+        "matrice_football/horizontale/man_city.jpg",
+        "matrice_football/horizontale/ac_milan.jpg"
+      ],
+      "rows": [
+        "matrice_football/verticale/bresil.jpg",
+        "matrice_football/verticale/inter_milan.jpg",
+        "matrice_football/verticale/man_united.jpg"
+      ]
+    },
+    {
+      "id": 3,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/horizontale/allemagne.jpg",
+        "matrice_football/horizontale/aston_villa.jpg",
+        "matrice_football/horizontale/euro.jpg"
+      ],
+      "rows": [
+        "matrice_football/verticale/arsenal.jpg",
+        "matrice_football/verticale/man_city.jpg",
+        "matrice_football/verticale/premier_league.jpg"
+      ]
+    },
+    {
+      "id": 4,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/horizontale/argentine.jpg",
+        "matrice_football/horizontale/chelsea.jpg",
+        "matrice_football/horizontale/italie.jpg"
+      ],
+      "rows": [
+        "matrice_football/verticale/dortmund.jpg",
+        "matrice_football/verticale/champions_league.jpg",
+        "matrice_football/verticale/beckham.jpg"
+      ]
     }
   ]
 }

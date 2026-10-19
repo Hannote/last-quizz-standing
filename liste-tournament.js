@@ -13,18 +13,19 @@ function validateManualGrade({ miniGameType, points, details, categoryCount = 0 
     return { error: "La note doit être un nombre fini." };
   }
 
-  if (miniGameType !== "petit_bac") {
+  if (miniGameType !== "petit_bac" && miniGameType !== "matrice_football") {
     return STANDARD_GRADE_VALUES.has(points)
       ? { value: points }
       : { error: "La note doit valoir 0, 0,5 ou 1." };
   }
+  const label = miniGameType === "petit_bac" ? "du Petit Bac" : "de la Matrice Football";
 
   if (!Number.isInteger(categoryCount) || categoryCount < 1 ||
       points < 0 || points > categoryCount || !Number.isInteger(points * 2)) {
-    return { error: `La note du Petit Bac doit être comprise entre 0 et ${categoryCount}, par pas de 0,5.` };
+    return { error: `La note ${label} doit être comprise entre 0 et ${categoryCount}, par pas de 0,5.` };
   }
   if (!details || typeof details !== "object" || Array.isArray(details)) {
-    return { error: "Le détail des notes du Petit Bac est requis." };
+    return { error: `Le détail des notes ${label} est requis.` };
   }
 
   let total = 0;
@@ -32,12 +33,12 @@ function validateManualGrade({ miniGameType, points, details, categoryCount = 0 
     const index = Number(rawIndex);
     if (String(index) !== rawIndex || !Number.isInteger(index) || index < 0 ||
         index >= categoryCount || !STANDARD_GRADE_VALUES.has(value)) {
-      return { error: "Le détail des notes du Petit Bac est invalide." };
+      return { error: `Le détail des notes ${label} est invalide.` };
     }
     total += value;
   }
   if (total !== points) {
-    return { error: "Le total du Petit Bac ne correspond pas au détail des notes." };
+    return { error: `Le total ${label} ne correspond pas au détail des notes.` };
   }
 
   return { value: points, details: { ...details } };
@@ -65,7 +66,7 @@ function calculateGradeRevision({ previousScore = 0, previousTime = 0, newScore,
   assertFiniteNonNegative(maxDuration, "La durée maximale");
 
   // Le Petit Bac est une seule remise de formulaire, indépendante de sa note.
-  const appliedTime = miniGameType === "petit_bac" || newScore > 0 ? responseTime : maxDuration;
+  const appliedTime = ["petit_bac", "matrice_football"].includes(miniGameType) || newScore > 0 ? responseTime : maxDuration;
   return {
     scoreDelta: newScore - previousScore,
     timeDelta: appliedTime - previousTime,

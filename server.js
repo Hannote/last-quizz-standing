@@ -152,6 +152,8 @@ const leugtasData = require(
   )
 );
 const LEUGTAS_QUESTIONS = leugtasData.questions || [];
+const MATRICE_FOOTBALL_QUESTIONS = require(path.join(__dirname, "public_2", "matrice_football", "matrice_football.json")).questions || [];
+const MATRICE_FOOTBALL_DURATION_SECONDS = 150;
 
 // 3. LE FAUX DU VRAI
 const fauxVraiRaw = JSON.parse(
@@ -281,6 +283,11 @@ function validSocketMessage(event, data, room) {
        "correctionNextQuestion", "endPetitBacCorrection", "encheresFinalizeGame"].includes(event)) {
     return data == null;
   }
+  if (event === "endMatriceFootballCorrection") {
+    return hasMessageKeys(data, ["roundNumber", "matrixId", "instanceId", "gradingPlayerId"]) &&
+      Number.isInteger(data.roundNumber) && Number.isInteger(data.matrixId) &&
+      isText(data.instanceId, 36) && isSafePlayerId(data.gradingPlayerId);
+  }
   if (event === "hostSetGameMode") {
     return hasMessageKeys(data, ["gameMode"]) && ["battle_royale", "liste"].includes(data.gameMode);
   }
@@ -327,18 +334,37 @@ function validSocketMessage(event, data, room) {
       /^(0|[1-9]\d*)$/.test(key) && Number(key) < mini.categories.length &&
       isText(value, MAX_ANSWER_LENGTH, true));
   }
+  if (event === "matriceFootballAnswer") {
+    const answers = data?.answers;
+    const mini = currentActionMini(room, "matrice_football");
+    return !!mini &&
+      hasMessageKeys(data, ["answers", "roundNumber", "matrixId", "instanceId"]) &&
+      data.roundNumber === room.gameState.roundNumber &&
+      data.matrixId === mini.matrix.id && data.instanceId === mini.instanceId &&
+      isMessageObject(answers) && Object.keys(answers).length === 9 &&
+      Array.from({ length: 9 }, (_, index) => String(index)).every((key) =>
+        Object.hasOwn(answers, key) && isText(answers[key], MAX_ANSWER_LENGTH, true));
+  }
   if (event === "correctionNavigate") {
-    return hasMessageKeys(data, ["direction"]) && Number.isInteger(data.direction) &&
-      data.direction !== 0 && Math.abs(data.direction) <= 100;
+    return hasMessageKeys(data, ["direction", "roundNumber", "matrixId", "instanceId", "gradingPlayerId"]) &&
+      Number.isInteger(data.direction) && data.direction !== 0 && Math.abs(data.direction) <= 100 &&
+      (data.roundNumber === undefined || Number.isInteger(data.roundNumber)) &&
+      (data.matrixId === undefined || Number.isInteger(data.matrixId)) &&
+      (data.instanceId === undefined || isText(data.instanceId, 36)) &&
+      (data.gradingPlayerId === undefined || isSafePlayerId(data.gradingPlayerId));
   }
   if (event === "hostGradePlayer") {
     const mini = room?.gameState?.currentMiniGameState;
-    return hasMessageKeys(data, ["points", "details", "soundValue", ...historical]) &&
+    return hasMessageKeys(data, ["points", "details", "soundValue", "gradingPlayerId", "roundNumber", "matrixId", "instanceId", ...historical]) &&
       validHistoricalFields(data) &&
       Number.isFinite(data.points) &&
       (data.soundValue == null || [0, 0.5, 1].includes(data.soundValue)) &&
-      (data.details === undefined || (isMessageObject(data.details) &&
-        Object.keys(data.details).length <= (mini?.categories?.length || 0)));
+       (data.details === undefined || (isMessageObject(data.details) &&
+         Object.keys(data.details).length <= (mini?.type === "matrice_football" ? 9 : mini?.categories?.length || 0))) &&
+       (data.gradingPlayerId === undefined || isSafePlayerId(data.gradingPlayerId)) &&
+       (data.roundNumber === undefined || Number.isInteger(data.roundNumber)) &&
+       (data.matrixId === undefined || Number.isInteger(data.matrixId)) &&
+       (data.instanceId === undefined || isText(data.instanceId, 36));
   }
   if (event === "encheresVoteTheme") {
     const mini = currentActionMini(room, "les_encheres");
@@ -369,14 +395,14 @@ function validActionPhase(event, room) {
     leugtasAnswer: "qui_veut_gagner_des_leugtas", fauxVraiAnswer: "faux_vrai",
     quiSuisJeAnswer: "qui_suis_je", leBonOrdreAnswer: "le_bon_ordre",
     leTourDuMondeAnswer: "le_tour_du_monde", blindTestAnswer: "blind_test",
-    petitBacAnswer: "petit_bac", encheresVoteTheme: "les_encheres",
+    petitBacAnswer: "petit_bac", matriceFootballAnswer: "matrice_football", encheresVoteTheme: "les_encheres",
     encheresPlaceBid: "les_encheres", encheresSendAnswer: "les_encheres",
     encheresDeleteAnswer: "les_encheres", encheresToggleCorrection: "les_encheres",
     encheresFinalizeGame: "les_encheres"
   };
   if (Object.hasOwn(types, event) && !currentActionMini(room, types[event])) return false;
   const answerEvents = ["leugtasAnswer", "fauxVraiAnswer", "quiSuisJeAnswer",
-    "leBonOrdreAnswer", "leTourDuMondeAnswer", "blindTestAnswer", "petitBacAnswer"];
+    "leBonOrdreAnswer", "leTourDuMondeAnswer", "blindTestAnswer", "petitBacAnswer", "matriceFootballAnswer"];
   if (answerEvents.includes(event)) {
     const mini = currentActionMini(room, types[event]);
     if (!mini || mini.finished) return false;
@@ -387,13 +413,14 @@ function validActionPhase(event, room) {
   if (event === "playerSetReady") return room.gameState?.phase === "rules";
   if (event === "drawingFinished") return room.gameState?.phase === "drawingGame";
   if (["correctionNavigate", "hostGradePlayer", "correctionPrevQuestion",
-       "correctionNextQuestion", "endPetitBacCorrection"].includes(event)) {
+       "correctionNextQuestion", "endPetitBacCorrection", "endMatriceFootballCorrection"].includes(event)) {
     const mini = room.gameState?.currentMiniGameState;
     return room.gameState?.phase === "playing" && !!mini?.finished &&
       room.gameState.currentMiniGame === mini.type && Array.isArray(mini.questions) &&
       Number.isInteger(mini.correctionIndex) && mini.correctionIndex >= 0 &&
       mini.correctionIndex < mini.questions.length && Array.isArray(room.activePlayersList) &&
-      (event !== "endPetitBacCorrection" || mini.type === "petit_bac");
+       (event !== "endPetitBacCorrection" || mini.type === "petit_bac") &&
+       (event !== "endMatriceFootballCorrection" || mini.type === "matrice_football");
   }
   const mini = room.gameState?.currentMiniGameState;
   if (event === "encheresVoteTheme") return mini.subPhase === "theme_selection" && !!mini.timer?.running;
@@ -448,6 +475,7 @@ const POSSIBLE_MINI_GAMES = [
   "le_tour_du_monde",
   "le_bon_ordre",
   "petit_bac",
+  "matrice_football",
   "qui_veut_gagner_des_leugtas",
   "le_faux_du_vrai",
   "les_encheres" // <--- AJOUT
@@ -476,6 +504,7 @@ const MINI_GAME_CATALOG = [
   { id: "le_tour_du_monde", label: "Le tour du monde", modes: ["battle_royale", "liste"] },
   { id: "le_bon_ordre", label: "Le bon ordre", modes: ["battle_royale", "liste"] },
   { id: "petit_bac", label: "Le petit bac", modes: ["battle_royale", "liste"] },
+  { id: "matrice_football", label: "La Matrice Football", modes: ["battle_royale", "liste"] },
   { id: "qui_veut_gagner_des_leugtas", label: "Qui veut gagner des leugtas ?", modes: ["battle_royale", "liste"] },
   { id: "le_faux_du_vrai", label: "Le faux du vrai", modes: ["battle_royale", "liste"] },
   { id: "les_encheres", label: "Les Enchères", modes: ["battle_royale"] }
@@ -737,6 +766,8 @@ function getGameStateSummary(room) {
     phase: gs.phase,
     roundNumber: gs.roundNumber,
     currentMiniGame: gs.currentMiniGame,
+    matriceFootballInstanceId: gs.currentMiniGame === "matrice_football"
+      ? gs.currentMiniGameState?.instanceId ?? null : null,
     listeIntro: room.gameMode === "liste" && gs.phase === "listeIntro"
       ? {
         gameMode: "liste",
@@ -1724,6 +1755,32 @@ function startCorrectionPhase(roomCode) {
     ? room.players.filter((p) => isListeParticipant(room, p))
     : room.players.filter((p) => !p.eliminated && !p.isSpectator);
 
+  if (mini.type === "matrice_football") {
+    mini.gradingDetails = {};
+    mini.timesApplied = { 0: {} };
+    mini.scoresGiven = { 0: {} };
+    for (const player of room.activePlayersList) {
+      const answers = mini.playerAnswers[player.playerId];
+      const automatic = {};
+      for (let index = 0; index < 9; index++) {
+        if (!answers || !answers[index]?.trim()) automatic[index] = 0;
+      }
+      mini.gradingDetails[player.playerId] = automatic;
+      if (!answers) {
+        mini.scoresGiven[0][player.playerId] = 0;
+        mini.timesApplied[0][player.playerId] = MATRICE_FOOTBALL_DURATION_SECONDS;
+        player.roundTime += MATRICE_FOOTBALL_DURATION_SECONDS;
+        player.totalTime += MATRICE_FOOTBALL_DURATION_SECONDS;
+      } else if (Object.keys(automatic).length === 9) {
+        mini.scoresGiven[0][player.playerId] = 0;
+        const time = mini.responseTimes[player.playerId];
+        mini.timesApplied[0][player.playerId] = time;
+        player.roundTime += time;
+        player.totalTime += time;
+      }
+    }
+  }
+
   sendCorrectionData(roomCode);
 }
 
@@ -1770,6 +1827,15 @@ function sendCorrectionData(roomCode, targetSocket = null) {
       savedDetails
     };
   }
+  const matriceFootballData = mini.type === "matrice_football" ? {
+    matrix: mini.matrix,
+    instanceId: mini.instanceId,
+    answers: mini.playerAnswers[playerToCheck.playerId] || {},
+    submitted: Object.hasOwn(mini.playerAnswers, playerToCheck.playerId),
+    savedDetails: mini.gradingDetails?.[playerToCheck.playerId] || {},
+    playerId: playerToCheck.playerId,
+    roundNumber: gs.roundNumber
+  } : null;
 
   const q = mini.questions[mini.correctionIndex];
 
@@ -1782,7 +1848,7 @@ function sendCorrectionData(roomCode, targetSocket = null) {
 
   const history = mini.history[playerToCheck.playerId] || {};
   const answer =
-    mini.type === "petit_bac"
+    ["petit_bac", "matrice_football"].includes(mini.type)
       ? "Voir fiche"
       : history[mini.correctionIndex] || "Pas de réponse";
 
@@ -1805,6 +1871,8 @@ function sendCorrectionData(roomCode, targetSocket = null) {
 
   publishListeContext(room, targetSocket || io.to(roomCode));
   emitCorrectionUpdate({
+    gameMode: room.gameMode,
+    roomCode,
     miniGameType: mini.type,
     questionImage: q.image_question || q.image,
     questionText: q.question || q.text,
@@ -1816,7 +1884,8 @@ function sendCorrectionData(roomCode, targetSocket = null) {
     currentQIndex: mini.correctionIndex + 1,
     totalQ: mini.questions.length,
     currentGrade: currentGrade,
-    petitBacData
+    petitBacData,
+    matriceFootballData
   });
 }
 
@@ -2272,6 +2341,68 @@ function endPetitBacRound(roomCode) {
   }, 3000);
 }
 
+function startMatriceFootball(roomCode) {
+  const room = rooms[roomCode];
+  if (!room || room.gameState?.phase !== "playing" || room.gameState.currentMiniGame !== "matrice_football") return;
+  let available = getUnusedQuestions(MATRICE_FOOTBALL_QUESTIONS, "matrice_football");
+  if (available.length === 0) {
+    resetGameHistory("matrice_football");
+    available = getUnusedQuestions(MATRICE_FOOTBALL_QUESTIONS, "matrice_football");
+  }
+  if (!available.length) return console.error("Aucune matrice Football disponible.");
+  const matrix = available[Math.floor(Math.random() * available.length)];
+  markQuestionsAsPlayed([matrix], "matrice_football");
+  const mini = room.gameState.currentMiniGameState = {
+    type: "matrice_football", instanceId: randomUUID(), matrix, questions: [matrix], questionIndex: 0,
+    playerAnswers: {}, responseTimes: {}, history: {}, scoresGiven: {}, gradingDetails: {},
+    finished: false, timer: null
+  };
+  publishListeContext(room);
+  io.to(roomCode).emit("matriceFootballStart", { matrix, instanceId: mini.instanceId,
+    roomCode, duration: MATRICE_FOOTBALL_DURATION_SECONDS,
+    roundNumber: room.gameState.roundNumber, gameMode: room.gameMode });
+  roomTimeout(room, () => {
+    if (room.gameState.phase !== "playing" || room.gameState.currentMiniGameState !== mini ||
+        room.gameState.currentMiniGame !== "matrice_football") return;
+    mini.startTime = Date.now();
+    mini.timer = { totalSeconds: MATRICE_FOOTBALL_DURATION_SECONDS,
+      remainingSeconds: MATRICE_FOOTBALL_DURATION_SECONDS, running: true };
+    io.to(roomCode).emit("matriceFootballTimerUpdate", { remaining: MATRICE_FOOTBALL_DURATION_SECONDS,
+      total: MATRICE_FOOTBALL_DURATION_SECONDS, roundNumber: room.gameState.roundNumber,
+      instanceId: mini.instanceId });
+    room.matriceFootballInterval = roomInterval(room, () => {
+      if (room.gameState.phase !== "playing" || room.gameState.currentMiniGameState !== mini ||
+          room.gameState.currentMiniGame !== "matrice_football" || !mini.timer.running) {
+        clearInterval(room.matriceFootballInterval);
+        return;
+      }
+      const remaining = Math.max(0, MATRICE_FOOTBALL_DURATION_SECONDS -
+        Math.floor((Date.now() - mini.startTime) / 1000));
+      mini.timer.remainingSeconds = remaining;
+      io.to(roomCode).emit("matriceFootballTimerUpdate", { remaining,
+        total: MATRICE_FOOTBALL_DURATION_SECONDS, roundNumber: room.gameState.roundNumber,
+        instanceId: mini.instanceId });
+      if (remaining <= 0) endMatriceFootballRound(roomCode);
+    }, 1000);
+  }, 2500);
+}
+
+function endMatriceFootballRound(roomCode) {
+  const room = rooms[roomCode];
+  const mini = room?.gameState?.currentMiniGameState;
+  if (!room || room.gameState.phase !== "playing" || room.gameState.currentMiniGame !== "matrice_football" ||
+      mini?.type !== "matrice_football" || mini.finished) return;
+  mini.finished = true;
+  if (mini.timer) mini.timer.running = false;
+  if (room.matriceFootballInterval) clearInterval(room.matriceFootballInterval);
+  io.to(roomCode).emit("matriceFootballEnd", { roundNumber: room.gameState.roundNumber,
+    instanceId: mini.instanceId });
+  roomTimeout(room, () => {
+    if (room.gameState.phase === "playing" && room.gameState.currentMiniGameState === mini &&
+        room.gameState.currentMiniGame === "matrice_football") startCorrectionPhase(roomCode);
+  }, 3000);
+}
+
 // ===============================
 //   SOCKET.IO
 // ===============================
@@ -2411,6 +2542,9 @@ function startReadyMiniGame(room, startEncheres) {
     else if (gs.currentMiniGame === "petit_bac") {
       startPetitBac(roomCode);
     }
+    else if (gs.currentMiniGame === "matrice_football") {
+      startMatriceFootball(roomCode);
+    }
     // ------- LES ENCHÈRES ----------
     else if (gs.currentMiniGame === "les_encheres") {
       startEncheres(roomCode);
@@ -2439,9 +2573,10 @@ io.on("connection", (socket) => {
       drawingFinished: "drawingGame", playerSetReady: "rules",
       leugtasAnswer: "playing", fauxVraiAnswer: "playing",
       quiSuisJeAnswer: "playing", leBonOrdreAnswer: "playing",
-      leTourDuMondeAnswer: "playing", blindTestAnswer: "playing", petitBacAnswer: "playing",
+      leTourDuMondeAnswer: "playing", blindTestAnswer: "playing", petitBacAnswer: "playing", matriceFootballAnswer: "playing",
       correctionNavigate: "playing", correctionPrevQuestion: "playing",
-      correctionNextQuestion: "playing", hostGradePlayer: "playing", endPetitBacCorrection: "playing"
+      correctionNextQuestion: "playing", hostGradePlayer: "playing", endPetitBacCorrection: "playing",
+      endMatriceFootballCorrection: "playing"
     };
     if (!phases[event]) return next();
     const player = room.players.find((p) => p.playerId === socket.playerId);
@@ -2450,15 +2585,17 @@ io.on("connection", (socket) => {
     const expected = getListeContext(room);
     if (!context || Object.keys(expected).some((key) => context[key] !== expected[key])) return;
     if (event === "drawingFinished" || event.startsWith("correction") ||
-        event === "hostGradePlayer" || event === "endPetitBacCorrection") {
+         event === "hostGradePlayer" || event === "endPetitBacCorrection" || event === "endMatriceFootballCorrection") {
       if (room.hostId !== socket.playerId) return;
     }
-    if (event.startsWith("correction") || event === "hostGradePlayer" || event === "endPetitBacCorrection") {
+    if (event.startsWith("correction") || event === "hostGradePlayer" ||
+        event === "endPetitBacCorrection" || event === "endMatriceFootballCorrection") {
       const mini = room.gameState.currentMiniGameState;
       if (!mini?.finished || !Number.isInteger(mini.correctionIndex) ||
           mini.correctionIndex >= mini.questions.length) return;
     }
-    if (event === "petitBacAnswer" && !room.gameState.currentMiniGameState?.timer?.running) return;
+    if (["petitBacAnswer", "matriceFootballAnswer"].includes(event) &&
+        !room.gameState.currentMiniGameState?.timer?.running) return;
     next();
   });
   console.log("Client connecté :", socket.id);
@@ -3083,6 +3220,9 @@ io.on("connection", (socket) => {
 
     socket.emit("roomUpdate", serializeRoom(room));
     socket.emit("gameStateUpdate", getGameStateSummary(room));
+    if (room.gameState?.currentMiniGame === "matrice_football") {
+      syncPlayerWithGame(socket, room);
+    }
   });
 
     // -----------------------------------
@@ -3255,13 +3395,47 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("matriceFootballAnswer", ({ answers, roundNumber, matrixId, instanceId } = {}) => {
+    const room = getSocketRoom(socket);
+    const player = room?.players.find((p) => p.playerId === socket.playerId);
+    const mini = room?.gameState?.currentMiniGameState;
+    if (!room || !player || !isActiveMiniGamePlayer(room, player) ||
+        !canUseMiniGameSocket(room, player, socket) || mini?.type !== "matrice_football" ||
+        room.gameState.phase !== "playing" || mini.finished || !mini.timer?.running ||
+        room.gameState.roundNumber !== roundNumber || mini.matrix.id !== matrixId ||
+        mini.instanceId !== instanceId ||
+        Date.now() >= mini.startTime + MATRICE_FOOTBALL_DURATION_SECONDS * 1000) return;
+    if (Object.hasOwn(mini.playerAnswers, socket.playerId)) {
+      socket.emit("matriceFootballAnswerAck", { roundNumber, matrixId, instanceId });
+      return;
+    }
+    const saved = {};
+    for (let index = 0; index < 9; index++) saved[index] = answers[index].trim();
+    const timeTaken = Math.max(0, (Date.now() - mini.startTime) / 1000);
+    mini.playerAnswers[socket.playerId] = saved;
+    mini.history[socket.playerId] = { 0: saved };
+    mini.responseTimes[socket.playerId] = timeTaken;
+    rememberManualResponseTime(mini, socket.playerId, timeTaken);
+    socket.emit("matriceFootballAnswerAck", { roundNumber, matrixId, instanceId });
+    if (room.players.filter((p) => isActiveMiniGamePlayer(room, p)).every((p) =>
+      Object.hasOwn(mini.playerAnswers, p.playerId))) endMatriceFootballRound(room.roomCode);
+  });
+
   // -----------------------------------
   //      CORRECTION (LE JUGE)
   // -----------------------------------
-  socket.on("correctionNavigate", ({ direction }) => {
+  socket.on("correctionNavigate", (action) => {
+    const { direction } = action;
     const room = getHostRoom(socket);
     if (!room) return;
     const mini = room.gameState.currentMiniGameState;
+    if (mini?.correctionEnding) return;
+    if (mini?.type === "matrice_football") {
+      if (action?.roundNumber !== room.gameState.roundNumber ||
+          action?.matrixId !== mini.matrix.id ||
+          action?.instanceId !== mini.instanceId ||
+          action?.gradingPlayerId !== room.activePlayersList?.[mini.gradingPlayerIndex]?.playerId) return;
+    }
     if (room.gameMode === "liste") {
       pruneListeCorrectionPlayers(room);
       if (!mini || !room.activePlayersList?.length) return;
@@ -3289,16 +3463,29 @@ io.on("connection", (socket) => {
     const gs = room.gameState;
     const mini = gs.currentMiniGameState;
     if (!mini || !room.activePlayersList) return;
+    if (mini.correctionEnding) return;
 
     const player = room.activePlayersList[mini.gradingPlayerIndex];
     if (!player) return;
     if (room.gameMode === "liste" && !isListeParticipant(room, player)) return;
+    if (mini.type === "matrice_football") {
+      if (data.gradingPlayerId !== player.playerId ||
+          data.roundNumber !== gs.roundNumber || data.matrixId !== mini.matrix.id ||
+          data.instanceId !== mini.instanceId ||
+          !Object.hasOwn(mini.playerAnswers, player.playerId)) return;
+      for (const [index, value] of Object.entries(details || {})) {
+        if (!mini.playerAnswers[player.playerId][index]?.trim() && value !== 0) return;
+      }
+      for (let index = 0; index < 9; index++) {
+        if (!mini.playerAnswers[player.playerId][index]?.trim() && details?.[index] !== 0) return;
+      }
+    }
 
     const grade = validateManualGrade({
       miniGameType: mini.type,
       points,
       details,
-      categoryCount: mini.categories?.length || 0
+      categoryCount: mini.type === "matrice_football" ? 9 : mini.categories?.length || 0
     });
     if (grade.error) return socket.emit("errorMessage", grade.error);
     const soundVal = data.soundValue;
@@ -3319,7 +3506,7 @@ io.on("connection", (socket) => {
     const newScore = grade.value;
 
     let maxDuration = 40; // Valeur par défaut (Qui suis-je, Tour du monde, Blind test)
-    if (mini.type === "petit_bac") {
+    if (["petit_bac", "matrice_football"].includes(mini.type)) {
       maxDuration = mini.timer?.totalSeconds ?? 150;
     } else if (mini.type === "le_bon_ordre") {
       maxDuration = LE_BON_ORDRE_DURATION;
@@ -3350,7 +3537,7 @@ io.on("connection", (socket) => {
     mini.scoresGiven[mini.correctionIndex][player.playerId] = newScore;
     mini.timesApplied[mini.correctionIndex][player.playerId] = revision.appliedTime;
 
-    if (mini.type === "petit_bac") {
+    if (["petit_bac", "matrice_football"].includes(mini.type)) {
       if (!mini.gradingDetails) mini.gradingDetails = {};
       mini.gradingDetails[player.playerId] = grade.details;
     }
@@ -3445,6 +3632,39 @@ io.on("connection", (socket) => {
       io.to(room.roomCode).emit("leBonOrdreExit");
       roomTimeout(room, () => {
         endMiniGame(room.roomCode);
+      }, room.gameMode === "liste" ? LISTE_END_LOGO_DURATION_MS : 7000);
+    }, 5000);
+  });
+
+  socket.on("endMatriceFootballCorrection", (data) => {
+    const room = getHostRoom(socket);
+    const mini = room?.gameState?.currentMiniGameState;
+    if (!room || room.gameState.phase !== "playing" ||
+        room.gameState.currentMiniGame !== "matrice_football" ||
+        mini?.type !== "matrice_football" || !mini.finished || mini.correctionIndex !== 0 ||
+        data.roundNumber !== room.gameState.roundNumber || data.matrixId !== mini.matrix.id ||
+        data.instanceId !== mini.instanceId ||
+        data.gradingPlayerId !== room.activePlayersList?.[mini.gradingPlayerIndex]?.playerId ||
+        mini.correctionEnding) return;
+    if (room.gameMode === "liste") pruneListeCorrectionPlayers(room);
+    if (room.activePlayersList.some((player) =>
+      Object.keys(mini.gradingDetails[player.playerId] || {}).length !== 9 ||
+      mini.scoresGiven?.[0]?.[player.playerId] === undefined)) {
+      return socket.emit("errorMessage", "Corrigez toutes les grilles avant de terminer.");
+    }
+    mini.correctionEnding = true;
+    beginListeRoundEnd(room);
+    io.to(room.roomCode).emit("scoreUpdate", getMiniGameScoreUpdate(room));
+    io.to(room.roomCode).emit("leugtasReveal", {
+      isLastQuestion: true, correctAnswerId: null, playerAnswers: null, skipAnimation: true
+    });
+    roomTimeout(room, () => {
+      if (room.gameState.currentMiniGameState !== mini ||
+          room.gameState.currentMiniGame !== "matrice_football") return;
+      io.to(room.roomCode).emit("leBonOrdreExit");
+      roomTimeout(room, () => {
+        if (room.gameState.currentMiniGameState === mini &&
+            room.gameState.currentMiniGame === "matrice_football") endMiniGame(room.roomCode);
       }, room.gameMode === "liste" ? LISTE_END_LOGO_DURATION_MS : 7000);
     }, 5000);
   });
@@ -3859,7 +4079,7 @@ function syncPlayerWithGame(socket, room) {
   // === GESTION DE LA CORRECTION (Si le jeu est fini) ===
   if (
     mini.finished &&
-    ["qui_suis_je", "le_bon_ordre", "le_tour_du_monde", "blind_test", "petit_bac", "les_encheres"].includes(mini.type)
+    ["qui_suis_je", "le_bon_ordre", "le_tour_du_monde", "blind_test", "petit_bac", "matrice_football", "les_encheres"].includes(mini.type)
   ) {
     // --- FIX : ON AJOUTE LA V�RIFICATION DE L'INDEX ICI ---
     if (typeof mini.correctionIndex !== "undefined" && mini.correctionIndex < mini.questions.length) {
@@ -3957,6 +4177,19 @@ function syncPlayerWithGame(socket, room) {
       hasAnswered: savedAnswers !== undefined, savedAnswers: savedAnswers || null
     });
     socket.emit("petitBacTimerUpdate", { remaining, total: duration });
+  }
+  else if (mini.type === "matrice_football") {
+    const duration = MATRICE_FOOTBALL_DURATION_SECONDS;
+    const savedAnswers = mini.playerAnswers[socket.playerId];
+    socket.emit("matriceFootballStart", { matrix: mini.matrix, instanceId: mini.instanceId,
+      roomCode: room.roomCode, duration,
+      roundNumber: gs.roundNumber, gameMode: room.gameMode,
+      hasAnswered: savedAnswers !== undefined, savedAnswers: savedAnswers || null,
+      isReload: true });
+    socket.emit("matriceFootballTimerUpdate", {
+      remaining: mini.timer?.remainingSeconds ?? duration, total: duration,
+      roundNumber: gs.roundNumber, instanceId: mini.instanceId
+    });
   }
   // 8. LES ENCHERES
   else if (mini.type === "les_encheres") {

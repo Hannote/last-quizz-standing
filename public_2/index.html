@@ -1917,6 +1917,7 @@
               <option value="le_tour_du_monde">Le tour du monde</option>
               <option value="le_bon_ordre">Le bon ordre</option>
               <option value="petit_bac">Le petit bac</option>
+              <option value="matrice_football">La Matrice Football</option>
               <option value="qui_veut_gagner_des_leugtas">
                 Qui veut gagner des leugtas ?
               </option>
@@ -2195,6 +2196,16 @@
       </div>
     </div>
 
+  <div id="matriceFootballContainer" class="hidden mini-container mf-container">
+    <div class="playing-title">La Matrice Football</div>
+    <p id="mfQuestion" class="mf-instruction"></p>
+    <div id="mfTimerNumber" class="timer-number">150</div>
+    <div class="timer-bar"><div id="mfTimerFill" class="timer-bar-fill"></div></div>
+    <div id="mfPlayingGrid" class="mf-grid" aria-label="Grille de la Matrice Football"></div>
+    <button id="mfValidateBtn" class="btn-validate mf-main-button">Valider ma grille</button>
+    <div id="mfFeedback" class="playing-feedback" aria-live="polite"></div>
+  </div>
+
   <style>
     #corrAnswerBlock {
       position: relative;
@@ -2421,6 +2432,43 @@
         <div class="spectator-msg pb-wait-msg">L'hôte corrige...</div>
     </div>
   </div>
+
+  <div id="matriceFootballCorrectionContainer" class="hidden mini-container correction-container mf-container">
+    <div class="playing-title">Correction : La Matrice Football</div>
+    <div id="mfGradingPlayerName" class="mf-player-name"></div>
+    <div id="mfCorrectionStatus" class="mf-correction-status"></div>
+    <div id="mfCorrectionGrid" class="mf-grid mf-correction-grid"></div>
+    <div id="mfTotalScore" class="mf-total-score">Total : 0 / 9</div>
+    <div class="mf-nav">
+      <button id="mfPrevPlayer" class="btn-secondary">← Précédent</button>
+      <button id="mfNextPlayer" class="btn-secondary">Suivant →</button>
+    </div>
+    <button id="mfFinishCorrection" class="btn-primary mf-main-button">Terminer la correction</button>
+    <div class="spectator-msg mf-wait-msg">L'hôte corrige...</div>
+  </div>
+
+  <style>
+    .mf-container { width: min(100%, 760px); max-width: 100%; margin-inline: auto; overflow-x: hidden; }
+    .mf-instruction { text-align: center; font-size: clamp(.85rem, 3.5vw, 1rem); margin: 6px 0 12px; }
+    .mf-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(3px, 1vw, 8px); width: 100%; margin: 12px auto; }
+    .mf-grid > * { min-width: 0; }
+    .mf-header { display: flex; align-items: center; justify-content: center; min-height: clamp(52px, 17vw, 120px); padding: 3px; background: rgba(0,0,0,.35); border: 1px solid rgba(255,204,0,.45); border-radius: 7px; }
+    .mf-header img { width: 100%; height: 100%; max-height: clamp(48px, 16vw, 112px); object-fit: contain; }
+    .mf-cell { min-height: clamp(94px, 26vw, 150px); padding: clamp(3px, 1vw, 8px); background: rgba(255,255,255,.07); border: 1px solid rgba(255,204,0,.55); border-radius: 7px; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+    .mf-cell input { width: 100%; min-width: 0; padding: 6px 3px; border: 1px solid #777; border-radius: 5px; background: #222; color: white; font-size: clamp(.75rem, 2.9vw, 1rem); text-align: center; }
+    .mf-answer { width: 100%; overflow-wrap: anywhere; word-break: break-word; text-align: center; font-size: clamp(.75rem, 3vw, 1rem); font-weight: 700; line-height: 1.2; }
+    .mf-grade-buttons { display: flex; gap: 2px; justify-content: center; }
+    .mf-grade-buttons .pb-btn-small { min-width: 0; min-height: 34px; font-size: clamp(.58rem, 2.5vw, .85rem); padding: 3px 0; }
+    .mf-main-button { width: 100%; min-height: 46px; margin-top: 12px; }
+    .mf-player-name { color: #ffcc00; font-size: clamp(1.2rem, 5vw, 2rem); font-weight: 800; text-align: center; overflow-wrap: anywhere; }
+    .mf-correction-status, .mf-total-score { text-align: center; margin: 8px 0; font-weight: 700; }
+    .mf-correction-status { color: #ff6b6b; }
+    .mf-nav { display: flex; gap: 8px; }
+    .mf-nav button { flex: 1; min-width: 0; min-height: 44px; }
+    .mf-correction-grid { max-height: min(63vh, 670px); overflow-y: auto; }
+    .mf-wait-msg { text-align: center; }
+    @media (max-width: 430px) { .mf-container { padding-inline: 6px; } .mf-grid { gap: 3px; } .mf-cell { padding: 2px; } .mf-correction-grid .mf-grade-buttons { flex-direction: column; } .mf-correction-grid .mf-grade-buttons .pb-btn-small { min-height: 40px; } }
+  </style>
 
   <style>
     /* CSS SPÉCIFIQUE ENCHÈRES - NE PAS MODIFIER LES AUTRES */
