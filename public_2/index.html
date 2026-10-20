@@ -1780,6 +1780,77 @@
         white-space: pre-wrap;
         margin: 0 20px;
       }
+      body.mode-liste #penaveContainer {
+        box-sizing: border-box;
+        width: 100%; max-width: 100%; min-width: 0;
+        flex-direction: column; gap: 8px; align-items: stretch;
+        padding: clamp(10px, 3vw, 18px);
+        overflow: hidden;
+      }
+      body.mode-liste #penaveContainer:not(.hidden) { display: flex; }
+      body.mode-liste #penaveLogo { display: block; width: min(48vw, 185px); max-height: 90px; object-fit: contain; margin: 0 auto; }
+      body.mode-liste #penaveContainer .playing-question { font-size: clamp(1rem, 3.6vw, 1.35rem); margin: 0; overflow-wrap: anywhere; }
+      body.mode-liste .penave-actor { text-align: center; color: #ffcc00; font-size: clamp(1rem, 4vw, 1.3rem); font-weight: 800; overflow-wrap: anywhere; }
+      body.mode-liste .penave-order { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-height: min(18vh, 140px); overflow-y: auto; min-width: 0; }
+      body.mode-liste .penave-order-player { max-width: 100%; padding: 6px 9px; border: 1px solid #d9a62c; border-radius: 999px; background: #222; color: #fff; font-size: clamp(.72rem, 2.8vw, .95rem); overflow-wrap: anywhere; text-align: center; }
+      body.mode-liste .penave-order-player.active { background: #ffcc00; color: #111; box-shadow: 0 0 12px rgba(255,204,0,.7); font-weight: 900; }
+      body.mode-liste #penaveTurn { text-align: center; }
+      body.mode-liste #penaveForm { width: 100%; }
+      body.mode-liste #penaveInput { box-sizing: border-box; width: 100%; min-width: 0; }
+      body.mode-liste #penaveForm button { min-height: 44px; }
+      body.mode-liste #penaveForm :disabled { opacity: .45; cursor: default; }
+      body.mode-liste .penave-board { background: #111; border: 2px solid #d9a62c; border-radius: 10px; padding: 10px; min-height: 100px; max-height: min(38vh, 340px); overflow-y: auto; overflow-x: hidden; }
+      body.mode-liste .penave-row { display: flex; align-items: start; gap: 6px; border-bottom: 1px solid #555; padding: 6px 0; min-width: 0; }
+      body.mode-liste .penave-row span { min-width: 0; overflow-wrap: anywhere; }
+      body.mode-liste .penave-row .penave-name { flex: 0 1 25%; color: #ffcc00; font-weight: bold; }
+      body.mode-liste .penave-row .penave-answer { flex: 1 1 0; }
+      body.mode-liste .penave-row .penave-status { flex: 0 1 20%; font-size: .8rem; }
+      body.mode-liste .penave-grade {
+        box-sizing: border-box;
+        flex: 0 0 44px;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+        margin: 0;
+        padding: 0;
+        line-height: 1;
+        font-weight: bold;
+      }
+      body.mode-liste #penaveThemeOverlay,
+      body.mode-liste #penaveAnnouncementOverlay,
+      body.mode-liste #penaveEndOverlay { z-index: 20000; }
+      body.mode-liste #penaveAnnouncementOverlay { background: rgba(0,0,0,.95); }
+      body.mode-liste #penaveAnnouncementText { font-size: clamp(1.5rem, 7vw, 5rem); overflow-wrap: anywhere; animation: palierStay .6s ease-out both; }
+      body.mode-liste .penave-answer-arriving { visibility: hidden; }
+      body.mode-liste .penave-answer-flight {
+        position: fixed; z-index: 20001; width: min(80vw, 420px); box-sizing: border-box;
+        padding: 12px; border: 2px solid #ffcc00; border-radius: 12px;
+        background: #111; color: #fff; font-size: clamp(1rem, 4vw, 1.4rem);
+        font-weight: 800; text-align: center; overflow-wrap: anywhere; pointer-events: none;
+      }
+      body.mode-liste #leaderboard-overlay.penave-ranking-active { z-index: 20000; box-sizing: border-box; padding: 60px 10px 18px; }
+      body.mode-liste #leaderboard-overlay.penave-ranking-active #leaderboard-content {
+        max-height: calc(100dvh - 150px); overflow-y: auto; overflow-x: hidden; max-width: 100%;
+      }
+      body.mode-liste #leaderboard-overlay.penave-ranking-active #leaderboard-content { width: min(100%, 500px); }
+      body.mode-liste #leaderboard-overlay.penave-ranking-active .player-row {
+        display: grid; grid-template-columns: 2.3em minmax(0, 1fr) auto 3.6em;
+        gap: 6px; padding: 10px; min-width: 0;
+      }
+      body.mode-liste #leaderboard-overlay.penave-ranking-active .rank-num { width: auto; }
+      body.mode-liste #leaderboard-overlay.penave-ranking-active .p-name { min-width: 0; overflow-wrap: anywhere; }
+      body.mode-liste #leaderboard-overlay.penave-ranking-active .p-score { white-space: nowrap; }
+      body.mode-liste #leaderboard-overlay.penave-ranking-active .p-time { width: auto; margin: 0; }
+      body.mode-liste #leaderboard-overlay.penave-ranking-active .p-meta { display: none; }
+      body.mode-liste #penaveEndOverlay .leugtas-end-logo { max-width: 80vw; max-height: 65vh; object-fit: contain; }
+      @media (max-width: 430px) {
+        body.mode-liste #penaveContainer { padding: 8px; }
+        body.mode-liste .penave-row { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px; text-align: left; }
+        body.mode-liste .penave-row .penave-name,
+        body.mode-liste .penave-row .penave-answer { grid-column: 1 / -1; }
+        body.mode-liste .penave-row .penave-status { grid-column: 1; }
+      }
     </style>
       <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
@@ -2009,6 +2080,26 @@
               <div id="playingChoices" class="playing-choices"></div>
               <div id="playingFeedback" class="playing-feedback"></div>
             </div>
+<section id="penaveContainer" class="hidden mini-container" aria-live="polite">
+  <img id="penaveLogo" src="titres/penave_ou_nachave.png" alt="Pénave ou Nachave" />
+  <div id="penaveAffirmation" class="playing-question"></div>
+  <div id="penaveTurn" class="playing-question-number"></div>
+  <div id="penaveOrder" class="penave-order" aria-label="Ordre de passage"></div>
+  <div id="penaveActor" class="penave-actor"></div>
+  <div id="penaveTimer" class="timer-number"></div>
+  <div class="timer-bar"><div id="penaveTimerFill" class="timer-bar-fill"></div></div>
+  <form id="penaveForm" autocomplete="off">
+    <input id="penaveInput" class="lbo-input" maxlength="120" placeholder="Votre réponse…" aria-label="Votre réponse" />
+    <div class="lbo-buttons-row">
+      <button id="penaveValidate" type="submit" class="btn-validate">Valider</button>
+      <button id="penavePass" type="button" class="btn-pass">Je passe</button>
+    </div>
+  </form>
+  <div id="penaveBoard" class="penave-board" aria-label="Tableau des réponses"></div>
+</section>
+<div id="penaveThemeOverlay" class="palier-overlay hidden" aria-live="polite"><div id="penaveThemeOverlayText" class="palier-overlay-text"></div></div>
+<div id="penaveAnnouncementOverlay" class="palier-overlay hidden" aria-live="polite"><div id="penaveAnnouncementText" class="palier-overlay-text"></div></div>
+<div id="penaveEndOverlay" class="leugtas-end-overlay hidden"><img src="titres/penave_ou_nachave.png" class="leugtas-end-logo" alt="Pénave ou Nachave" /></div>
 <div id="fauxVraiContainer" class="hidden mini-container">
   <div class="playing-title" style="margin-bottom: 10px;">Le Faux du Vrai</div>
 

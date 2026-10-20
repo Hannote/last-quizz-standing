@@ -9,6 +9,7 @@ const path = require("path");
 const fs = require("fs");
 const { randomBytes, randomUUID, timingSafeEqual } = require("crypto");
 const { shuffleCopy } = require("./question-shuffle");
+const { DURATION_MS: PENAVE_DURATION_MS, validateQuestionBank, rankPenaveResults } = require("./penave-ou-nachave");
 const {
   calculateGradeRevision,
   getQuestionResponseTime,
@@ -45,6 +46,15 @@ if (DATA_DIR !== "/data" && !fs.existsSync(DATA_DIR)){
 }
 
 const HISTORY_FILE = process.env.LQS_HISTORY_FILE || path.join(DATA_DIR, "played_questions_history.json");
+let penaveBank;
+let penaveBankError = null;
+try {
+  penaveBank = validateQuestionBank(JSON.parse(fs.readFileSync(
+    path.join(__dirname, "public_2", "penave_ou_nachave", "penave_ou_nachave.json"), "utf8")));
+} catch (error) {
+  penaveBankError = error.message;
+  console.error(penaveBankError);
+}
 
 // 3. Lire l'historique
 function getPlayedHistory() {
@@ -303,6 +313,22 @@ function validSocketMessage(event, data, room) {
   if (event === "playerSetReady") {
     return hasMessageKeys(data, ["isReady"]) && typeof data.isReady === "boolean";
   }
+  if (event === "penaveCueFinished") {
+    return hasMessageKeys(data, ["instanceId", "turnNumber", "passageId"]) &&
+      isText(data.instanceId, 36) && Number.isInteger(data.turnNumber) &&
+      Number.isInteger(data.passageId);
+  }
+  if (event === "penaveAnswer") {
+    return hasMessageKeys(data, ["answer", "pass", "instanceId", "turnNumber", "passageId"]) &&
+      typeof data.pass === "boolean" && isText(data.answer, MAX_ANSWER_LENGTH, true) &&
+      isText(data.instanceId, 36) && Number.isInteger(data.turnNumber) &&
+      Number.isInteger(data.passageId);
+  }
+  if (event === "penaveGrade") {
+    return hasMessageKeys(data, ["accepted", "instanceId", "turnNumber", "passageId"]) &&
+      typeof data.accepted === "boolean" && isText(data.instanceId, 36) &&
+      Number.isInteger(data.turnNumber) && Number.isInteger(data.passageId);
+  }
   if (event === "leugtasAnswer") {
     const q = currentActionMini(room, "qui_veut_gagner_des_leugtas")?.questions?.[
       room.gameState.currentMiniGameState.questionIndex];
@@ -391,6 +417,11 @@ function validSocketMessage(event, data, room) {
 }
 
 function validActionPhase(event, room) {
+  if (["penaveCueFinished", "penaveAnswer", "penaveGrade"].includes(event)) {
+    const mini = getPenaveMini(room);
+    return room.gameState.phase === "playing" && mini?.subPhase ===
+      (event === "penaveCueFinished" ? "cue" : event === "penaveAnswer" ? "answer" : "correction");
+  }
   const types = {
     leugtasAnswer: "qui_veut_gagner_des_leugtas", fauxVraiAnswer: "faux_vrai",
     quiSuisJeAnswer: "qui_suis_je", leBonOrdreAnswer: "le_bon_ordre",
@@ -499,6 +530,7 @@ const LISTE_INTRO_DURATION_MS = 16500;
 
 // Catalogue Liste indépendant du tirage et du bac à sable Battle Royale.
 const MINI_GAME_CATALOG = [
+  { id: "penave_ou_nachave", label: "Pénave ou Nachave", modes: ["liste"] },
   { id: "qui_suis_je", label: "Qui suis-je ?", modes: ["battle_royale", "liste"] },
   { id: "blind_test", label: "Blind test", modes: ["battle_royale", "liste"] },
   { id: "le_tour_du_monde", label: "Le tour du monde", modes: ["battle_royale", "liste"] },
@@ -591,14 +623,17 @@ function isActiveMiniGamePlayer(room, player) {
 function getMiniGameScoreUpdate(room) {
   const players = room.players.filter((p) => isActiveMiniGamePlayer(room, p));
   if (room.gameMode === "liste") {
-    const ranking = rankMiniGameResults(players.map((p) => ({
+    const penave = room.gameState.currentMiniGame === "penave_ou_nachave"
+      ? room.gameState.currentMiniGameState : null;
+    const ranking = penave?.ranking || rankMiniGameResults(players.map((p) => ({
       playerId: p.playerId, pseudo: p.pseudo,
       score: p.roundScore || 0, time: p.roundTime || 0
     })), room.listeTournament.initialParticipantCount);
     return {
       gameMode: "liste",
       players: ranking.map((p) => ({
-        id: p.playerId, nickname: p.pseudo, score: p.score, time: p.time, place: p.place
+        id: p.playerId, nickname: p.pseudo, score: p.score, time: p.time, place: p.place,
+        points: p.points
       }))
     };
   }
@@ -664,6 +699,8 @@ function finalizeListeMiniGameResult(room, roundKey) {
     miniGame: gs.currentMiniGame,
     initialParticipantCount: room.listeTournament.initialParticipantCount,
     players: participants,
+    fixedPlacements: gs.currentMiniGame === "penave_ou_nachave"
+      ? gs.currentMiniGameState?.ranking : null,
     previousRoundResults: room.listeTournament.roundResults
   });
 
@@ -750,6 +787,7 @@ function withdrawListeParticipant(room, playerId, socketId) {
   const player = room.players.find((p) => p.playerId === playerId);
   if (!player || player.socketId !== socketId || !room.listeTournament.initialParticipantIds.includes(playerId)) return false;
   player.withdrawn = true;
+  if (room.gameState.currentMiniGame === "penave_ou_nachave") penaveWithdraw(room, playerId);
   delete room.gameState?.readyPlayers?.[playerId];
   pruneListeCorrectionPlayers(room);
   disconnectListePlayer(room, playerId, socketId);
@@ -766,6 +804,8 @@ function getGameStateSummary(room) {
     phase: gs.phase,
     roundNumber: gs.roundNumber,
     currentMiniGame: gs.currentMiniGame,
+    penaveState: room.gameMode === "liste" && gs.currentMiniGame === "penave_ou_nachave"
+      ? getPenaveSnapshot(room) : null,
     matriceFootballInstanceId: gs.currentMiniGame === "matrice_football"
       ? gs.currentMiniGameState?.instanceId ?? null : null,
     listeIntro: room.gameMode === "liste" && gs.phase === "listeIntro"
@@ -820,7 +860,11 @@ function getListeContext(room) {
     phase: gs.phase,
     question: mini?.questionIndex ?? mini?.index ?? null,
     correction: mini?.correctionIndex ?? null,
-    gradingPlayer: room.activePlayersList?.[mini?.gradingPlayerIndex]?.playerId ?? null
+    gradingPlayer: room.activePlayersList?.[mini?.gradingPlayerIndex]?.playerId ?? null,
+    instanceId: mini?.type === "penave_ou_nachave" ? mini.instanceId : null,
+    turnNumber: mini?.type === "penave_ou_nachave" ? mini.turnNumber : null,
+    passageId: mini?.type === "penave_ou_nachave" ? mini.passageId : null,
+    subPhase: mini?.type === "penave_ou_nachave" ? mini.subPhase : null
   };
 }
 
@@ -1034,6 +1078,275 @@ function beginListeRoundEnd(room) {
   clearListeTimers(room);
   room.gameState.phase = "listeRoundEnd";
   publishListeContext(room);
+}
+
+const PENAVE_THEME_MS = 1500;
+// a_toi_de_jouer.mp3 dure 917 ms ; le navigateur actif confirme sa fin.
+const PENAVE_TURN_CUE_MS = 1700;
+const PENAVE_BOARD_MS = 850;
+const PENAVE_VERDICT_MS = 1100;
+const PENAVE_ELIMINATION_MS = 3200;
+const PENAVE_VICTORY_MS = 2800;
+const PENAVE_RANKING_MS = 5000;
+
+function pickPenaveQuestion() {
+  if (penaveBankError || !penaveBank) throw new Error(penaveBankError || "Banque Pénave ou Nachave indisponible.");
+  if (fs.existsSync(HISTORY_FILE)) {
+    let history;
+    try { history = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8")); }
+    catch { throw new Error("Historique des questions illisible : Pénave ou Nachave ne peut pas démarrer."); }
+    if (history?.penave_ou_nachave != null && !Array.isArray(history.penave_ou_nachave)) {
+      throw new Error("Historique Pénave ou Nachave invalide : tableau d'identifiants attendu.");
+    }
+  }
+  let available = getUnusedQuestions(penaveBank.questions, "penave_ou_nachave");
+  if (!available.length) {
+    resetGameHistory("penave_ou_nachave");
+    available = getUnusedQuestions(penaveBank.questions, "penave_ou_nachave");
+  }
+  if (!available.length) throw new Error("Aucune affirmation Pénave ou Nachave disponible.");
+  const question = shuffleCopy(available)[0];
+  markQuestionsAsPlayed([question], "penave_ou_nachave");
+  if (!getPlayedHistory().penave_ou_nachave?.includes(question.id)) {
+    throw new Error("Impossible d'enregistrer l'affirmation Pénave ou Nachave dans l'historique.");
+  }
+  return question;
+}
+
+function getPenaveMini(room) {
+  const mini = room.gameState?.currentMiniGameState;
+  return room.gameMode === "liste" && !room.listeTournament.finished &&
+    room.gameState.currentMiniGame === "penave_ou_nachave" &&
+    ["playing", "listeRoundEnd"].includes(room.gameState.phase) &&
+    mini?.type === "penave_ou_nachave" ? mini : null;
+}
+
+function getPenaveSnapshot(room) {
+  const mini = getPenaveMini(room);
+  if (!mini) return null;
+  return {
+    gameMode: "liste", instanceId: mini.instanceId, subPhase: mini.subPhase,
+    theme: mini.theme, affirmation: mini.question.question,
+    order: mini.order,
+    survivorIds: mini.survivors.filter((id) =>
+      isListeParticipant(room, room.players.find((player) => player.playerId === id))),
+    turnNumber: mini.turnNumber, passageId: mini.passageId,
+    activePlayerId: mini.activePlayerId, deadline: mini.deadline,
+    remainingMs: mini.deadline ? Math.max(0, mini.deadline - Date.now()) : 0,
+    correctionElapsedMs: mini.subPhase === "correction"
+      ? Date.now() - mini.correctionStartedAt : null,
+    gradeElapsedMs: mini.entries.at(-1)?.gradedAt != null
+      ? Date.now() - mini.entries.at(-1).gradedAt : null,
+    phaseEndsAt: mini.phaseEndsAt || null, announcement: mini.announcement || null,
+    correctionStartedAt: mini.correctionStartedAt || null,
+    cueStartedAt: mini.cueStartedAt || null,
+    entries: mini.entries, eliminatedIds: Object.keys(mini.stats).filter((id) => mini.stats[id].eliminatedRound),
+    roundEliminatedIds: mini.roundEliminatedIds || [],
+    ranking: mini.ranking || null, durationMs: PENAVE_DURATION_MS
+  };
+}
+
+function publishPenave(room) {
+  io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+}
+
+function startPenave(room) {
+  if (room.gameMode !== "liste" || room.gameState.currentMiniGame !== "penave_ou_nachave") return;
+  const question = pickPenaveQuestion();
+  const players = room.players.filter((player) => isListeParticipant(room, player));
+  const order = shuffleCopy(players.map((player) => player.playerId));
+  const mini = {
+    type: "penave_ou_nachave", instanceId: randomUUID(), question,
+    theme: penaveBank.themes.get(question.theme_id), subPhase: "theme",
+    order, tieOrder: shuffleCopy(order), survivors: [...order], queue: [],
+    turnNumber: 1, passageId: 0, activePlayerId: null, deadline: null,
+    phaseEndsAt: Date.now() + PENAVE_THEME_MS, entries: [], stats: {}, ranking: null
+  };
+  for (const id of order) mini.stats[id] = { correct: 0, timeMs: 0, eliminatedRound: null };
+  room.gameState.currentMiniGameState = mini;
+  publishPenave(room);
+  roomTimeout(room, () => {
+    mini.queue = mini.survivors.filter((id) => isListeParticipant(room, room.players.find((p) => p.playerId === id)));
+    penaveOpenPassage(room);
+  }, PENAVE_THEME_MS);
+}
+
+function penaveOpenPassage(room) {
+  const mini = getPenaveMini(room);
+  if (!mini || mini.subPhase === "end_logo") return;
+  mini.queue = mini.queue.filter((id) => isListeParticipant(room, room.players.find((p) => p.playerId === id)));
+  if (!mini.queue.length) return penaveCloseTurn(room);
+  mini.activePlayerId = mini.queue.shift();
+  mini.passageId++;
+  mini.subPhase = "cue";
+  mini.cueStartedAt = Date.now();
+  mini.openedAt = null;
+  mini.deadline = null;
+  mini.phaseEndsAt = mini.cueStartedAt + PENAVE_TURN_CUE_MS;
+  mini.announcement = null;
+  publishPenave(room);
+  const passageId = mini.passageId;
+  const activePlayerId = mini.activePlayerId;
+  roomTimeout(room, () => {
+    if (mini.passageId === passageId) penaveBeginAnswer(room, activePlayerId);
+  }, PENAVE_TURN_CUE_MS);
+}
+
+function penaveBeginAnswer(room, playerId) {
+  const mini = getPenaveMini(room);
+  if (!mini || mini.subPhase !== "cue" || mini.activePlayerId !== playerId) return;
+  if (!isListeParticipant(room, room.players.find((player) => player.playerId === playerId))) {
+    mini.subPhase = "between";
+    return penaveOpenPassage(room);
+  }
+  mini.subPhase = "answer";
+  mini.openedAt = Date.now();
+  mini.deadline = mini.openedAt + PENAVE_DURATION_MS;
+  mini.phaseEndsAt = null;
+  publishPenave(room);
+  const passageId = mini.passageId;
+  roomTimeout(room, () => {
+    if (mini.passageId === passageId) penaveSubmit(room, playerId, "", true);
+  }, PENAVE_DURATION_MS);
+}
+
+function penaveSubmit(room, playerId, answer, pass = false) {
+  const mini = getPenaveMini(room);
+  if (!mini || mini.subPhase !== "answer" || mini.activePlayerId !== playerId) return false;
+  const now = Date.now();
+  if (!pass && now >= mini.deadline) return penaveSubmit(room, playerId, "", true);
+  const value = String(answer || "").trim();
+  if (!pass && !value) return false;
+  const entry = {
+    passageId: mini.passageId, turnNumber: mini.turnNumber, playerId,
+    pseudo: room.players.find((p) => p.playerId === playerId)?.pseudo || "",
+    answer: pass ? "Je passe" : value,
+    status: pass ? "passed" : "pending",
+    elapsedMs: pass ? PENAVE_DURATION_MS : Math.min(PENAVE_DURATION_MS, now - mini.openedAt)
+  };
+  mini.entries.push(entry);
+  mini.deadline = null;
+  if (pass) {
+    mini.stats[playerId].timeMs += PENAVE_DURATION_MS;
+    mini.subPhase = "between";
+    publishPenave(room);
+    roomTimeout(room, () => penaveOpenPassage(room), PENAVE_VERDICT_MS);
+  } else {
+    mini.subPhase = "correction";
+    mini.correctionStartedAt = now;
+    publishPenave(room);
+    const passageId = mini.passageId;
+    roomTimeout(room, () => {
+      if (mini.subPhase === "correction" && mini.passageId === passageId) publishPenave(room);
+    }, PENAVE_BOARD_MS);
+  }
+  return true;
+}
+
+function penaveGrade(room, accepted) {
+  const mini = getPenaveMini(room);
+  if (!mini || mini.subPhase !== "correction" ||
+      Date.now() - mini.correctionStartedAt < PENAVE_BOARD_MS) return false;
+  const entry = mini.entries.at(-1);
+  if (!entry || entry.status !== "pending" || entry.passageId !== mini.passageId) return false;
+  entry.status = accepted ? "accepted" : "refused";
+  entry.gradedAt = Date.now();
+  mini.stats[entry.playerId].timeMs += accepted ? entry.elapsedMs : PENAVE_DURATION_MS;
+  if (accepted) mini.stats[entry.playerId].correct++;
+  mini.subPhase = "between";
+  publishPenave(room);
+  roomTimeout(room, () => penaveOpenPassage(room), PENAVE_VERDICT_MS);
+  return true;
+}
+
+function penaveFreezeRanking(room) {
+  const mini = getPenaveMini(room);
+  if (!mini) return;
+  mini.ranking = rankPenaveResults(room.players.filter((p) => mini.stats[p.playerId]),
+    mini, room.listeTournament.initialParticipantCount);
+  for (const entry of mini.ranking) {
+    const player = room.players.find((p) => p.playerId === entry.playerId);
+    player.roundScore = entry.score;
+    player.roundTime = entry.time;
+  }
+}
+
+function penaveCloseTurn(room) {
+  const mini = getPenaveMini(room);
+  if (!mini || !["answer", "between", "theme"].includes(mini.subPhase)) return;
+  const current = mini.survivors.filter((id) => isListeParticipant(room, room.players.find((p) => p.playerId === id)));
+  // Un joueur sorti de Pénave peut encore disputer les manches suivantes du tournoi.
+  if (!room.players.some((player) => isListeParticipant(room, player))) return finishListeTournament(room);
+  const success = new Set(mini.entries.filter((entry) => entry.turnNumber === mini.turnNumber &&
+    entry.status === "accepted").map((entry) => entry.playerId));
+  const failed = current.filter((id) => !success.has(id));
+  mini.roundEliminatedIds = failed;
+  for (const id of failed) mini.stats[id].eliminatedRound = mini.turnNumber;
+  mini.survivors = current.filter((id) => success.has(id));
+  const final = mini.survivors.length <= 1;
+  if (final) penaveFreezeRanking(room);
+  const names = failed.map((id) => room.players.find((p) => p.playerId === id)?.pseudo || "");
+  mini.announcement = names.length
+    ? `${names.join(", ")} ${names.length === 1 ? "est éliminé" : "sont éliminés"}`
+    : `Tour ${mini.turnNumber} terminé`;
+  mini.subPhase = "round_summary";
+  mini.activePlayerId = null;
+  mini.phaseEndsAt = Date.now() + (names.length ? PENAVE_ELIMINATION_MS : 1300);
+  publishPenave(room);
+  roomTimeout(room, () => {
+    if (final || mini.survivors.length <= 1) {
+      if (!mini.ranking) penaveFreezeRanking(room);
+      return penaveVictory(room);
+    }
+    mini.turnNumber++;
+    mini.queue = mini.order.filter((id) => mini.survivors.includes(id) &&
+      isListeParticipant(room, room.players.find((p) => p.playerId === id)));
+    mini.subPhase = "between";
+    penaveOpenPassage(room);
+  }, names.length ? PENAVE_ELIMINATION_MS : 1300);
+}
+
+function penaveVictory(room) {
+  const mini = getPenaveMini(room);
+  if (!mini || mini.subPhase !== "round_summary") return;
+  if (!mini.ranking?.length) return finishListeTournament(room);
+  mini.announcement = `${mini.ranking[0].pseudo} gagne la partie`;
+  mini.subPhase = "victory";
+  mini.phaseEndsAt = Date.now() + PENAVE_VICTORY_MS;
+  publishPenave(room);
+  roomTimeout(room, () => {
+    mini.subPhase = "final_ranking";
+    mini.phaseEndsAt = Date.now() + PENAVE_RANKING_MS;
+    publishPenave(room);
+    roomTimeout(room, () => {
+      mini.subPhase = "end_logo";
+      mini.phaseEndsAt = Date.now() + LISTE_END_LOGO_DURATION_MS;
+      beginListeRoundEnd(room);
+      publishPenave(room);
+      roomTimeout(room, () => endListeMiniGame(room), LISTE_END_LOGO_DURATION_MS);
+    }, PENAVE_RANKING_MS);
+  }, PENAVE_VICTORY_MS);
+}
+
+function penaveWithdraw(room, playerId) {
+  const mini = getPenaveMini(room);
+  if (!mini || !mini.stats[playerId]) return;
+  mini.queue = mini.queue.filter((id) => id !== playerId);
+  mini.survivors = mini.survivors.filter((id) => id !== playerId);
+  if (mini.subPhase === "correction" && mini.activePlayerId === playerId) {
+    mini.entries.at(-1).status = "withdrawn";
+    mini.subPhase = "between";
+    roomTimeout(room, () => penaveOpenPassage(room), 0);
+  } else if (["cue", "answer"].includes(mini.subPhase) && mini.activePlayerId === playerId) {
+    mini.subPhase = "between";
+    mini.deadline = null;
+    roomTimeout(room, () => penaveOpenPassage(room), 0);
+  }
+  if (mini.ranking) penaveFreezeRanking(room);
+  if (mini.subPhase === "victory" && mini.ranking?.length) {
+    mini.announcement = `${mini.ranking[0].pseudo} gagne la partie`;
+  }
+  publishPenave(room);
 }
 
 function startLeugtasTimer(room) {
@@ -2545,6 +2858,14 @@ function startReadyMiniGame(room, startEncheres) {
     else if (gs.currentMiniGame === "matrice_football") {
       startMatriceFootball(roomCode);
     }
+    else if (gs.currentMiniGame === "penave_ou_nachave" && room.gameMode === "liste") {
+      try { startPenave(room); }
+      catch (error) {
+        gs.phase = "rules";
+        gs.readyPlayers = {};
+        io.to(roomCode).emit("errorMessage", error.message);
+      }
+    }
     // ------- LES ENCHÈRES ----------
     else if (gs.currentMiniGame === "les_encheres") {
       startEncheres(roomCode);
@@ -2576,7 +2897,8 @@ io.on("connection", (socket) => {
       leTourDuMondeAnswer: "playing", blindTestAnswer: "playing", petitBacAnswer: "playing", matriceFootballAnswer: "playing",
       correctionNavigate: "playing", correctionPrevQuestion: "playing",
       correctionNextQuestion: "playing", hostGradePlayer: "playing", endPetitBacCorrection: "playing",
-      endMatriceFootballCorrection: "playing"
+      endMatriceFootballCorrection: "playing",
+      penaveCueFinished: "playing", penaveAnswer: "playing", penaveGrade: "playing"
     };
     if (!phases[event]) return next();
     const player = room.players.find((p) => p.playerId === socket.playerId);
@@ -2584,6 +2906,13 @@ io.on("connection", (socket) => {
         room.listeTournament.finished || room.gameState.phase !== phases[event]) return;
     const expected = getListeContext(room);
     if (!context || Object.keys(expected).some((key) => context[key] !== expected[key])) return;
+    if (["penaveCueFinished", "penaveAnswer", "penaveGrade"].includes(event)) {
+      const mini = getPenaveMini(room);
+      if (!mini || payload.instanceId !== mini.instanceId ||
+          payload.turnNumber !== mini.turnNumber || payload.passageId !== mini.passageId ||
+          (["penaveCueFinished", "penaveAnswer"].includes(event) && mini.activePlayerId !== socket.playerId) ||
+          (event === "penaveGrade" && room.hostId !== socket.playerId)) return;
+    }
     if (event === "drawingFinished" || event.startsWith("correction") ||
          event === "hostGradePlayer" || event === "endPetitBacCorrection" || event === "endMatriceFootballCorrection") {
       if (room.hostId !== socket.playerId) return;
@@ -2945,6 +3274,25 @@ io.on("connection", (socket) => {
     startReadyMiniGame(room, startLesEncheres);
   });
 
+  socket.on("penaveAnswer", (data) => {
+    const room = getSocketRoom(socket);
+    if (!room || room.gameMode !== "liste") return;
+    penaveSubmit(room, socket.playerId, data.answer, data.pass);
+  });
+
+  socket.on("penaveCueFinished", () => {
+    const room = getSocketRoom(socket);
+    const mini = room && getPenaveMini(room);
+    if (mini?.subPhase === "cue" && mini.activePlayerId === socket.playerId &&
+        Date.now() - mini.cueStartedAt >= 900) penaveBeginAnswer(room, socket.playerId);
+  });
+
+  socket.on("penaveGrade", (data) => {
+    const room = getHostRoom(socket);
+    if (!room || room.gameMode !== "liste") return;
+    penaveGrade(room, data.accepted);
+  });
+
   socket.on("leugtasAnswer", ({ answerId } = {}) => {
     const room = getSocketRoom(socket);
     if (!room) return;
@@ -3238,6 +3586,7 @@ io.on("connection", (socket) => {
       if (!disconnectListePlayer(room, playerId, socket.id)) return;
       scheduleRoomAbandon(room);
       io.to(roomCode).emit("roomUpdate", serializeRoom(room));
+      if (room.gameState.currentMiniGame === "penave_ou_nachave") publishPenave(room);
       if (room.activePlayersList && Number.isInteger(room.gameState?.currentMiniGameState?.correctionIndex)) {
         sendCorrectionData(roomCode);
       }

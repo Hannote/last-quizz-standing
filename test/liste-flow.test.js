@@ -11,7 +11,7 @@ const realRequire = createRequire(path.join(root, "server.js"));
 
 // Charge le serveur entier, ses handlers et ses vrais jeux. Seuls les transports,
 // l'horloge et les écritures de persistance sont remplacés par des doubles mémoire.
-function harness(env = {}, introAutoAdvance = true) {
+function harness(env = {}, introAutoAdvance = true, random = Math.random) {
   const events = [];
   const timers = new Map();
   const allTimers = [];
@@ -44,6 +44,7 @@ function harness(env = {}, introAutoAdvance = true) {
   };
   const context = {
     __dirname: root, Buffer, process: { env }, console: { log() {}, error: assert.fail },
+    Math: Object.assign(Object.create(Math), { random }),
     Date: class extends Date { static now() { return now; } },
     setTimeout: (fn, delay) => schedule(fn, delay, false),
     setInterval: (fn, delay) => schedule(fn, delay, true),
@@ -59,7 +60,7 @@ function harness(env = {}, introAutoAdvance = true) {
   const source = fs.readFileSync(path.join(root, "server.js"), "utf8");
   vm.runInNewContext(source + `\nglobalThis.api = {
     rooms, getListeContext, prepareListeSequence, getListeOptions,
-    endMiniGame, startNextListeRound, roomTimeout, roomInterval,
+    endMiniGame, endListeMiniGame, startNextListeRound, roomTimeout, roomInterval,
     revealFauxVrai, syncPlayerWithGame, serializeRoom, roomCreationTimes
   };`, context);
   const api = context.api;
@@ -126,6 +127,196 @@ function harness(env = {}, introAutoAdvance = true) {
   }
   return { api, events, timers, allTimers, socket, advance, create, configure, credentials };
 }
+
+function startPenaveRound() {
+  const h = harness({}, true, () => 0.999);
+  const { room, clients } = h.create(4);
+  h.configure(room, clients[0], "manual", ["penave_ou_nachave", "blind_test"]);
+  clients[0].send("hostStartGame", {});
+  clients[0].send("drawingFinished");
+  h.advance(9300);
+  clients.forEach((client) => client.send("playerSetReady", { isReady: true }));
+  assert.equal(room.gameState.phase, "playing");
+  assert.equal(room.gameState.currentMiniGame, "penave_ou_nachave");
+  h.advance(4000);
+  return { h, room, clients, mini: room.gameState.currentMiniGameState };
+}
+
+function penaveMessage(mini, extra) {
+  return { instanceId: mini.instanceId, turnNumber: mini.turnNumber,
+    passageId: mini.passageId, ...extra };
+}
+
+test("Pénave : trois tours conservent les réponses dans l'ordre serveur", () => {
+  const { h, room, clients, mini } = startPenaveRound();
+  for (let turn = 1; turn <= 3; turn++) {
+    for (let passage = 0; passage < mini.order.length; passage++) {
+      if (mini.subPhase === "cue") h.advance(1700);
+      assert.equal(mini.subPhase, "answer");
+      const active = clients.find((client) => client.playerId === mini.activePlayerId);
+      active.send("penaveAnswer", penaveMessage(mini, { answer: `Tour ${turn} passage ${passage}`, pass: false }));
+      assert.equal(mini.subPhase, "correction");
+      h.advance(850);
+      clients[0].send("penaveGrade", penaveMessage(mini, { accepted: true }));
+      assert.equal(mini.entries.at(-1).status, "accepted");
+      h.advance(1100);
+    }
+    assert.equal(mini.subPhase, "round_summary");
+    assert.deepEqual(Array.from(mini.entries.filter((entry) => entry.turnNumber === turn),
+      (entry) => entry.playerId), Array.from(mini.order));
+    if (turn < 3) {
+      h.advance(1300);
+      assert.equal(mini.turnNumber, turn + 1);
+      assert.equal(mini.subPhase, "cue");
+    }
+  }
+  assert.equal(mini.entries.length, mini.order.length * 3);
+  assert.equal(room.gameState.phase, "playing");
+});
+
+function answerPenaveTurn(h, room, clients, acceptedIds) {
+  const mini = room.gameState.currentMiniGameState;
+  const turn = mini.turnNumber;
+  if (mini.subPhase === "cue") h.advance(1000);
+  while (mini.turnNumber === turn && mini.subPhase === "answer") {
+    const activeId = mini.activePlayerId;
+    const active = clients.find((client) => client.playerId === activeId);
+    if (acceptedIds.includes(activeId)) {
+      active.send("penaveAnswer", penaveMessage(mini, { answer: "Réponse", pass: false }));
+      clients.find((client) => client.playerId === room.hostId)
+        .send("penaveGrade", penaveMessage(mini, { accepted: true }));
+    } else {
+      active.send("penaveAnswer", penaveMessage(mini, { answer: "", pass: true }));
+    }
+    h.advance(450);
+    if (mini.subPhase === "cue") h.advance(1000);
+  }
+}
+
+test("Pénave : A et B abandonnent après avoir survécu, C et D poursuivent le tournoi", () => {
+  const { h, room, clients, mini } = startPenaveRound();
+  answerPenaveTurn(h, room, clients, ["p0", "p1"]);
+  assert.equal(mini.subPhase, "round_summary");
+  assert.deepEqual([...mini.survivors].sort(), ["p0", "p1"]);
+  h.advance(3200);
+  assert.equal(mini.turnNumber, 2);
+  clients[0].send("leaveRoom");
+  clients[1].send("leaveRoom");
+  h.advance(0);
+  assert.equal(room.listeTournament.finished, false);
+  assert.equal(mini.subPhase, "round_summary");
+  assert.deepEqual(Array.from(mini.roundEliminatedIds), []);
+  const expected = mini.tieOrder.filter((id) => ["p2", "p3"].includes(id));
+  assert.deepEqual(Array.from(mini.ranking, (entry) => entry.playerId), expected);
+  assert.deepEqual(Array.from(mini.ranking, (entry) => entry.points), [4, 3]);
+  h.advance(1300);
+  assert.equal(mini.subPhase, "victory");
+  assert.ok(mini.announcement.includes(room.players.find((p) => p.playerId === expected[0]).pseudo));
+  h.advance(2800);
+  assert.equal(mini.subPhase, "final_ranking");
+  h.advance(5000);
+  assert.equal(mini.subPhase, "end_logo");
+  assert.equal(room.gameState.phase, "listeRoundEnd");
+  h.advance(3500);
+  assert.equal(room.gameState.phase, "listeLeaderboard");
+  assert.equal(room.listeTournament.roundResults.length, 1);
+  assert.deepEqual(Array.from(room.listeTournament.roundResults[0].placements, (p) => p.playerId), expected);
+  const points = Array.from(room.players, (p) => p.tournamentPoints);
+  assert.deepEqual(points, [0, 0, ...["p2", "p3"].map((id) => id === expected[0] ? 4 : 3)]);
+  h.api.endListeMiniGame(room);
+  assert.deepEqual(Array.from(room.players, (p) => p.tournamentPoints), points);
+  assert.equal(room.listeTournament.roundResults.length, 1);
+  h.advance(8000);
+  assert.equal(room.gameState.phase, "drawingGame");
+  assert.equal(room.gameState.currentMiniGame, "blind_test");
+  assert.equal(room.listeTournament.finished, false);
+});
+
+test("Pénave : abandon pendant la correction sans blocage ni points pour le joueur retiré", () => {
+  const { h, room, clients, mini } = startPenaveRound();
+  const activeId = mini.activePlayerId;
+  const active = clients.find((client) => client.playerId === activeId);
+  active.send("penaveAnswer", penaveMessage(mini, { answer: "Réponse", pass: false }));
+  assert.equal(mini.subPhase, "correction");
+  active.send("leaveRoom");
+  assert.equal(mini.entries.at(-1).status, "refused");
+  h.advance(0);
+  answerPenaveTurn(h, room, clients, []);
+  assert.equal(mini.subPhase, "round_summary");
+  h.advance(3200 + 2800 + 5000 + 3500);
+  assert.equal(room.gameState.phase, "listeLeaderboard");
+  assert.equal(room.listeTournament.roundResults.length, 1);
+  assert.equal(room.listeTournament.roundResults[0].placements.some((p) => p.playerId === activeId), false);
+  assert.equal(room.players.find((p) => p.playerId === activeId).tournamentPoints, 0);
+});
+
+test("Pénave : ✓ valide, ✗ refuse avec 20 s, hôte seul et décision unique", () => {
+  const { h, room, clients, mini } = startPenaveRound();
+  const host = clients[0];
+  const guest = clients[1];
+  const firstId = mini.activePlayerId;
+  clients.find((client) => client.playerId === firstId)
+    .send("penaveAnswer", penaveMessage(mini, { answer: "Bonne réponse", pass: false }));
+  assert.equal(mini.subPhase, "correction");
+  guest.send("penaveGrade", penaveMessage(mini, { accepted: false }));
+  assert.equal(mini.entries.at(-1).status, "pending");
+  host.send("penaveGrade", penaveMessage(mini, { accepted: true }));
+  host.send("penaveGrade", penaveMessage(mini, { accepted: false }));
+  assert.equal(mini.entries.at(-1).status, "accepted");
+  assert.equal(mini.stats[firstId].correct, 1);
+  assert.equal(mini.stats[firstId].timeMs, 0);
+  h.advance(450);
+  h.advance(1000);
+  assert.equal(mini.subPhase, "answer");
+  const secondId = mini.activePlayerId;
+  assert.notEqual(secondId, firstId);
+  clients.find((client) => client.playerId === secondId)
+    .send("penaveAnswer", penaveMessage(mini, { answer: "Réponse refusée", pass: false }));
+  const passageId = mini.passageId;
+  host.send("penaveGrade", penaveMessage(mini, { accepted: false }));
+  host.send("penaveGrade", penaveMessage(mini, { accepted: true }));
+  assert.equal(mini.entries.at(-1).status, "refused");
+  assert.equal(mini.stats[secondId].correct, 0);
+  assert.equal(mini.stats[secondId].timeMs, 20000);
+  h.advance(450);
+  h.advance(1000);
+  assert.equal(mini.subPhase, "answer");
+  assert.notEqual(mini.passageId, passageId);
+});
+
+test("Pénave : le tournoi se termine lorsque tous les participants se retirent réellement", () => {
+  const { room, clients } = startPenaveRound();
+  clients.forEach((client) => client.send("leaveRoom"));
+  assert.equal(room.listeTournament.finished, true);
+  assert.equal(room.gameState.phase, "listeFinished");
+  assert.equal(room.listeTournament.roundResults.length, 0);
+});
+
+test("Pénave : abandons pendant la victoire, le classement et le logo final", () => {
+  const { h, room, clients, mini } = startPenaveRound();
+  answerPenaveTurn(h, room, clients, []);
+  h.advance(3200);
+  assert.equal(mini.subPhase, "victory");
+  const [first, second, third, last] = mini.ranking.map((entry) => entry.playerId);
+  clients.find((client) => client.playerId === first).send("leaveRoom");
+  assert.equal(mini.ranking[0].playerId, second);
+  assert.ok(mini.announcement.includes(room.players.find((p) => p.playerId === second).pseudo));
+  h.advance(2800);
+  assert.equal(mini.subPhase, "final_ranking");
+  clients.find((client) => client.playerId === second).send("leaveRoom");
+  assert.equal(mini.ranking[0].playerId, third);
+  h.advance(5000);
+  assert.equal(mini.subPhase, "end_logo");
+  clients.find((client) => client.playerId === third).send("leaveRoom");
+  assert.deepEqual(Array.from(mini.ranking, (entry) => entry.playerId), [last]);
+  h.advance(3500);
+  assert.equal(room.gameState.phase, "listeLeaderboard");
+  assert.deepEqual(Array.from(room.listeTournament.roundResults[0].placements, (p) => p.playerId), [last]);
+  assert.equal(room.players.find((p) => p.playerId === last).tournamentPoints, 4);
+  h.advance(8000);
+  assert.equal(room.gameState.currentMiniGame, "blind_test");
+  assert.equal(room.listeTournament.finished, false);
+});
 
 test("intro Liste : participants et séquence uniques, tirage serveur à 16 500 ms", () => {
   const h = harness({}, false);

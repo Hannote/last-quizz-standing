@@ -159,6 +159,7 @@ function settleListeRound({
   miniGame,
   initialParticipantCount,
   players,
+  fixedPlacements = null,
   previousRoundResults = []
 }) {
   if (!roundKey || !miniGame || !Number.isInteger(roundNumber) || roundNumber < 1) {
@@ -168,12 +169,20 @@ function settleListeRound({
   if (existing) return { applied: false, roundResult: existing, playerUpdates: [] };
 
   const eligiblePlayers = players.filter((player) => !player.withdrawn);
-  const placements = rankMiniGameResults(eligiblePlayers.map((player) => ({
+  const placements = fixedPlacements || rankMiniGameResults(eligiblePlayers.map((player) => ({
     playerId: player.playerId,
     pseudo: player.pseudo,
     score: player.roundScore,
     time: player.roundTime
   })), initialParticipantCount);
+  if (fixedPlacements && (miniGame !== "penave_ou_nachave" ||
+      fixedPlacements.length !== eligiblePlayers.length ||
+      new Set(fixedPlacements.map((entry) => entry.playerId)).size !== eligiblePlayers.length ||
+      fixedPlacements.some((entry, index) => !eligiblePlayers.some((player) => player.playerId === entry.playerId) ||
+        entry.place !== index + 1 || entry.points !== initialParticipantCount - index ||
+        !Number.isFinite(entry.score) || !Number.isFinite(entry.time) || entry.time < 0))) {
+    throw new TypeError("Le classement figé Pénave est invalide.");
+  }
 
   const playersById = new Map(players.map((player) => [player.playerId, player]));
   const playerUpdates = placements.map((placement) => {
