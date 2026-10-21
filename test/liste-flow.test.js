@@ -8,10 +8,12 @@ const vm = require("node:vm");
 const { createRequire } = require("node:module");
 const root = path.join(__dirname, "..");
 const realRequire = createRequire(path.join(root, "server.js"));
+const { memoryFs } = require("./helpers/bon-ordre-memory.cjs");
 
 // Charge le serveur entier, ses handlers et ses vrais jeux. Seuls les transports,
 // l'horloge et les écritures de persistance sont remplacés par des doubles mémoire.
 function harness(env = {}, introAutoAdvance = true, random = Math.random) {
+  const bonOrdreFs = memoryFs();
   const events = [];
   const timers = new Map();
   const allTimers = [];
@@ -51,6 +53,10 @@ function harness(env = {}, introAutoAdvance = true, random = Math.random) {
     clearTimeout: (timer) => timers.delete(timer), clearInterval: (timer) => timers.delete(timer),
     require: (name) => {
       if (name === "fs") return fakeFs;
+      if (name === "./le-bon-ordre") {
+        const domain = realRequire(name);
+        return { ...domain, createBonOrdreStore: (file) => domain.createBonOrdreStore(file, { fs: bonOrdreFs, random }) };
+      }
       if (name === "express") return Object.assign(() => ({ use() {}, get() {}, post() {} }), { static() {} });
       if (name === "http") return { createServer: () => ({ listen() {} }) };
       if (name === "socket.io") return { Server: function () { return io; } };
@@ -61,7 +67,7 @@ function harness(env = {}, introAutoAdvance = true, random = Math.random) {
   vm.runInNewContext(source + `\nglobalThis.api = {
     rooms, getListeContext, prepareListeSequence, getListeOptions,
     endMiniGame, endListeMiniGame, startNextListeRound, roomTimeout, roomInterval,
-    revealFauxVrai, syncPlayerWithGame, serializeRoom, roomCreationTimes
+    revealFauxVrai, syncPlayerWithGame, serializeRoom, roomCreationTimes, startCorrectionPhase
   };`, context);
   const api = context.api;
   function socket(playerId) {
@@ -442,6 +448,10 @@ function playRound(h, room, clients, finishPetitBacWithButton = false) {
         s.send("fauxVraiAnswer", mini.list[mini.index].indexFausse);
       } else if (type === "petit_bac") {
         s.send("petitBacAnswer", { roomCode: room.roomCode, answers: { 0: "Test" } });
+      } else if (type === "le_bon_ordre") {
+        const q = mini.questions[mini.questionIndex];
+        s.send("leBonOrdreAnswer", { instanceId: mini.instanceId, questionId: q.id,
+          questionIndex: mini.questionIndex, orderedIds: [...q.cards].sort((a, b) => b.valeur - a.valeur).map((c) => c.id), pass: false });
       } else {
         const event = { qui_suis_je: "quiSuisJeAnswer", le_bon_ordre: "leBonOrdreAnswer", blind_test: "blindTestAnswer", le_tour_du_monde: "leTourDuMondeAnswer" }[type];
         s.send(event, { roomCode: room.roomCode, answer: "Test" });
@@ -456,13 +466,20 @@ function playRound(h, room, clients, finishPetitBacWithButton = false) {
       if (room.gameState.phase === "playing") assert.equal(Object.keys(mini.answers).length, 0);
     } else if (type === "qui_veut_gagner_des_leugtas") {
       h.advance(mini.questionIndex === mini.questions.length - 1 ? 7700 : 5500);
+    } else if (type === "le_bon_ordre") {
+      assert.equal(mini.subPhase, "correction");
+      assert.equal(mini.correctionIndex, undefined, "Aucun espace de correction collective");
+      const lastQuestion = mini.questionIndex === mini.questions.length - 1;
+      h.advance(15000);
+      assert.equal(mini.subPhase, "leaderboard");
+      h.advance(lastQuestion ? 4500 : 3000);
     } else if (mini.finished) h.advance(3000);
   }
   assert.equal(room.gameState.phase, "listeRoundEnd");
   const oldTimers = h.allTimers.slice();
   const logoEvent = type === "le_faux_du_vrai" ? "fauxVraiEnd"
     : type === "qui_veut_gagner_des_leugtas" ? "leugtasEnd" : "leBonOrdreExit";
-  if (!["le_faux_du_vrai", "qui_veut_gagner_des_leugtas"].includes(type)) {
+  if (!["le_faux_du_vrai", "qui_veut_gagner_des_leugtas", "le_bon_ordre"].includes(type)) {
     const count = () => h.events.filter((e) => e.target === room.roomCode && e.name === logoEvent).length;
     const before = count();
     h.advance(4999);
@@ -502,13 +519,14 @@ for (const game of ["le_faux_du_vrai", "qui_veut_gagner_des_leugtas", "le_bon_or
 
 for (const game of ["qui_suis_je", "blind_test", "le_tour_du_monde", "le_bon_ordre",
   "petit_bac", "qui_veut_gagner_des_leugtas", "le_faux_du_vrai"]) {
-  test(`classement ${game} : toutes les émissions scoreUpdate fournissent les places serveur`, () => {
+  test(`classement ${game} : les snapshots de classement fournissent les places serveur`, () => {
     const h = harness();
     const { room, clients } = h.create();
     h.configure(room, clients[0], "manual", [game]);
     clients[0].send("hostStartGame", {});
     playRound(h, room, clients, true);
-    const scores = h.events.filter((e) => e.target === room.roomCode && e.name === "scoreUpdate");
+    const rankingEvent = game === "le_bon_ordre" ? "leBonOrdreLeaderboard" : "scoreUpdate";
+    const scores = h.events.filter((e) => e.target === room.roomCode && e.name === rankingEvent);
     assert.ok(scores.length > 0);
     for (const { data } of scores) {
       assert.equal(data.gameMode, "liste");
@@ -1029,17 +1047,19 @@ for (const [game, event, questionEvent] of [
       : game === "qui_veut_gagner_des_leugtas"
         ? { roomCode: room.roomCode, playerId: "p0", answerId: mini.questions[0].correct_answer_id }
         : game === "petit_bac" ? { roomCode: room.roomCode, answers: { 0: "Paris" } }
+          : game === "le_bon_ordre" ? { instanceId: mini.instanceId, questionId: mini.questions[0].id,
+            questionIndex: 0, orderedIds: mini.questions[0].cards.map((card) => card.id), pass: false }
           : { roomCode: room.roomCode, answer: "Paris" };
     clients[0].send(event, payload);
     const saved = () => JSON.stringify({
       answer: (mini.playerAnswers || mini.answers).p0,
-      time: mini.responseTimes?.p0 ?? mini.answerTimes?.p0 ?? mini.playerAnswers?.p0?.timeTaken,
+      time: mini.responseTimesByQuestion?.[0]?.p0 ?? mini.responseTimes?.p0 ?? mini.answerTimes?.p0 ?? mini.playerAnswers?.p0?.timeTaken,
       history: mini.history?.p0, responseHistory: mini.responseTimesByQuestion?.[0]?.p0,
       score: room.players[0].roundScore, roundTime: room.players[0].roundTime
     });
     const original = saved();
     assert.notEqual((mini.playerAnswers || mini.answers).p0, undefined);
-    assert.equal(mini.responseTimes?.p0 ?? mini.answerTimes?.p0 ?? mini.playerAnswers?.p0?.timeTaken, 4);
+    assert.equal(mini.responseTimesByQuestion?.[0]?.p0 ?? mini.responseTimes?.p0 ?? mini.answerTimes?.p0 ?? mini.playerAnswers?.p0?.timeTaken, 4);
     clients[0].send("disconnect");
     assert.equal(room.hostId, "p1");
     h.advance(1000);
@@ -1590,7 +1610,7 @@ for (const mode of ["battle_royale", "liste"]) {
     const { room, clients } = securityRoom(h, mode);
     if (mode === "liste") clients[0].send("hostStartGame", {});
     for (const [event, type] of [
-      ["quiSuisJeAnswer", "qui_suis_je"], ["leBonOrdreAnswer", "le_bon_ordre"],
+      ["quiSuisJeAnswer", "qui_suis_je"],
       ["leTourDuMondeAnswer", "le_tour_du_monde"], ["blindTestAnswer", "blind_test"]
     ]) {
       room.gameState.phase = "playing";

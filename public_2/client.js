@@ -697,7 +697,7 @@ const scoreboard = document.getElementById("scoreboard");
 const leBonOrdreContainer = document.getElementById("leBonOrdreContainer");
 
 
-const lboMainImage = document.getElementById("lboMainImage");
+const lboCards = document.getElementById("lboCards");
 
 
 const lboQuestion = document.getElementById("lboQuestion");
@@ -712,7 +712,16 @@ const lboTimerFill = document.getElementById("lboTimerFill");
 const lboQuestionNumber = document.getElementById("lboQuestionNumber");
 
 
-const lboInput = document.getElementById("lboInput");
+let bonOrdreState = null;
+let bonOrdreDisplayToken = 0;
+let bonOrdrePopover = null;
+let bonOrdrePopoverAnchor = null;
+let bonOrdreCorrectionContext = null;
+let bonOrdrePhaseSnapshot = null;
+let bonOrdreCorrectionClock = null;
+let bonOrdreCorrectionInterval = null;
+let bonOrdreLeaderboardSnapshot = null;
+let bonOrdreEndingSnapshot = null;
 
 
 const lboValidateBtn = document.getElementById("lboValidateBtn");
@@ -945,6 +954,7 @@ const gradingWaitMessage = document.getElementById("gradingWaitMessage");
 
 
 window.submitGrade = function (points) {
+  if (currentGameState.currentMiniGame === "le_bon_ordre") return;
 
 
   if (socket) {
@@ -1514,6 +1524,8 @@ function showMainZone(mode) {
 
 
 function hideAllMiniGames() {
+  closeBonOrdreRankSelector();
+  document.getElementById("bonOrdreCorrectionContainer")?.classList.add("hidden");
   document.getElementById("penaveContainer")?.classList.add("hidden");
 
 
@@ -1831,161 +1843,360 @@ function showFauxVraiQuestion(data) {
 }
 
 
-function showLeBonOrdreQuestion(data) {
-
-
-  sfx45s.play(); // Utilise la nouvelle boucle 45s
-
-
-  hideAllMiniGames();
-
-
-  if (mainDefault) mainDefault.classList.add("hidden");
-
-
-  if (mainDrawing) mainDrawing.classList.add("hidden");
-
-
-  if (mainRules) mainRules.classList.add("hidden");
-
-
-  if (mainPlaying) mainPlaying.classList.add("hidden");
-
-
-  if (leBonOrdreContainer) leBonOrdreContainer.classList.remove("hidden");
-
-
-  const isLboSpectator = amISpectator();
-
-
-  if (lboInput) {
-
-
-    lboInput.value = "";
-
-
-    lboInput.disabled = isLboSpectator;
-
-
-    lboInput.style.display = isLboSpectator ? "none" : "block";
-
-
-    if (!isLboSpectator) {
-
-
-      lboInput.focus();
-
-
-      lboInput.removeAttribute("disabled");
-
-
-    }
-
-
-  }
-
-
-  const btns = [lboValidateBtn, lboPassBtn];
-
-
-  btns.forEach((btn) => {
-
-
-    if (btn) {
-
-
-      btn.style.display = isLboSpectator ? "none" : "inline-block";
-
-
-      btn.disabled = isLboSpectator;
-
-
-      if (!isLboSpectator) {
-
-
-        btn.removeAttribute("disabled");
-
-
-        btn.style.opacity = "1";
-
-
-        btn.style.cursor = "pointer";
-
-
-        btn.style.filter = "none";
-
-
-      }
-
-
-    }
-
-
-  });
-
-
-  if (lboFeedback) {
-
-
-    lboFeedback.textContent = isLboSpectator ? "Vous regardez la manche..." : "";
-
-
-    lboFeedback.style.color = "";
-
-
-  }
-
-
-  if (lboQuestion) lboQuestion.textContent = data.question.question;
-
-
-  if (lboMainImage) lboMainImage.src = data.question.image_question;
-
-
-  if (lboQuestionNumber)
-
-
-    lboQuestionNumber.textContent = `Question ${data.index} / ${data.total}`;
-
-
-  if (lboTimerNumber) lboTimerNumber.textContent = "45";
-
-
-  if (lboTimerFill) {
-
-
-    lboTimerFill.style.width = "100%";
-
-
-    lboTimerFill.style.background = "#ffcc00";
-
-
-  }
-
-
-if (!isLboSpectator) {
-
-
-    if (lboInput) lboInput.disabled = true;
-
-
-    if (lboValidateBtn) {
-
-
-      lboValidateBtn.disabled = true;
-
-
-      lboValidateBtn.classList.add("btn-locked-intro");
-
-
-    }
-
-
-  }
-
-
+// Les brouillons restent personnels et ne peuvent pas traverser une partie/question.
+function bonOrdreDraftKey(state) {
+  return `lqs_bon_ordre_${state.roomCode}_${playerId}_${state.instanceId}_${state.questionId}_${state.questionIndex}`;
 }
 
+function saveBonOrdreDraft() {
+  if (!bonOrdreState || bonOrdreState.submitted || amISpectator()) return;
+  try { sessionStorage.setItem(bonOrdreDraftKey(bonOrdreState), JSON.stringify(bonOrdreState.ranks)); }
+  catch (_) { /* Le jeu reste utilisable si le stockage personnel est désactivé. */ }
+}
+
+function bonOrdreEventMatches(data, phases, compareSubPhase = true) {
+  const phase = currentGameState.leBonOrdrePhase;
+  const authoritative = currentGameState.leBonOrdreState;
+  return !!data && currentRoom?.roomCode === data.roomCode && currentRoom?.gameMode === data.gameMode &&
+    currentGameState.currentMiniGame === "le_bon_ordre" &&
+    ["playing", "listeRoundEnd"].includes(currentGameState.phase) && phases.includes(phase) &&
+    (!compareSubPhase || data.subPhase === undefined || data.subPhase === phase) &&
+    data.roundNumber === currentGameState.roundNumber && data.instanceId === currentGameState.leBonOrdreInstanceId &&
+    !!authoritative && authoritative.questionIndex === data.questionIndex && authoritative.questionId === data.questionId;
+}
+
+function bonOrdreContextMatches(data, state = bonOrdreState) {
+  return !!state && bonOrdreEventMatches(data, ["theme", "answering"], false) &&
+    data.instanceId === state.instanceId && data.questionId === state.questionId && data.questionIndex === state.questionIndex;
+}
+
+function bonOrdreCanEdit() {
+  return bonOrdreContextMatches(bonOrdreState) && currentGameState.leBonOrdrePhase === "answering" && bonOrdreState.active &&
+    !bonOrdreState.submitted && !bonOrdreState.pending && !amISpectator();
+}
+
+function bonOrdreOrderedIds() {
+  if (!bonOrdreState || bonOrdreState.cards.length !== 5) return null;
+  const entries = bonOrdreState.cards.map(card => ({ id: card.id, rank: bonOrdreState.ranks[card.id] }));
+  if (entries.some(entry => !Number.isInteger(entry.rank) || entry.rank < 1 || entry.rank > 5) ||
+      new Set(entries.map(entry => entry.rank)).size !== 5) return null;
+  return entries.sort((left, right) => left.rank - right.rank).map(entry => entry.id);
+}
+
+function applyBonOrdreSavedAnswer(savedAnswer) {
+  if (!bonOrdreState || !savedAnswer) return;
+  bonOrdreState.submitted = true;
+  bonOrdreState.pending = false;
+  bonOrdreState.pass = savedAnswer.pass === true;
+  bonOrdreState.ranks = Object.create(null);
+  if (!bonOrdreState.pass && Array.isArray(savedAnswer.orderedIds)) {
+    savedAnswer.orderedIds.forEach((id, index) => { bonOrdreState.ranks[id] = index + 1; });
+  }
+  try { sessionStorage.removeItem(bonOrdreDraftKey(bonOrdreState)); } catch (_) { /* Facultatif. */ }
+  closeBonOrdreRankSelector();
+}
+
+function updateBonOrdreControls() {
+  const spectator = amISpectator();
+  const editable = bonOrdreCanEdit();
+  if (lboValidateBtn) {
+    lboValidateBtn.hidden = !!spectator;
+    lboValidateBtn.disabled = !editable || !bonOrdreOrderedIds();
+  }
+  if (lboPassBtn) {
+    lboPassBtn.hidden = !!spectator;
+    lboPassBtn.disabled = !editable;
+  }
+  if (lboFeedback && bonOrdreState) {
+    lboFeedback.style.color = bonOrdreState.submitted ? "#2ecc71" : "";
+    lboFeedback.textContent = spectator ? "Vous regardez la manche…" :
+      bonOrdreState.submitted ? (bonOrdreState.pass ? "Vous avez passé. En attente des autres…" : "Réponse reçue ! En attente des autres…") :
+      bonOrdreState.pending ? "Envoi de votre réponse…" :
+      bonOrdreState.remaining <= 0 ? "Temps écoulé. Les choix non validés ne sont pas envoyés." :
+      !bonOrdreState.active ? "Préparez votre classement…" : "Touchez une carte pour lui attribuer un rang de 1 à 5.";
+  }
+}
+
+function makeBonOrdreCardContent(card) {
+  const content = document.createElement("span");
+  content.className = "bon-ordre-card-content";
+  if (card.image) {
+    const image = document.createElement("img");
+    image.src = card.image;
+    image.alt = "";
+    image.loading = "eager";
+    image.addEventListener("error", () => { image.hidden = true; }, { once: true });
+    content.appendChild(image);
+  }
+  const name = document.createElement("span");
+  name.className = "bon-ordre-card-name";
+  name.textContent = card.nom;
+  content.appendChild(name);
+  return content;
+}
+
+function renderBonOrdreCards() {
+  if (!lboCards || !bonOrdreState) return;
+  lboCards.replaceChildren();
+  const editable = bonOrdreCanEdit();
+  bonOrdreState.cards.forEach(card => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "bon-ordre-card-wrap";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "bon-ordre-card";
+    button.dataset.cardId = card.id;
+    button.disabled = !editable;
+    button.setAttribute("aria-haspopup", "dialog");
+    const rank = bonOrdreState.ranks[card.id];
+    button.setAttribute("aria-label", `${card.nom}, ${rank ? `rang ${rank}` : "sans rang"}. Choisir un rang.`);
+    button.appendChild(makeBonOrdreCardContent(card));
+    button.addEventListener("click", () => {
+      if (!bonOrdreCanEdit()) return;
+      sfxBubbleClick.play();
+      openBonOrdreRankSelector(card.id, button);
+    });
+    wrapper.appendChild(button);
+    if (rank) {
+      const rankZone = document.createElement("div");
+      rankZone.className = "bon-ordre-rank-zone";
+      const badge = document.createElement("span");
+      badge.className = "bon-ordre-rank-badge";
+      badge.textContent = rank;
+      badge.setAttribute("aria-label", `Rang ${rank}`);
+      rankZone.appendChild(badge);
+      if (editable) {
+        const clear = document.createElement("button");
+        clear.type = "button";
+        clear.className = "bon-ordre-clear-rank";
+        clear.textContent = "×";
+        clear.setAttribute("aria-label", `Annuler le rang de ${card.nom}`);
+        clear.addEventListener("click", () => {
+          if (!bonOrdreCanEdit()) return;
+          sfxBubbleClick.play();
+          closeBonOrdreRankSelector();
+          delete bonOrdreState.ranks[card.id];
+          saveBonOrdreDraft();
+          renderBonOrdreCards();
+          focusBonOrdreCard(card.id);
+        });
+        rankZone.appendChild(clear);
+      }
+      wrapper.appendChild(rankZone);
+    }
+    lboCards.appendChild(wrapper);
+  });
+  updateBonOrdreControls();
+}
+
+function focusBonOrdreCard(cardId) {
+  [...(lboCards?.querySelectorAll(".bon-ordre-card") || [])]
+    .find(button => button.dataset.cardId === cardId)?.focus({ preventScroll: true });
+}
+
+function closeBonOrdreRankSelector(restoreFocus = false) {
+  const cardId = bonOrdrePopoverAnchor?.dataset.cardId;
+  bonOrdrePopoverAnchor?.setAttribute("aria-expanded", "false");
+  bonOrdrePopover?.remove();
+  bonOrdrePopover = null;
+  bonOrdrePopoverAnchor = null;
+  if (restoreFocus && cardId) focusBonOrdreCard(cardId);
+}
+
+function positionBonOrdreRankSelector() {
+  if (!bonOrdrePopover || !bonOrdrePopoverAnchor?.isConnected) return;
+  const rect = bonOrdrePopoverAnchor.getBoundingClientRect();
+  const popoverRect = bonOrdrePopover.getBoundingClientRect();
+  const viewportWidth = document.documentElement.clientWidth;
+  const viewportHeight = window.innerHeight;
+  const gap = 8;
+  const left = Math.max(gap, Math.min(rect.left + rect.width / 2 - popoverRect.width / 2,
+    viewportWidth - popoverRect.width - gap));
+  let top = rect.bottom + gap;
+  if (top + popoverRect.height > viewportHeight - gap) top = rect.top - popoverRect.height - gap;
+  top = Math.max(gap, Math.min(top, viewportHeight - popoverRect.height - gap));
+  bonOrdrePopover.style.left = `${left}px`;
+  bonOrdrePopover.style.top = `${top}px`;
+}
+
+function openBonOrdreRankSelector(cardId, anchor) {
+  if (!bonOrdreCanEdit()) return;
+  if (bonOrdrePopoverAnchor === anchor) { closeBonOrdreRankSelector(true); return; }
+  closeBonOrdreRankSelector();
+  const card = bonOrdreState.cards.find(item => item.id === cardId);
+  if (!card) return;
+  bonOrdrePopoverAnchor = anchor;
+  anchor.setAttribute("aria-expanded", "true");
+  bonOrdrePopover = document.createElement("div");
+  bonOrdrePopover.className = "bon-ordre-rank-popover";
+  bonOrdrePopover.setAttribute("role", "dialog");
+  bonOrdrePopover.setAttribute("aria-label", `Choisir le rang de ${card.nom}`);
+  const label = document.createElement("div");
+  label.className = "bon-ordre-rank-label";
+  label.textContent = "Choisir un rang";
+  bonOrdrePopover.appendChild(label);
+  const choices = document.createElement("div");
+  choices.className = "bon-ordre-rank-choices";
+  for (let rank = 1; rank <= 5; rank += 1) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = rank;
+    button.disabled = Object.entries(bonOrdreState.ranks).some(([id, usedRank]) => id !== cardId && usedRank === rank);
+    button.setAttribute("aria-label", `Rang ${rank}${button.disabled ? ", déjà attribué" : ""}`);
+    button.setAttribute("aria-pressed", String(bonOrdreState.ranks[cardId] === rank));
+    button.addEventListener("click", () => {
+      if (!bonOrdreCanEdit() || button.disabled) return;
+      bonOrdreState.ranks[cardId] = rank;
+      sfxBubbleClick.play();
+      saveBonOrdreDraft();
+      closeBonOrdreRankSelector();
+      renderBonOrdreCards();
+      focusBonOrdreCard(cardId);
+    });
+    choices.appendChild(button);
+  }
+  bonOrdrePopover.appendChild(choices);
+  bonOrdrePopover.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeBonOrdreRankSelector(true);
+      return;
+    }
+    const buttons = [...choices.querySelectorAll("button:not(:disabled)")];
+    const index = buttons.indexOf(document.activeElement);
+    let nextIndex = index;
+    if (["ArrowRight", "ArrowDown"].includes(event.key)) nextIndex = (index + 1) % buttons.length;
+    else if (["ArrowLeft", "ArrowUp"].includes(event.key)) nextIndex = (index - 1 + buttons.length) % buttons.length;
+    else if (event.key === "Home") nextIndex = 0;
+    else if (event.key === "End") nextIndex = buttons.length - 1;
+    else if (event.key === "Tab") {
+      nextIndex = (index + (event.shiftKey ? -1 : 1) + buttons.length) % buttons.length;
+    } else return;
+    event.preventDefault();
+    buttons[nextIndex]?.focus();
+  });
+  document.body.appendChild(bonOrdrePopover);
+  positionBonOrdreRankSelector();
+  choices.querySelector('button[aria-pressed="true"]:not(:disabled)')?.focus();
+  if (!bonOrdrePopover.contains(document.activeElement)) choices.querySelector("button:not(:disabled)")?.focus();
+}
+
+document.addEventListener("pointerdown", event => {
+  if (bonOrdrePopover && !bonOrdrePopover.contains(event.target) && !bonOrdrePopoverAnchor?.contains(event.target)) {
+    closeBonOrdreRankSelector();
+  }
+});
+window.addEventListener("resize", positionBonOrdreRankSelector);
+window.addEventListener("scroll", positionBonOrdreRankSelector, true);
+
+function updateBonOrdreTimer(data) {
+  if (!bonOrdreState) return;
+  const remaining = Math.max(0, Number(data.remaining) || 0);
+  const total = Number(data.total) || 45;
+  const wasActive = bonOrdreState.active;
+  bonOrdreState.remaining = remaining;
+  bonOrdreState.active = data.active !== false && remaining > 0;
+  if (lboTimerNumber) {
+    lboTimerNumber.textContent = Math.ceil(remaining);
+    lboTimerNumber.style.color = remaining <= 5 ? "#ff3b30" : "white";
+  }
+  if (lboTimerFill) {
+    lboTimerFill.style.width = `${Math.min(100, remaining / total * 100)}%`;
+    lboTimerFill.style.background = remaining <= 5 ? "#ff3b30" : "#ffcc00";
+  }
+  if (remaining <= 0) {
+    closeBonOrdreRankSelector();
+    sfx45s.stop();
+  }
+  if (!wasActive && bonOrdreState.active && !bonOrdreState.submitted &&
+      !leBonOrdreContainer?.classList.contains("hidden")) sfx45s.play();
+  if (wasActive !== bonOrdreState.active) renderBonOrdreCards();
+  else updateBonOrdreControls();
+}
+
+function showLeBonOrdreQuestion(data) {
+  if (!bonOrdreContextMatches(data)) return;
+  hideAllMiniGames();
+  [mainDefault, mainDrawing, mainRules, mainPlaying].forEach(element => element?.classList.add("hidden"));
+  leBonOrdreContainer?.classList.remove("hidden");
+  if (lboQuestion) lboQuestion.textContent = data.question.question;
+  if (lboQuestionNumber) lboQuestionNumber.textContent = `Question ${data.index} / ${data.total}`;
+  renderBonOrdreCards();
+  if (bonOrdreState.active && bonOrdreState.remaining > 0 && !bonOrdreState.submitted) sfx45s.play();
+}
+
+function bonOrdrePhaseKey(data, phase = currentGameState.leBonOrdrePhase) {
+  return `${data.roomCode}:${data.gameMode}:${data.roundNumber}:${data.instanceId}:${data.questionIndex}:${phase}`;
+}
+
+function bonOrdreRemainingMs(data) {
+  const fromEvent = Math.max(0, Number(data.remainingMs) || 0);
+  if (!bonOrdrePhaseSnapshot || bonOrdrePhaseSnapshot.key !== bonOrdrePhaseKey(data)) return fromEvent;
+  return Math.max(0, Math.min(fromEvent,
+    bonOrdrePhaseSnapshot.remainingMs - (performance.now() - bonOrdrePhaseSnapshot.receivedAt)));
+}
+
+function stopBonOrdreCorrectionClock() {
+  clearInterval(bonOrdreCorrectionInterval);
+  bonOrdreCorrectionInterval = null;
+  bonOrdreCorrectionClock = null;
+}
+
+function clearBonOrdrePhaseDisplay() {
+  ++bonOrdreDisplayToken;
+  closeBonOrdreRankSelector();
+  stopBonOrdreCorrectionClock();
+  sfx45s.stop();
+  if (bonOrdreState) bonOrdreState.active = false;
+  leBonOrdreContainer?.classList.add("hidden");
+  document.getElementById("bonOrdreCorrectionContainer")?.classList.add("hidden");
+  palierOverlay?.classList.add("hidden");
+  if (bonOrdreLeaderboardSnapshot) invalidateMiniGameLeaderboard();
+  bonOrdreLeaderboardSnapshot = null;
+  if (bonOrdreEndingSnapshot) {
+    leugtasEndOverlay?.classList.add("hidden");
+    const endLogo = document.getElementById("leugtasEndLogo");
+    if (endLogo) {
+      endLogo.style.animation = "";
+      endLogo.style.animationDelay = "";
+    }
+    if (palierOverlayText) {
+      for (const property of ["animation", "color", "textShadow", "webkitTextStroke", "fontSize", "fontWeight"]) {
+        palierOverlayText.style[property] = "";
+      }
+    }
+  }
+  bonOrdreEndingSnapshot = null;
+  bonOrdreCorrectionContext = null;
+}
+
+function syncBonOrdrePhase(gs) {
+  const state = gs?.leBonOrdreState;
+  const active = gs?.currentMiniGame === "le_bon_ordre" &&
+    ["playing", "listeRoundEnd"].includes(gs.phase) && !!state;
+  if (active) body.classList.add("bon-ordre-active");
+  else body.classList.remove("bon-ordre-active");
+  if (!active) {
+    if (bonOrdrePhaseSnapshot) clearBonOrdrePhaseDisplay();
+    bonOrdrePhaseSnapshot = null;
+    bonOrdreState = null;
+    return;
+  }
+  const key = bonOrdrePhaseKey(state, state.subPhase);
+  const previous = bonOrdrePhaseSnapshot;
+  const sameQuestion = previous && previous.instanceId === state.instanceId && previous.questionIndex === state.questionIndex;
+  const answerStart = sameQuestion && previous.subPhase === "theme" && state.subPhase === "answering";
+  if (previous?.key !== key && !answerStart) clearBonOrdrePhaseDisplay();
+  const now = performance.now();
+  const remainingMs = Math.max(0, Number(state.remainingMs) || 0);
+  bonOrdrePhaseSnapshot = {
+    ...state, key, receivedAt: now,
+    remainingMs: previous?.key === key
+      ? Math.min(remainingMs, Math.max(0, previous.remainingMs - (now - previous.receivedAt))) : remainingMs
+  };
+  if (bonOrdreState && (bonOrdreState.instanceId !== state.instanceId ||
+      bonOrdreState.questionIndex !== state.questionIndex)) bonOrdreState = null;
+}
 
 function showQuiSuisJeQuestion(data) {
 
@@ -2534,214 +2745,104 @@ function stopBlindTestAudio() {
 
 
 socket.on("leBonOrdreQuestion", (data) => {
-
-
+  if (!bonOrdreEventMatches(data, ["theme", "answering"]) ||
+      !data.instanceId || !data.questionId || !Number.isInteger(data.questionIndex) ||
+      !Array.isArray(data.question?.cards) || data.question.cards.length !== 5) return;
+  if (bonOrdreState?.instanceId === data.instanceId && data.questionIndex < bonOrdreState.questionIndex) return;
+  const sameQuestion = bonOrdreState && bonOrdreContextMatches(data);
+  const previousRanks = sameQuestion ? bonOrdreState.ranks : null;
+  const previousSubmitted = sameQuestion && bonOrdreState.submitted;
+  const previousPass = sameQuestion && bonOrdreState.pass;
+  bonOrdreState = {
+    roomCode: data.roomCode, gameMode: data.gameMode, roundNumber: data.roundNumber,
+    instanceId: data.instanceId, questionId: data.questionId, questionIndex: data.questionIndex,
+    cards: data.question.cards, ranks: Object.create(null), submitted: false, pending: false,
+    active: data.timer?.active === true, remaining: data.timer?.remaining ?? 45
+  };
+  if (previousRanks) bonOrdreState.ranks = previousRanks;
+  else if (!amISpectator()) {
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(bonOrdreDraftKey(bonOrdreState)) || "null");
+      const used = new Set();
+      bonOrdreState.cards.forEach(card => {
+        const rank = draft?.[card.id];
+        if (Number.isInteger(rank) && rank >= 1 && rank <= 5 && !used.has(rank)) {
+          bonOrdreState.ranks[card.id] = rank;
+          used.add(rank);
+        }
+      });
+    } catch (_) { /* Un brouillon invalide est simplement ignoré. */ }
+  }
+  if (data.hasAnswered && data.savedAnswer) applyBonOrdreSavedAnswer(data.savedAnswer);
+  else if (previousSubmitted) {
+    bonOrdreState.submitted = true;
+    bonOrdreState.pass = previousPass;
+  }
+  bonOrdreCorrectionContext = null;
+  const displayToken = ++bonOrdreDisplayToken;
   sfx45s.stop();
-
-
-  if (mainDefault) mainDefault.classList.add("hidden");
-
-
-  if (mainRules) mainRules.classList.add("hidden");
-
-
-  if (mainDrawing) mainDrawing.classList.add("hidden");
-
-
-  if (mainPlaying) mainPlaying.classList.add("hidden");
-
-
   hideAllMiniGames();
-
-
-  if (palierOverlay && palierOverlayText) {
-
-
-    sfxTheme.play();
-
-
-    palierOverlayText.textContent = data.themeName || "Thème";
-
-
-    palierOverlay.classList.remove("hidden");
-
-
-    if (leBonOrdreContainer) leBonOrdreContainer.classList.add("hidden");
-
-
-    setTimeout(() => {
-
-
-      showLeBonOrdreQuestion(data);
-
-
-      setTimeout(() => {
-
-
-        palierOverlay.classList.add("hidden");
-
-
-      }, 100);
-
-
-    }, 1500);
-
-
-  } else {
-
-
+  [mainDefault, mainRules, mainDrawing, mainPlaying].forEach(element => element?.classList.add("hidden"));
+  updateBonOrdreTimer(data.timer || { remaining: 45, total: 45, active: false });
+  const themeDelay = currentGameState.leBonOrdrePhase === "theme"
+    ? Math.max(0, bonOrdreRemainingMs(data) - 1000) : 0;
+  if (themeDelay <= 0 || !palierOverlay || !palierOverlayText) {
+    palierOverlay?.classList.add("hidden");
     showLeBonOrdreQuestion(data);
-
-
+    return;
   }
-
-
+  if (!data.isReload && !sameQuestion) sfxTheme.play();
+  palierOverlayText.textContent = data.themeName || data.question.nom || "Thème";
+  palierOverlay.classList.remove("hidden");
+  setTimeout(() => {
+    if (displayToken !== bonOrdreDisplayToken || !bonOrdreContextMatches(data)) return;
+    showLeBonOrdreQuestion(data);
+    setTimeout(() => {
+      if (displayToken === bonOrdreDisplayToken && bonOrdreContextMatches(data)) palierOverlay.classList.add("hidden");
+    }, 100);
+  }, themeDelay);
 });
 
-
-socket.on("leBonOrdreTimerUpdate", ({ remaining, total }) => {
-
-
-  if (!amISpectator()) {
-
-
-    if (lboInput && lboInput.disabled && !lboInput.value.includes("JE PASSE")) {
-
-
-      lboInput.disabled = false;
-
-
-    }
-
-
-    const btn = document.getElementById("lboValidateBtn");
-
-
-    if (btn && btn.classList.contains("btn-locked-intro")) {
-
-
-      btn.disabled = false;
-
-
-      btn.classList.remove("btn-locked-intro");
-
-
-      if (lboInput) lboInput.focus();
-
-
-    }
-
-
-  }
-
-
-  if (!lboTimerNumber || !lboTimerFill) return;
-
-
-  lboTimerNumber.textContent = remaining;
-
-
-  const ratio = total ? remaining / total : 0;
-
-
-  lboTimerFill.style.width = (ratio * 100) + "%";
-
-
-  if (remaining <= 5) {
-
-
-    lboTimerFill.style.background = "#ff3b30";
-
-
-    lboTimerNumber.style.color = "#ff3b30";
-
-
-  } else {
-
-
-    lboTimerFill.style.background = "#ffcc00";
-
-
-    lboTimerNumber.style.color = "white";
-
-
-  }
-
-
-  if (remaining <= 0) {
-
-
-    sfx45s.stop();
-
-
-  }
-
-
+socket.on("leBonOrdreTimerUpdate", data => {
+  if (bonOrdreEventMatches(data, ["answering"]) && bonOrdreContextMatches(data)) updateBonOrdreTimer(data);
 });
 
-
-socket.on("leBonOrdreAnswerAck", () => {
-
-
-  if (lboFeedback) {
-
-
-    lboFeedback.textContent = "Réponse envoyée ! En attente des autres...";
-
-
-    lboFeedback.style.color = "#2ecc71";
-
-
-  }
-
-
-  if (lboInput) lboInput.disabled = true;
-
-
-  if (lboValidateBtn) {
-
-
-    lboValidateBtn.disabled = true;
-
-
-    lboValidateBtn.style.opacity = "0.5";
-
-
-    lboValidateBtn.style.cursor = "default";
-
-
-  }
-
-
-  if (lboPassBtn) {
-
-
-    lboPassBtn.disabled = true;
-
-
-    lboPassBtn.style.opacity = "0.5";
-
-
-    lboPassBtn.style.cursor = "default";
-
-
-  }
-
-
-});
-
-
-socket.on("leBonOrdreEnd", () => {
-
-
+socket.on("leBonOrdreAnswerAck", data => {
+  if (!bonOrdreEventMatches(data, ["answering"]) || !bonOrdreContextMatches(data) || !data.savedAnswer) return;
+  applyBonOrdreSavedAnswer(data.savedAnswer);
   sfx45s.stop();
-
-
-  if (lboFeedback) lboFeedback.textContent = "Fin de la manche !";
-
-
+  renderBonOrdreCards();
 });
 
+socket.on("leBonOrdreAnswerRejected", data => {
+  if (!bonOrdreEventMatches(data, ["answering"]) || !bonOrdreContextMatches(data)) return;
+  bonOrdreState.pending = false;
+  renderBonOrdreCards();
+  if (lboFeedback) {
+    lboFeedback.textContent = data.message || "La réponse n’a pas été acceptée. Réessayez.";
+    lboFeedback.style.color = "#ff6b6b";
+  }
+});
+
+socket.on("leBonOrdreCorrection", data => {
+  if (!bonOrdreEventMatches(data, ["correction"])) return;
+  handleBonOrdreCorrection(data);
+});
+
+socket.on("leBonOrdreLeaderboard", data => {
+  if (!bonOrdreEventMatches(data, ["leaderboard"]) || !Array.isArray(data.players)) return;
+  const key = bonOrdrePhaseKey(data);
+  const updateOnly = bonOrdreLeaderboardSnapshot?.key === key;
+  if (!updateOnly) {
+    hideAllMiniGames();
+    stopBonOrdreCorrectionClock();
+    sfx45s.stop();
+    palierOverlay?.classList.add("hidden");
+  }
+  bonOrdreLeaderboardSnapshot = { key, context: data, previousPlayers: data.previousPlayers, players: data.players };
+  currentPlayersData = data.players;
+  handleInterimLeaderboard(data.players, null, bonOrdreRemainingMs(data), "CLASSEMENT", updateOnly);
+});
 
 socket.on("quiSuisJeQuestion", (data) => {
 
@@ -3554,92 +3655,24 @@ socket.on("petitBacEnd", () => {
 });
 
 
-if (lboValidateBtn) {
-
-
-  lboValidateBtn.addEventListener("click", () => {
-
-
-    if (
-
-
-      lboValidateBtn.disabled ||
-
-
-      lboValidateBtn.classList.contains("btn-locked-intro")
-
-
-    )
-
-
-      return;
-
-
-    sfx45s.stop();
-
-
-    sfxBubbleClick.play();
-
-
-    const val = lboInput ? lboInput.value.trim() : "";
-
-
-    if (!val) return;
-
-
-    emitGameAction("leBonOrdreAnswer", {
-
-
-      roomCode: currentRoom.roomCode,
-
-
-      answer: val
-
-
-    });
-
-
+function submitBonOrdreAnswer(pass) {
+  if (!bonOrdreCanEdit()) return;
+  const orderedIds = pass ? null : bonOrdreOrderedIds();
+  if (!pass && !orderedIds) return;
+  sfxBubbleClick.play();
+  closeBonOrdreRankSelector();
+  bonOrdreState.pending = true;
+  emitGameAction("leBonOrdreAnswer", {
+    gameMode: bonOrdreState.gameMode,
+    roundNumber: bonOrdreState.roundNumber, instanceId: bonOrdreState.instanceId,
+    questionId: bonOrdreState.questionId, questionIndex: bonOrdreState.questionIndex,
+    orderedIds, pass
   });
-
-
+  renderBonOrdreCards();
 }
 
-
-if (lboPassBtn) {
-
-
-  lboPassBtn.addEventListener("click", () => {
-
-
-    if (lboPassBtn.disabled) return;
-
-
-    sfx45s.stop();
-
-
-    sfxBubbleClick.play();
-
-
-    emitGameAction("leBonOrdreAnswer", {
-
-
-      roomCode: currentRoom.roomCode,
-
-
-      answer: "JE PASSE"
-
-
-    });
-
-
-    if (lboInput) lboInput.value = "JE PASSE";
-
-
-  });
-
-
-}
-
+lboValidateBtn?.addEventListener("click", () => submitBonOrdreAnswer(false));
+lboPassBtn?.addEventListener("click", () => submitBonOrdreAnswer(true));
 
 if (qsjValidateBtn) {
 
@@ -5299,6 +5332,7 @@ function updateGameStateUI(gs) {
       currentGameState.currentMiniGame === "penave_ou_nachave" &&
       ["playing", "listeRoundEnd"].includes(currentGameState.phase))) stopPenaveDisplay();
   if (currentRoom && gs?.gameMode) currentRoom.gameMode = gs.gameMode;
+  syncBonOrdrePhase(currentGameState);
   updateGameModeUI();
   if (currentGameState.phase === "listeIntro" && currentGameState.gameMode === "liste") {
     syncListeIntro(currentGameState);
@@ -5800,7 +5834,11 @@ function updateGameStateUI(gs) {
         if (mainPlaying) mainPlaying.classList.add("hidden");
 
 
-        if (leBonOrdreContainer) leBonOrdreContainer.classList.remove("hidden");
+        if (["theme", "answering"].includes(gs.leBonOrdrePhase)) {
+          if (leBonOrdreContainer && bonOrdreState) leBonOrdreContainer.classList.remove("hidden");
+        } else {
+          leBonOrdreContainer?.classList.add("hidden");
+        }
 
 
         return;
@@ -7233,7 +7271,8 @@ socket.on("scoreUpdate", (data) => {
 
   }
 
-  if (currentRoom?.gameMode === "liste" && data.refreshLeaderboard === true) {
+  if (currentRoom?.gameMode === "liste" && data.refreshLeaderboard === true &&
+      currentGameState.currentMiniGame !== "le_bon_ordre") {
     const overlay = document.getElementById("leaderboard-overlay");
     if (overlay?.classList.contains("active")) {
       handleInterimLeaderboard(currentPlayersData, null, 0,
@@ -7843,6 +7882,7 @@ socket.on("playCorrectionArrow", () => {
 
 
 socket.on("correctionUpdate", (data) => {
+  if (data.miniGameType === "le_bon_ordre") return;
   if (data.gameMode === "liste" &&
       (currentRoom?.gameMode !== "liste" || data.roomCode !== currentRoom.roomCode)) return;
   if (data.miniGameType === "matrice_football" &&
@@ -8031,6 +8071,75 @@ function handleStandardCorrection(data, container) {
 
   // Message spectateur
   if (waitMsg) waitMsg.classList.toggle("hidden", amIHost);
+}
+
+function handleBonOrdreCorrection(data) {
+  const container = document.getElementById("bonOrdreCorrectionContainer");
+  const correction = data.bonOrdreData;
+  if (!container || !correction) return;
+  const key = bonOrdrePhaseKey(data);
+  const now = performance.now();
+  const previousRemaining = bonOrdreCorrectionClock?.key === key
+    ? Math.max(0, bonOrdreCorrectionClock.remainingMs - (now - bonOrdreCorrectionClock.receivedAt)) : Infinity;
+  stopBonOrdreCorrectionClock();
+  hideAllMiniGames();
+  [mainDefault, mainDrawing, mainRules, mainPlaying, scoreboard].forEach(element => element?.classList.add("hidden"));
+  bonOrdreCorrectionContext = data;
+  if (bonOrdreState) bonOrdreState.active = false;
+  ++bonOrdreDisplayToken;
+  sfx45s.stop();
+  palierOverlay?.classList.add("hidden");
+  container.classList.remove("hidden");
+  document.getElementById("bonOrdreCorrectionInfo").textContent = `Question ${data.currentQIndex} / ${data.totalQ}`;
+  document.getElementById("bonOrdreCorrectionQuestion").textContent = data.questionText || "";
+  const participant = data.isParticipant === true && correction.status !== "spectator";
+  document.getElementById("bonOrdrePersonalSection").hidden = !participant;
+  document.getElementById("bonOrdreCorrectionPlayer").textContent = participant ? data.playerPseudo || "" : "";
+  const numberFormat = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 20 });
+  const makeCard = (card, expected) => {
+    const item = document.createElement("div");
+    item.className = "bon-ordre-correction-card";
+    const rank = document.createElement("span");
+    rank.className = "bon-ordre-correction-rank";
+    rank.textContent = `Rang ${card.rank}`;
+    item.appendChild(rank);
+    item.appendChild(makeBonOrdreCardContent(card));
+    if (expected) {
+      const value = document.createElement("span");
+      value.className = "bon-ordre-value";
+      value.textContent = numberFormat.format(card.valeur);
+      item.appendChild(value);
+    } else {
+      item.classList.add(card.correct ? "bon-ordre-correct" : "bon-ordre-incorrect");
+      const verdict = document.createElement("span");
+      verdict.className = "bon-ordre-position-verdict";
+      verdict.textContent = card.correct ? "✓ Bien placé" : `✗ Bonne place : ${(card.correctRanks || []).join(" ou ")}`;
+      item.appendChild(verdict);
+    }
+    return item;
+  };
+  const expected = document.getElementById("bonOrdreExpectedCards");
+  expected.replaceChildren(...(correction.expected || []).map(card => makeCard(card, true)));
+  const proposal = document.getElementById("bonOrdreProposalCards");
+  proposal.replaceChildren(...(participant ? correction.positions || [] : []).map(card => makeCard(card, false)));
+  const status = document.getElementById("bonOrdreCorrectionStatus");
+  status.textContent = correction.status === "pass" ? "Je passe" :
+    correction.status === "missing" ? "Aucune réponse validée" : "";
+  status.hidden = correction.status === "answered";
+  proposal.hidden = correction.status !== "answered";
+  document.getElementById("bonOrdreCorrectionScore").textContent = participant
+    ? `${correction.correctCount} / 5 éléments bien placés · Points : ${numberFormat.format(correction.grade)}` : "";
+  bonOrdreCorrectionClock = {
+    key, context: data, receivedAt: now, remainingMs: Math.min(previousRemaining, bonOrdreRemainingMs(data))
+  };
+  const renderClock = () => {
+    if (!bonOrdreCorrectionClock || !bonOrdreEventMatches(data, ["correction"])) return stopBonOrdreCorrectionClock();
+    const remaining = Math.max(0, bonOrdreCorrectionClock.remainingMs - (performance.now() - bonOrdreCorrectionClock.receivedAt));
+    document.getElementById("bonOrdreCorrectionCountdown").textContent = remaining > 0
+      ? `Classement dans ${Math.ceil(remaining / 1000)} s` : "Le classement va s’afficher…";
+  };
+  renderClock();
+  bonOrdreCorrectionInterval = setInterval(renderClock, 250);
 }
 
 function handlePetitBacCorrection(data, container) {
@@ -8390,29 +8499,60 @@ if (pbFinishGameBtn) {
 }
 
 
-socket.on("leBonOrdreExit", () => {
+socket.on("leBonOrdreExit", data => {
+  // L'événement historique est aussi utilisé par les autres mini-jeux manuels.
+  if (currentGameState.currentMiniGame !== "le_bon_ordre") {
+    if (data?.instanceId) return;
     hideAllMiniGames();
-    if (mainPlaying) mainPlaying.classList.add("hidden");
-runEliminationSequence(currentPlayersData, () => {
-    if (leugtasEndOverlay) {
-        // --- D�CLENCHEMENT DU SON ---
-        sfxFinJeu.play();
-        
-        const logo = document.getElementById("leugtasEndLogo");
-        if (logo) {
-            let gameName = currentGameState.currentMiniGame || "le_bon_ordre";
-            if (gameName === "petit_bac" || gameName === "le_petit_bac") {
-                gameName = "le_petit_bac";
-            }
-            // Correction de la syntaxe du chemin d'image
-            logo.src = `titres/${gameName}.png`;
-        }
-        leugtasEndOverlay.classList.remove("hidden");
-        setTimeout(() => {
-            leugtasEndOverlay.classList.add("hidden");
-        }, 3500); 
+    mainPlaying?.classList.add("hidden");
+    runEliminationSequence(currentPlayersData, () => {
+      if (!leugtasEndOverlay) return;
+      sfxFinJeu.play();
+      const logo = document.getElementById("leugtasEndLogo");
+      if (logo) {
+        const gameName = ["petit_bac", "le_petit_bac"].includes(currentGameState.currentMiniGame)
+          ? "le_petit_bac" : currentGameState.currentMiniGame;
+        logo.src = `titres/${gameName}.png`;
+      }
+      leugtasEndOverlay.classList.remove("hidden");
+      setTimeout(() => leugtasEndOverlay.classList.add("hidden"), 3500);
+    });
+    return;
+  }
+  if (!bonOrdreEventMatches(data, ["ending"])) return;
+  const key = bonOrdrePhaseKey(data);
+  if (bonOrdreEndingSnapshot?.key === key) return;
+  hideAllMiniGames();
+  invalidateMiniGameLeaderboard();
+  stopBonOrdreCorrectionClock();
+  sfx45s.stop();
+  palierOverlay?.classList.add("hidden");
+  [mainDefault, mainDrawing, mainRules, mainPlaying, scoreboard].forEach(element => element?.classList.add("hidden"));
+  const remainingMs = bonOrdreRemainingMs(data);
+  const durationMs = Math.max(0, Number(data.durationMs) || (data.gameMode === "liste" ? 3500 : 7000));
+  const snapshot = { key, context: data, receivedAt: performance.now(), elapsedMs: durationMs - remainingMs };
+  bonOrdreEndingSnapshot = snapshot;
+  const isCurrent = () => bonOrdreEndingSnapshot === snapshot && bonOrdreEventMatches(data, ["ending"]);
+  const showLogo = () => {
+    if (!isCurrent() || !leugtasEndOverlay) return;
+    const elapsedMs = snapshot.elapsedMs + performance.now() - snapshot.receivedAt;
+    const logoElapsedMs = Math.max(0, elapsedMs - (data.gameMode === "liste" ? 0 : 3500));
+    if (logoElapsedMs >= 3500) return;
+    const logo = document.getElementById("leugtasEndLogo");
+    if (logo) {
+      logo.src = "titres/le_bon_ordre.png";
+      logo.style.animation = "none";
+      void logo.offsetWidth;
+      logo.style.animation = "spinAndShoot 3.5s ease-out forwards";
+      logo.style.animationDelay = `-${logoElapsedMs}ms`;
     }
-});
+    if (logoElapsedMs < 300) sfxFinJeu.play();
+    leugtasEndOverlay.classList.remove("hidden");
+    setTimeout(() => {
+      if (isCurrent()) leugtasEndOverlay.classList.add("hidden");
+    }, Math.max(0, 3500 - logoElapsedMs));
+  };
+  runEliminationSequence(data.players || currentPlayersData, showLogo, { isCurrent, elapsedMs: snapshot.elapsedMs });
 });
 
 socket.on("fauxVraiEnd", () => {
@@ -10359,12 +10499,19 @@ document.addEventListener("keydown", (e) => {
 /**
  * Affiche l'animation du joueur éliminé avec le message "EST À TERRE" et déclenche le son.
  */
-function runEliminationSequence(players, onFinish) {
+function runEliminationSequence(players, onFinish, options = {}) {
+    const isCurrent = options.isCurrent || (() => true);
+    const elapsedMs = Math.max(0, Number(options.elapsedMs) || 0);
+    if (!isCurrent()) return;
     if (currentRoom?.gameMode === "liste") {
         if (onFinish) onFinish();
         return;
     }
     if (!players || players.length === 0) {
+        if (onFinish) onFinish();
+        return;
+    }
+    if (elapsedMs >= 3500) {
         if (onFinish) onFinish();
         return;
     }
@@ -10377,7 +10524,7 @@ function runEliminationSequence(players, onFinish) {
     const loser = sorted[0];
 
     // 2. Déclenchement du son (Logique identique aux annonces de thèmes)
-    if (typeof sfxElimination !== 'undefined') {
+    if (typeof sfxElimination !== 'undefined' && elapsedMs < 300) {
         sfxElimination.play();
     }
 
@@ -10410,6 +10557,7 @@ function runEliminationSequence(players, onFinish) {
 
         // 4. On laisse le message affiché pendant 3.5s avant de passer à la suite
         setTimeout(() => {
+            if (!isCurrent()) return;
             overlay.classList.add("hidden");
             
             // RESET des styles pour ne pas impacter les prochains affichages de thèmes
@@ -10420,7 +10568,7 @@ function runEliminationSequence(players, onFinish) {
             textEl.style.fontSize = "";
             
             if (onFinish) onFinish();
-        }, 3500);
+        }, Math.max(0, 3500 - elapsedMs));
     } else {
         if (onFinish) onFinish();
     }

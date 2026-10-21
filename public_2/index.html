@@ -1851,6 +1851,74 @@
         body.mode-liste .penave-row .penave-answer { grid-column: 1 / -1; }
         body.mode-liste .penave-row .penave-status { grid-column: 1; }
       }
+
+      /* Nouvelle interaction du Bon Ordre, isolée des autres mini-jeux. */
+      body.bon-ordre-active .main-zone-overlay { padding: clamp(12px, 3vw, 30px); min-width: 0; }
+      body.bon-ordre-active .main-zone { padding: 32px 0 12px; min-width: 0; }
+      body.bon-ordre-active .playing-title { font-size: clamp(1.35rem, 5vw, 2rem); overflow-wrap: anywhere; }
+      .bon-ordre-container, .bon-ordre-correction { width: 100%; min-width: 0; text-align: center; }
+      .bon-ordre-container .bon-ordre-question { font-size: clamp(0.95rem, 3.7vw, 1.2rem); line-height: 1.4; margin: 10px 0; overflow-wrap: anywhere; }
+      .bon-ordre-container .playing-question-number { margin: 8px 0; }
+      .bon-ordre-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: clamp(8px, 2vw, 18px); align-items: stretch; margin: 24px 0 16px; }
+      .bon-ordre-card-wrap { position: relative; min-width: 0; display: flex; padding-top: 20px; }
+      .bon-ordre-card { width: 100%; min-width: 0; min-height: 160px; margin: 0; padding: 10px; color: #fff; border: 2px solid #0f4c75; border-radius: 12px; background: #1b262c; font: inherit; transition: border-color 0.15s, background 0.15s; }
+      .bon-ordre-card:not(:disabled):hover { border-color: #ffcc00; background: #203b4c; }
+      .bon-ordre-card:disabled { opacity: 1; cursor: default; }
+      .bon-ordre-card:focus-visible, .bon-ordre-clear-rank:focus-visible, .bon-ordre-rank-popover button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+      .bon-ordre-card-content { width: 100%; height: 100%; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+      .bon-ordre-card-content img { display: block; width: 100%; height: clamp(72px, 14vw, 140px); min-height: 0; max-width: 100%; object-fit: contain; border-radius: 6px; }
+      .bon-ordre-card-content img[hidden] { display: none; }
+      .bon-ordre-card-name { display: block; min-width: 0; max-width: 100%; font-size: clamp(0.86rem, 2.8vw, 1rem); line-height: 1.3; font-weight: 700; white-space: normal; overflow-wrap: anywhere; }
+      .bon-ordre-rank-zone { position: absolute; top: 0; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 2px; z-index: 2; }
+      .bon-ordre-rank-badge { display: inline-flex; justify-content: center; align-items: center; width: 32px; height: 32px; border-radius: 50%; color: #222; background: #ffcc00; font-weight: 800; box-shadow: 0 2px 5px #0008; }
+      .bon-ordre-clear-rank { width: 44px; height: 44px; min-width: 44px; margin: 0; padding: 0; background: #33181b; color: #ff6969; border: 1px solid #ff6969; font-size: 1.6rem; line-height: 1; }
+      .bon-ordre-rank-popover { position: fixed; z-index: 20004; width: min(280px, calc(100vw - 16px)); padding: 10px; border: 2px solid #ffcc00; border-radius: 12px; background: #1b262c; color: #fff; box-shadow: 0 8px 24px #000c; }
+      .bon-ordre-rank-label { margin-bottom: 8px; font-size: 0.9rem; text-align: center; font-weight: 700; }
+      .bon-ordre-rank-choices { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+      .bon-ordre-rank-choices button { width: 100%; min-height: 44px; margin: 0; padding: 6px 0; border: 2px solid transparent; border-radius: 8px; background: #ffcc00; color: #222; font-size: 1.1rem; }
+      .bon-ordre-rank-choices button[aria-pressed="true"] { border-color: #fff; }
+      .bon-ordre-rank-choices button:disabled { background: #4b5358; color: #aab0b4; cursor: not-allowed; }
+      .bon-ordre-actions { gap: 10px; flex-wrap: wrap; }
+      .bon-ordre-actions button { min-height: 44px; flex: 1 1 130px; max-width: 240px; min-width: 0; font-size: clamp(0.9rem, 3.4vw, 1rem); }
+      .bon-ordre-actions button:disabled { opacity: 0.5; cursor: default; }
+      .bon-ordre-actions button[hidden], .bon-ordre-correction [hidden] { display: none !important; }
+      .bon-ordre-container .playing-feedback { overflow-wrap: anywhere; line-height: 1.4; }
+      .bon-ordre-correction-question { overflow-wrap: anywhere; line-height: 1.4; }
+      .bon-ordre-correction-section { margin: 16px 0; padding: clamp(8px, 2vw, 16px); border: 1px solid #0f4c75; border-radius: 12px; background: #1b262cc9; min-width: 0; }
+      .bon-ordre-correction-section h2 { margin: 0 0 12px; font-size: clamp(1rem, 3.8vw, 1.25rem); }
+      .bon-ordre-player-section { background: #1e1e1ee8; border-color: #555; }
+      .bon-ordre-correction-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
+      .bon-ordre-correction-card { display: flex; flex-direction: column; min-width: 0; border: 1px solid #52606a; border-radius: 8px; background: #101c24; padding: 8px; gap: 8px; }
+      .bon-ordre-correction-card .bon-ordre-card-content { flex: 1; }
+      .bon-ordre-correction-card .bon-ordre-card-content img { height: clamp(65px, 10vw, 110px); }
+      .bon-ordre-correction-rank { color: #ffcc00; font-weight: 800; font-size: 0.9rem; }
+      .bon-ordre-value { font-weight: 800; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+      .bon-ordre-correct { border-bottom: 4px solid #2ecc71; }
+      .bon-ordre-incorrect { border-bottom: 4px solid #ff6969; }
+      .bon-ordre-position-verdict { overflow-wrap: anywhere; font-size: 0.85rem; font-weight: 700; }
+      .bon-ordre-correct .bon-ordre-position-verdict { color: #2ecc71; }
+      .bon-ordre-incorrect .bon-ordre-position-verdict { color: #ff8b8b; }
+      .bon-ordre-correction .grading-player-name { margin: 0 0 12px; font-size: clamp(1rem, 4vw, 1.4rem); overflow-wrap: anywhere; }
+      .bon-ordre-correction-countdown { color: #ffcc00; margin: 10px 0; font-variant-numeric: tabular-nums; }
+      .bon-ordre-correction-status { font-size: 1.2rem; font-weight: 800; color: #ffcc00; }
+      .bon-ordre-correction-score { margin: 14px 0 0; font-weight: 800; overflow-wrap: anywhere; }
+      body.bon-ordre-active #leaderboard-overlay { padding: 64px 10px 20px; }
+      body.bon-ordre-active #leaderboard-content { width: min(100%, 500px); max-height: calc(100dvh - 160px); overflow-y: auto; overflow-x: hidden; }
+      body.bon-ordre-active #leaderboard-content .player-row { display: grid; grid-template-columns: 2em minmax(0, 1fr) auto 3.2em; gap: 6px; padding: 10px; min-width: 0; }
+      body.bon-ordre-active #leaderboard-content .rank-num { width: auto; }
+      body.bon-ordre-active #leaderboard-content .p-name { min-width: 0; overflow-wrap: anywhere; }
+      body.bon-ordre-active #leaderboard-content .p-score { white-space: nowrap; }
+      body.bon-ordre-active #leaderboard-content .p-time { width: auto; margin: 0; }
+      body.bon-ordre-active #leaderboard-content .p-meta { display: none; }
+      @media (max-width: 600px) {
+        body.bon-ordre-active .container { padding: 8px; }
+        .bon-ordre-cards, .bon-ordre-correction-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .bon-ordre-card { min-height: 130px; padding: 8px; }
+        .bon-ordre-card-wrap:last-child { grid-column: 1 / -1; width: calc((100% - 8px) / 2); justify-self: center; }
+        .bon-ordre-cards { gap: 8px; margin-top: 12px; }
+        .bon-ordre-correction-card:last-child { grid-column: 1 / -1; width: calc((100% - 8px) / 2); justify-self: center; }
+        .bon-ordre-correction-cards .bon-ordre-card-name { font-size: 0.85rem; }
+      }
     </style>
       <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
@@ -2120,41 +2188,19 @@
   <div id="fauxVraiFeedback" class="fauxvrai-feedback"></div>
 </div>
 
-    <div id="leBonOrdreContainer" class="hidden mini-container">
-      <div class="playing-title" style="margin-bottom: 10px;">Le Bon Ordre</div>
-      
-      <div style="text-align: center; margin-bottom: 15px;">
-        <div id="lboQuestion" class="playing-question" style="text-align:center; font-size:1.2rem; font-weight:600; margin-bottom: 5px;">
-          Question...
-        </div>
-        <div id="lboQuestionNumber" class="playing-question-number" style="opacity:0.8;"></div>
+    <section id="leBonOrdreContainer" class="hidden mini-container bon-ordre-container">
+      <div class="playing-title">Le Bon Ordre</div>
+      <div id="lboQuestion" class="playing-question bon-ordre-question">Question…</div>
+      <div id="lboQuestionNumber" class="playing-question-number"></div>
+      <div id="lboTimerNumber" class="timer-number">45</div>
+      <div class="timer-bar"><div id="lboTimerFill" class="timer-bar-fill"></div></div>
+      <div id="lboCards" class="bon-ordre-cards" aria-label="Cartes à classer"></div>
+      <div class="lbo-buttons-row bon-ordre-actions">
+        <button id="lboValidateBtn" type="button" class="btn-validate" disabled>Valider votre réponse</button>
+        <button id="lboPassBtn" type="button" class="btn-pass" disabled>Je passe</button>
       </div>
-
-      <div style="width: 100%; margin-bottom: 20px;">
-        <div id="lboTimerNumber" class="timer-number">45</div>
-        <div class="timer-bar">
-          <div id="lboTimerFill" class="timer-bar-fill"></div>
-        </div>
-      </div>
-
-      <div class="lbo-container-flex">
-        <div style="text-align: center; width: 100%;">
-          <img id="lboMainImage" src="" alt="Question" />
-        </div>
-      </div>
-
-      <div style="text-align: center; margin-top: 15px;">
-        <div style="margin-bottom: 8px; font-weight: 600;">Votre Réponse</div>
-        <input type="text" id="lboInput" class="lbo-input" placeholder="Ex: 5-1-2-4-3 ou 5 1 2 4 3" />
-        
-        <div class="lbo-buttons-row">
-            <button id="lboValidateBtn" class="btn-validate">Valider votre réponse</button>
-            <button id="lboPassBtn" class="btn-pass">Je passe</button>
-        </div>
-        
-        <div id="lboFeedback" class="playing-feedback"></div>
-      </div>
-    </div>
+      <div id="lboFeedback" class="playing-feedback" role="status" aria-live="polite"></div>
+    </section>
 
     <div id="quiSuisJeContainer" class="hidden mini-container">
       <div class="playing-title" style="margin-bottom: 10px;">Qui suis-je ?</div>
@@ -2444,6 +2490,24 @@
       z-index: 10;
     }
   </style>
+
+  <section id="bonOrdreCorrectionContainer" class="hidden mini-container bon-ordre-correction">
+    <div class="playing-title">Correction du Bon Ordre</div>
+    <div id="bonOrdreCorrectionInfo" class="playing-question-number"></div>
+    <p id="bonOrdreCorrectionCountdown" class="bon-ordre-correction-countdown" role="timer" aria-live="off"></p>
+    <p id="bonOrdreCorrectionQuestion" class="bon-ordre-correction-question"></p>
+    <section class="bon-ordre-correction-section" aria-labelledby="bonOrdreExpectedTitle">
+      <h2 id="bonOrdreExpectedTitle">Le bon classement</h2>
+      <div id="bonOrdreExpectedCards" class="bon-ordre-correction-cards"></div>
+    </section>
+    <section id="bonOrdrePersonalSection" class="bon-ordre-correction-section bon-ordre-player-section" aria-labelledby="bonOrdreProposalTitle">
+      <h2 id="bonOrdreProposalTitle">Votre proposition</h2>
+      <div id="bonOrdreCorrectionPlayer" class="grading-player-name"></div>
+      <p id="bonOrdreCorrectionStatus" class="bon-ordre-correction-status" hidden></p>
+      <div id="bonOrdreProposalCards" class="bon-ordre-correction-cards"></div>
+      <p id="bonOrdreCorrectionScore" class="bon-ordre-correction-score"></p>
+    </section>
+  </section>
 
         <div id="correctionContainer" class="hidden mini-container correction-container">
     <div class="playing-title">Correction</div>

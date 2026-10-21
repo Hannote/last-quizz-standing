@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "pools": {
+    "population": [
+      "allemagne",
+      "portugal",
+      "espagne",
+      "france",
+      "italie"
+    ],
+    "buteurs": [
+      "lionel_messi",
+      "ciro_immobile",
+      "alexis_sanchez",
+      "cristiano_ronaldo",
+      "antoine_griezmann"
+    ],
+    "jeux_videos": [
+      "fifa_13",
+      "wii_fit",
+      "duck_hunt",
+      "battlefield_1",
+      "elden_ring"
+    ],
+    "histoire": [
+      "armistice_1918",
+      "premier_pas_lune",
+      "prise_bastille",
+      "chute_mur_berlin",
+      "circulation_euro"
+    ],
+    "passeurs": [
+      "lionel_messi",
+      "antoine_griezmann",
+      "cristiano_ronaldo",
+      "ciro_immobile",
+      "alexis_sanchez"
+    ],
+    "chanteurs": [
+      "beyonce",
+      "adele",
+      "2pac",
+      "avicii",
+      "abba"
+    ],
+    "cinema": [
+      "cendrillon",
+      "hercule",
+      "cars",
+      "fourmiz",
+      "aladdin"
+    ]
+  }
+}

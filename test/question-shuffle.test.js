@@ -22,15 +22,12 @@ function selectors(mode) {
   const history = {};
   const resets = [];
   const rooms = { TEST: { roomCode: "TEST", gameMode: mode, gameState: {} } };
-  const leBonOrdre = data("le_bon_ordre");
   const blindTest = data("blind_test");
   const tourDuMonde = data("le_tour_du_monde");
   const quiSuisJe = data("qui_suis_je");
   const fauxVrai = data("le_faux_du_vrai");
   const context = {
     shuffleCopy, rooms, io: { to: () => ({ emit() {} }) },
-    LE_BON_ORDRE_QUESTIONS: leBonOrdre.questions,
-    LE_BON_ORDRE_THEMES: leBonOrdre.themes,
     BLIND_TEST_QUESTIONS: blindTest.questions,
     BLIND_TEST_THEMES: blindTest.themes,
     TOUR_MONDE_QUESTIONS: tourDuMonde.questions,
@@ -50,12 +47,13 @@ function selectors(mode) {
     sendFauxVraiQuestion() {}, publishListeContext() {}, roomTimeout() {},
     startPetitBacTimer() {}, clearInterval() {}
   };
-  const names = ["pickLeBonOrdreQuestions", "pickBlindTestQuestions", "pickLeTourDuMondeQuestions",
+  // Le Bon Ordre possède désormais sa propre mémoire d'éléments, testée séparément.
+  const names = ["pickBlindTestQuestions", "pickLeTourDuMondeQuestions",
     "pickQuiSuisJeQuestions", "startFauxVrai", "startPetitBac"];
   vm.runInNewContext(names.map(functionSource).join("\n") +
     `\nglobalThis.picks = { ${names.join(", ")} };`, context);
   return { ...context.picks, context, history, resets,
-    banks: { leBonOrdre, blindTest, tourDuMonde, quiSuisJe, fauxVrai } };
+    banks: { blindTest, tourDuMonde, quiSuisJe, fauxVrai } };
 }
 
 test("Fisher–Yates conserve les éléments et la banque source", () => {
@@ -86,7 +84,6 @@ for (const mode of ["battle_royale", "liste"]) {
   test(`${mode} : quantités, thèmes et exclusions conservés avec historique en mémoire`, () => {
     const h = selectors(mode);
     const excluded = {
-      le_bon_ordre: h.banks.leBonOrdre.questions[0].id,
       blind_test: h.banks.blindTest.questions[0].id,
       le_tour_du_monde: h.banks.tourDuMonde.questions[0].id,
       qui_suis_je: h.banks.quiSuisJe.questions[0].id,
@@ -96,11 +93,6 @@ for (const mode of ["battle_royale", "liste"]) {
     h.history.petit_bac = ["A"];
     const bankSnapshots = Object.fromEntries(Object.entries(h.banks).map(([name, bank]) =>
       [name, JSON.stringify(bank)]));
-
-    const bonOrdre = h.pickLeBonOrdreQuestions();
-    assert.equal(bonOrdre.length, h.banks.leBonOrdre.themes.length);
-    assert.deepEqual(new Set(bonOrdre.map((q) => q.theme_id)),
-      new Set(h.banks.leBonOrdre.themes.map((theme) => theme.id)));
 
     const blind = h.pickBlindTestQuestions();
     assert.equal(blind.length, 8);
@@ -132,7 +124,7 @@ for (const mode of ["battle_royale", "liste"]) {
     assert.ok("ABCDEFGHIJLMNOPRSTUV".includes(bac.letter));
     assert.notEqual(bac.letter, "A");
 
-    for (const [game, questions] of Object.entries({ le_bon_ordre: bonOrdre, blind_test: blind,
+    for (const [game, questions] of Object.entries({ blind_test: blind,
       le_tour_du_monde: tour, qui_suis_je: qui, faux_vrai: faux })) {
       assert.ok(questions.every((q) => q.id !== excluded[game]), game);
       assert.equal(new Set(questions.map((q) => q.id)).size, questions.length, game);
@@ -145,7 +137,6 @@ for (const mode of ["battle_royale", "liste"]) {
 
 test("les conditions de remise à zéro et l'enregistrement restent en place", () => {
   const cases = [
-    ["le_bon_ordre", "leBonOrdre", "pickLeBonOrdreQuestions"],
     ["blind_test", "blindTest", "pickBlindTestQuestions"],
     ["le_tour_du_monde", "tourDuMonde", "pickLeTourDuMondeQuestions"],
     ["qui_suis_je", "quiSuisJe", "pickQuiSuisJeQuestions"],

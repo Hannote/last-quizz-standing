@@ -9,6 +9,13 @@ const path = require("path");
 const fs = require("fs");
 const { randomBytes, randomUUID, timingSafeEqual } = require("crypto");
 const { shuffleCopy } = require("./question-shuffle");
+const {
+  validateBonOrdreBank,
+  createBonOrdreStore,
+  safeBonOrdreQuestion,
+  isValidBonOrdreAnswer,
+  gradeBonOrdre
+} = require("./le-bon-ordre");
 const { DURATION_MS: PENAVE_DURATION_MS, validateQuestionBank, rankPenaveResults } = require("./penave-ou-nachave");
 const {
   calculateGradeRevision,
@@ -46,6 +53,18 @@ if (DATA_DIR !== "/data" && !fs.existsSync(DATA_DIR)){
 }
 
 const HISTORY_FILE = process.env.LQS_HISTORY_FILE || path.join(DATA_DIR, "played_questions_history.json");
+const BON_ORDRE_MEMORY_FILE = process.env.LQS_BON_ORDRE_MEMORY_FILE ||
+  path.join(DATA_DIR, "le_bon_ordre_elements_v1.json");
+const bonOrdreStore = createBonOrdreStore(BON_ORDRE_MEMORY_FILE);
+let bonOrdreBank;
+let bonOrdreBankError = null;
+try {
+  bonOrdreBank = validateBonOrdreBank(JSON.parse(fs.readFileSync(
+    path.join(__dirname, "public_2", "le_bon_ordre", "le_bon_ordre.json"), "utf8")));
+} catch (error) {
+  bonOrdreBankError = `Le Bon Ordre indisponible : ${error.message}`;
+  console.error(bonOrdreBankError);
+}
 let penaveBank;
 let penaveBankError = null;
 try {
@@ -103,12 +122,6 @@ function resetGameHistory(gameName) {
   console.log(`[RESET] Historique vidé pour : ${gameName}`);
 }
 
-
-const leBonOrdreData = require(
-  path.join(__dirname, "public_2", "le_bon_ordre", "le_bon_ordre.json")
-);
-const LE_BON_ORDRE_QUESTIONS = leBonOrdreData.questions || [];
-const LE_BON_ORDRE_THEMES = leBonOrdreData.themes || [];
 
 const blindTestData = require(
   path.join(__dirname, "public_2", "blind_test", "blind_test.json")
@@ -211,8 +224,28 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// On sert le dossier public_2
-app.use(express.static(path.join(__dirname, "public_2")));
+// Les valeurs et les pools du Bon Ordre restent exclusivement côté serveur.
+// La résolution utilise le même dossier que le service statique, y compris
+// pour les URL encodées, la casse et les séparateurs Windows.
+const publicDirectory = path.join(__dirname, "public_2");
+const privateBonOrdreFile = path.join(publicDirectory, "le_bon_ordre", "le_bon_ordre.json").toLowerCase();
+app.use((req, res, next) => {
+  let requestedFile;
+  try {
+    // Windows ignore les points/espaces finaux et reconnaît les flux NTFS.
+    // Ces alias doivent recevoir la même protection que le nom du fichier.
+    const normalizedPath = decodeURIComponent(req.path).replace(/\\/g, "/")
+      .split("/").map((part) => part === "." || part === ".." ? part :
+        part.split(":")[0].replace(/[ .]+$/g, "")).join("/");
+    requestedFile = path.resolve(publicDirectory, "." + normalizedPath).toLowerCase();
+  }
+  catch { return res.status(400).end(); }
+  if (requestedFile === privateBonOrdreFile) {
+    return res.set("Cache-Control", "no-store").status(404).end();
+  }
+  next();
+});
+app.use(express.static(publicDirectory));
 
 // ===============================
 //   GESTION DES ROOMS
@@ -340,8 +373,19 @@ function validSocketMessage(event, data, room) {
     return Number.isInteger(data) && data >= 0 &&
       data < (game?.list?.[game.index]?.affirmations?.length || 0);
   }
+  if (event === "leBonOrdreAnswer") {
+    return hasMessageKeys(data, ["instanceId", "questionId", "questionIndex", "orderedIds", "pass", "gameMode", "roundNumber"]) &&
+      isText(data.instanceId, 36) && isText(data.questionId, 120) &&
+      Number.isInteger(data.questionIndex) && data.questionIndex >= 0 &&
+      typeof data.pass === "boolean" &&
+      (data.pass ? data.orderedIds === null :
+        Array.isArray(data.orderedIds) && data.orderedIds.length === 5 &&
+        data.orderedIds.every((id) => typeof id === "string")) &&
+      (data.gameMode === undefined || ["battle_royale", "liste"].includes(data.gameMode)) &&
+      (data.roundNumber === undefined || Number.isInteger(data.roundNumber));
+  }
   const textGames = {
-    quiSuisJeAnswer: "qui_suis_je", leBonOrdreAnswer: "le_bon_ordre",
+    quiSuisJeAnswer: "qui_suis_je",
     leTourDuMondeAnswer: "le_tour_du_monde", blindTestAnswer: "blind_test"
   };
   if (Object.hasOwn(textGames, event)) {
@@ -446,6 +490,7 @@ function validActionPhase(event, room) {
   if (["correctionNavigate", "hostGradePlayer", "correctionPrevQuestion",
        "correctionNextQuestion", "endPetitBacCorrection", "endMatriceFootballCorrection"].includes(event)) {
     const mini = room.gameState?.currentMiniGameState;
+    if (mini?.type === "le_bon_ordre") return false;
     return room.gameState?.phase === "playing" && !!mini?.finished &&
       room.gameState.currentMiniGame === mini.type && Array.isArray(mini.questions) &&
       Number.isInteger(mini.correctionIndex) && mini.correctionIndex >= 0 &&
@@ -791,6 +836,7 @@ function withdrawListeParticipant(room, playerId, socketId) {
   delete room.gameState?.readyPlayers?.[playerId];
   pruneListeCorrectionPlayers(room);
   disconnectListePlayer(room, playerId, socketId);
+  maybeEndBonOrdreQuestion(room);
   if (room.listeTournament.finished || (room.gameState.phase !== "listeLeaderboard" &&
       !room.players.some((p) => isListeParticipant(room, p)))) finishListeTournament(room);
   return true;
@@ -808,6 +854,15 @@ function getGameStateSummary(room) {
       ? getPenaveSnapshot(room) : null,
     matriceFootballInstanceId: gs.currentMiniGame === "matrice_football"
       ? gs.currentMiniGameState?.instanceId ?? null : null,
+    leBonOrdreInstanceId: gs.currentMiniGame === "le_bon_ordre"
+      ? gs.currentMiniGameState?.instanceId ?? null : null,
+    leBonOrdrePhase: gs.currentMiniGame === "le_bon_ordre" &&
+      gs.currentMiniGameState?.type === "le_bon_ordre"
+      ? gs.currentMiniGameState.subPhase
+      : null,
+    leBonOrdreState: gs.currentMiniGame === "le_bon_ordre" &&
+      gs.currentMiniGameState?.type === "le_bon_ordre"
+      ? getBonOrdrePublicState(room, gs.currentMiniGameState) : null,
     listeIntro: room.gameMode === "liste" && gs.phase === "listeIntro"
       ? {
         gameMode: "liste",
@@ -861,10 +916,10 @@ function getListeContext(room) {
     question: mini?.questionIndex ?? mini?.index ?? null,
     correction: mini?.correctionIndex ?? null,
     gradingPlayer: room.activePlayersList?.[mini?.gradingPlayerIndex]?.playerId ?? null,
-    instanceId: mini?.type === "penave_ou_nachave" ? mini.instanceId : null,
+    instanceId: ["penave_ou_nachave", "le_bon_ordre"].includes(mini?.type) ? mini.instanceId : null,
     turnNumber: mini?.type === "penave_ou_nachave" ? mini.turnNumber : null,
     passageId: mini?.type === "penave_ou_nachave" ? mini.passageId : null,
-    subPhase: mini?.type === "penave_ou_nachave" ? mini.subPhase : null
+    subPhase: ["penave_ou_nachave", "le_bon_ordre"].includes(mini?.type) ? mini.subPhase : null
   };
 }
 
@@ -960,6 +1015,8 @@ function destroyRoom(room, disconnectSockets = false) {
     clearInterval(room.mini.timer);
     room.mini.timer = null;
   }
+  const mini = room.gameState?.currentMiniGameState;
+  if (mini?.type === "le_bon_ordre") bonOrdreStore.release(mini.instanceId);
   delete rooms[room.roomCode];
   if (disconnectSockets) io.in(room.roomCode).disconnectSockets();
   return true;
@@ -1610,6 +1667,9 @@ function nextFauxVrai(roomCode) {
 function endMiniGame(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
+  if (room.gameState?.currentMiniGameState?.type === "le_bon_ordre") {
+    bonOrdreStore.release(room.gameState.currentMiniGameState.instanceId);
+  }
   if (room.gameMode === "liste") return endListeMiniGame(room);
 
   // --- S�CURIT� ANTI DOUBLE-APPEL ---
@@ -1935,123 +1995,318 @@ function pickRandomLeugtasQuestion(options = {}) {
   return pool[index];
 }
 
-function pickLeBonOrdreQuestions() {
-  let available = getUnusedQuestions(LE_BON_ORDRE_QUESTIONS, "le_bon_ordre");
+function getBonOrdreContext(room, mini, questionIndex = mini.questionIndex) {
+  return {
+    roomCode: room.roomCode,
+    gameMode: room.gameMode,
+    roundNumber: room.gameState.roundNumber,
+    instanceId: mini.instanceId,
+    questionId: mini.questions[questionIndex]?.id,
+    questionIndex,
+    subPhase: mini.subPhase
+  };
+}
 
-  // Vérif: A-t-on au moins une question dispo pour CHAQUE thème requis ?
-  const isDeckComplete = LE_BON_ORDRE_THEMES.every(theme => {
-    return available.some(q => q.theme_id === theme.id);
+function getBonOrdrePublicState(room, mini) {
+  return {
+    ...getBonOrdreContext(room, mini),
+    phaseStartedAt: mini.phaseStartedAt,
+    phaseEndsAt: mini.phaseEndsAt,
+    durationMs: Math.max(0, mini.phaseEndsAt - mini.phaseStartedAt),
+    remainingMs: Math.max(0, mini.phaseEndsAt - Date.now())
+  };
+}
+
+function publishBonOrdrePhase(room) {
+  publishListeContext(room);
+  io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+}
+
+function rejectBonOrdreAnswer(socket, action, message) {
+  const room = rooms[socket.roomCode];
+  socket.emit("leBonOrdreAnswerRejected", {
+    roomCode: socket.roomCode,
+    gameMode: action?.gameMode ?? room?.gameMode,
+    roundNumber: action?.roundNumber ?? room?.gameState?.roundNumber,
+    instanceId: action?.instanceId,
+    questionId: action?.questionId,
+    questionIndex: action?.questionIndex,
+    message
   });
+}
 
-  if (!isDeckComplete) {
-    resetGameHistory("le_bon_ordre");
-    available = LE_BON_ORDRE_QUESTIONS;
-  }
+// Chaque délai conserve l'identité du jeu ET celle de la question, dans les
+// deux modes. Un ancien intervalle ne peut pas terminer une nouvelle manche.
+function captureBonOrdreCallback(room, mini, questionIndex = mini.questionIndex,
+  phase = room.gameState.phase) {
+  const gs = room.gameState;
+  const gameMode = room.gameMode;
+  const roundNumber = gs.roundNumber;
+  const instanceId = mini.instanceId;
+  const subPhase = mini.subPhase;
+  return () => rooms[room.roomCode] === room && room.gameState === gs &&
+    room.gameMode === gameMode && gs.phase === phase && gs.roundNumber === roundNumber &&
+    gs.currentMiniGame === "le_bon_ordre" && gs.currentMiniGameState === mini &&
+    mini.instanceId === instanceId && mini.questionIndex === questionIndex && mini.subPhase === subPhase;
+}
 
-  const selectedQuestions = [];
-  LE_BON_ORDRE_THEMES.forEach((theme) => {
-    const pool = available.filter((q) => q.theme_id === theme.id);
-    if (pool.length > 0) {
-      const randomQ = pool[Math.floor(Math.random() * pool.length)];
-      const qClone = { ...randomQ, themeName: theme.name };
-      selectedQuestions.push(qClone);
-    }
-  });
-  
-  markQuestionsAsPlayed(selectedQuestions, "le_bon_ordre");
-  return shuffleCopy(selectedQuestions);
+function getBonOrdreTimer(mini) {
+  const total = mini.timer?.totalSeconds ?? LE_BON_ORDRE_DURATION;
+  const remaining = mini.timer?.running
+    ? Math.max(0, Math.min(total, (mini.timer.endsAt - Date.now()) / 1000))
+    : mini.timer?.remainingSeconds ?? total;
+  return { remaining, total, active: mini.subPhase === "answering" && !!mini.timer?.running && remaining > 0 };
+}
+
+function getBonOrdreQuestionSnapshot(room, mini, playerId = null, isReload = false) {
+  const q = mini.questions[mini.questionIndex];
+  const saved = playerId && mini.playerAnswers[playerId];
+  return {
+    ...getBonOrdreContext(room, mini),
+    ...getBonOrdrePublicState(room, mini),
+    question: safeBonOrdreQuestion(q),
+    themeName: q.nom,
+    index: mini.questionIndex + 1,
+    total: mini.questions.length,
+    hasAnswered: !!saved,
+    savedAnswer: saved ? { orderedIds: saved.orderedIds?.slice() ?? null, pass: saved.pass } : null,
+    timer: getBonOrdreTimer(mini),
+    isReload
+  };
 }
 
 function sendLeBonOrdreQuestion(roomCode) {
   const room = rooms[roomCode];
-  const gs = room.gameState;
-  const mini = gs.currentMiniGameState;
-  if (!mini) return;
-
-  const q = mini.questions[mini.questionIndex];
-
-  publishListeContext(room);
-  io.to(roomCode).emit("leBonOrdreQuestion", {
-    question: q,
-    themeName: q.themeName,
-    index: mini.questionIndex + 1,
-    total: mini.questions.length
-  });
-
+  const mini = room?.gameState?.currentMiniGameState;
+  if (!mini || mini.type !== "le_bon_ordre" || mini.finished) return;
+  mini.timer = null;
+  mini.subPhase = "theme";
+  mini.phaseStartedAt = Date.now();
+  mini.phaseEndsAt = mini.phaseStartedAt + 2500;
+  const current = captureBonOrdreCallback(room, mini);
+  publishBonOrdrePhase(room);
+  io.to(roomCode).emit("leBonOrdreQuestion", getBonOrdreQuestionSnapshot(room, mini));
   roomTimeout(room, () => {
-    startLeBonOrdreTimer(room);
+    if (current() && !mini.finished) startLeBonOrdreTimer(room, mini);
   }, 2500);
 }
 
-function startLeBonOrdreTimer(room) {
-  const roomCode = room.roomCode;
-  const gs = room.gameState;
-  const activeMini = gs.currentMiniGameState;
-  if (!activeMini) return;
-
-  activeMini.startTime = Date.now();
-
-  const total = LE_BON_ORDRE_DURATION;
-  activeMini.timer = {
-    totalSeconds: total,
-    remainingSeconds: total,
+function startLeBonOrdreTimer(room, mini = room.gameState.currentMiniGameState) {
+  if (!mini || !captureBonOrdreCallback(room, mini)() || mini.finished ||
+      mini.subPhase !== "theme" || mini.timer?.running) return;
+  mini.startTime = Date.now();
+  mini.subPhase = "answering";
+  mini.phaseStartedAt = mini.startTime;
+  mini.phaseEndsAt = mini.startTime + LE_BON_ORDRE_DURATION * 1000;
+  mini.timer = {
+    totalSeconds: LE_BON_ORDRE_DURATION,
+    remainingSeconds: LE_BON_ORDRE_DURATION,
+    endsAt: mini.startTime + LE_BON_ORDRE_DURATION * 1000,
     running: true
   };
-
-  io.to(roomCode).emit("leBonOrdreTimerUpdate", {
-    remaining: total,
-    total: total
+  const emitTimer = () => io.to(room.roomCode).emit("leBonOrdreTimerUpdate", {
+    ...getBonOrdreContext(room, mini), ...getBonOrdreTimer(mini)
   });
-
+  const current = captureBonOrdreCallback(room, mini);
+  publishBonOrdrePhase(room);
+  emitTimer();
   if (room.leBonOrdreInterval) clearInterval(room.leBonOrdreInterval);
-
-  room.leBonOrdreInterval = roomInterval(room, () => {
-    const timer = activeMini.timer;
-    if (!timer || !timer.running) {
-      clearInterval(room.leBonOrdreInterval);
+  const interval = roomInterval(room, () => {
+    if (!current() || mini.finished || !mini.timer?.running) {
+      clearInterval(interval);
       return;
     }
-    timer.remainingSeconds -= 1;
-
-    io.to(roomCode).emit("leBonOrdreTimerUpdate", {
-      remaining: timer.remainingSeconds,
-      total: timer.totalSeconds
-    });
-
-    if (timer.remainingSeconds <= 0) {
-      endLeBonOrdreQuestion(roomCode);
-    }
+    mini.timer.remainingSeconds = getBonOrdreTimer(mini).remaining;
+    emitTimer();
+    if (mini.timer.remainingSeconds <= 0) endLeBonOrdreQuestion(room.roomCode, mini);
   }, 1000);
+  room.leBonOrdreInterval = interval;
 }
 
-function endLeBonOrdreQuestion(roomCode) {
+function endLeBonOrdreQuestion(roomCode, expectedMini = null) {
   const room = rooms[roomCode];
-  if (!room) return;
-  const gs = room.gameState;
-  const mini = gs.currentMiniGameState;
-  if (!mini || mini.finished) return;
-
-  mini.finished = true;
-  if (mini.timer) mini.timer.running = false;
+  const mini = room?.gameState?.currentMiniGameState;
+  if (!mini || mini.type !== "le_bon_ordre" || mini.finished || mini.subPhase !== "answering" ||
+      room.gameState.phase !== "playing" || room.gameState.currentMiniGame !== "le_bon_ordre" ||
+      (expectedMini && mini !== expectedMini)) return;
+  const previousPlayers = getMiniGameScoreUpdate(room).players.map((player) => ({ ...player }));
+  // La mutation de phase ferme immédiatement la question, même si deux causes
+  // de clôture (dernière réponse et timer) arrivent dans le même tour de boucle.
+  mini.subPhase = "correction";
+  mini.phaseStartedAt = Date.now();
+  mini.phaseEndsAt = mini.phaseStartedAt + 15_000;
+  if (mini.timer) {
+    mini.timer.remainingSeconds = getBonOrdreTimer(mini).remaining;
+    mini.timer.running = false;
+  }
   if (room.leBonOrdreInterval) clearInterval(room.leBonOrdreInterval);
+  room.leBonOrdreInterval = null;
+  for (const playerId of mini.participantIds) {
+    mini.history[playerId] ||= {};
+    mini.history[playerId][mini.questionIndex] = mini.playerAnswers[playerId] || null;
+  }
+  mini.previousPlayers = previousPlayers;
+  applyBonOrdreAutomaticResults(room, mini, mini.questionIndex);
+  publishBonOrdrePhase(room);
+  for (const socket of io.sockets.sockets.values()) {
+    if (getSocketRoom(socket) === room) sendBonOrdrePersonalCorrection(socket, room, mini);
+  }
+  const current = captureBonOrdreCallback(room, mini);
+  roomTimeout(room, () => {
+    if (current()) startBonOrdreLeaderboard(room, mini);
+  }, 15_000);
+}
 
-  room.players.forEach((p) => {
-    const ans = mini.playerAnswers[p.playerId] || "RIEN";
-    if (!mini.history[p.playerId]) mini.history[p.playerId] = {};
-    mini.history[p.playerId][mini.questionIndex] = ans;
+function maybeEndBonOrdreQuestion(room) {
+  const mini = currentActionMini(room, "le_bon_ordre");
+  if (!mini || mini.finished || mini.subPhase !== "answering" || !mini.timer?.running) return;
+  const activePlayers = room.players.filter((p) =>
+    mini.participantIds.includes(p.playerId) && isActiveMiniGamePlayer(room, p));
+  if (activePlayers.length > 0 && activePlayers.every((p) => Object.hasOwn(mini.playerAnswers, p.playerId))) {
+    endLeBonOrdreQuestion(room.roomCode, mini);
+  }
+}
+
+function applyBonOrdreAutomaticResults(room, mini, questionIndex) {
+  mini.scoresGiven ||= {};
+  mini.timesApplied ||= {};
+  mini.automaticResults ||= {};
+  mini.scoresGiven[questionIndex] ||= {};
+  mini.timesApplied[questionIndex] ||= {};
+  mini.automaticResults[questionIndex] ||= {};
+  for (const player of room.players) {
+    if (!mini.participantIds.includes(player.playerId) || !isActiveMiniGamePlayer(room, player) ||
+        Object.hasOwn(mini.scoresGiven[questionIndex], player.playerId)) continue;
+    const saved = mini.history[player.playerId]?.[questionIndex];
+    const result = gradeBonOrdre(mini.questions[questionIndex],
+      saved?.pass ? "pass" : saved?.orderedIds ?? null);
+    const revision = calculateGradeRevision({
+      newScore: result.grade,
+      responseTime: getQuestionResponseTime(mini.responseTimesByQuestion,
+        questionIndex, player.playerId, LE_BON_ORDRE_DURATION),
+      maxDuration: LE_BON_ORDRE_DURATION,
+      miniGameType: "le_bon_ordre"
+    });
+    player.score += revision.scoreDelta;
+    player.roundScore += revision.scoreDelta;
+    player.roundTime += revision.timeDelta;
+    player.totalTime += revision.timeDelta;
+    mini.automaticResults[questionIndex][player.playerId] = result;
+    mini.scoresGiven[questionIndex][player.playerId] = result.grade;
+    mini.timesApplied[questionIndex][player.playerId] = revision.appliedTime;
+  }
+}
+
+function sendBonOrdrePersonalCorrection(socket, room, mini) {
+  if (getSocketRoom(socket) !== room || mini.subPhase !== "correction" ||
+      room.gameState.currentMiniGameState !== mini || Date.now() >= mini.phaseEndsAt) return;
+  const question = mini.questions[mini.questionIndex];
+  const player = room.players.find((entry) => entry.playerId === socket.playerId);
+  const isParticipant = mini.participantIds.includes(socket.playerId);
+  const saved = mini.history[socket.playerId]?.[mini.questionIndex];
+  const result = isParticipant
+    ? mini.automaticResults[mini.questionIndex]?.[socket.playerId] ||
+      gradeBonOrdre(question, saved?.pass ? "pass" : saved?.orderedIds ?? null)
+    : { expected: gradeBonOrdre(question, null).expected, positions: [],
+      grade: null, correctCount: null, status: "spectator" };
+  socket.emit("leBonOrdreCorrection", {
+    ...getBonOrdreContext(room, mini),
+    questionText: question.question,
+    currentQIndex: mini.questionIndex + 1,
+    totalQ: mini.questions.length,
+    playerPseudo: isParticipant ? player.pseudo : null,
+    isParticipant,
+    correctionStartedAt: mini.phaseStartedAt,
+    correctionEndsAt: mini.phaseEndsAt,
+    durationMs: 15_000,
+    remainingMs: Math.max(0, mini.phaseEndsAt - Date.now()),
+    bonOrdreData: { ...result, ...getBonOrdreContext(room, mini) }
   });
+}
 
+function getBonOrdreLeaderboard(room, mini, isReload = false) {
+  const activeIds = new Set(room.players.filter((player) =>
+    isActiveMiniGamePlayer(room, player)).map((player) => player.playerId));
+  return {
+    ...getBonOrdreContext(room, mini),
+    previousPlayers: mini.previousPlayers.filter((player) => activeIds.has(player.id)),
+    players: getMiniGameScoreUpdate(room).players,
+    startedAt: mini.phaseStartedAt,
+    endsAt: mini.phaseEndsAt,
+    durationMs: mini.phaseEndsAt - mini.phaseStartedAt,
+    remainingMs: Math.max(0, mini.phaseEndsAt - Date.now()),
+    isLastQuestion: mini.questionIndex === mini.questions.length - 1,
+    isReload
+  };
+}
+
+function startBonOrdreLeaderboard(room, mini) {
+  if (rooms[room.roomCode] !== room || room.gameState.currentMiniGameState !== mini ||
+      room.gameState.phase !== "playing" || mini.subPhase !== "correction") return;
+  mini.subPhase = "leaderboard";
+  mini.phaseStartedAt = mini.phaseEndsAt;
+  const isLastQuestion = mini.questionIndex === mini.questions.length - 1;
+  mini.phaseEndsAt = mini.phaseStartedAt + (isLastQuestion ? 4500 : 3000);
+  publishBonOrdrePhase(room);
+  io.to(room.roomCode).emit("leBonOrdreLeaderboard", getBonOrdreLeaderboard(room, mini));
+  const current = captureBonOrdreCallback(room, mini);
+  roomTimeout(room, () => {
+    if (current()) finishBonOrdreLeaderboard(room, mini);
+  }, Math.max(0, mini.phaseEndsAt - Date.now()));
+}
+
+function refreshBonOrdreLeaderboard(room) {
+  const mini = room.gameState?.currentMiniGameState;
+  if (mini?.type === "le_bon_ordre" && mini.subPhase === "leaderboard" && room.gameState.phase === "playing") {
+    io.to(room.roomCode).emit("leBonOrdreLeaderboard", getBonOrdreLeaderboard(room, mini, true));
+  }
+}
+
+function getBonOrdreExit(room, mini, isReload = false) {
+  return { ...getBonOrdreContext(room, mini), startedAt: mini.phaseStartedAt,
+    endsAt: mini.phaseEndsAt, durationMs: mini.phaseEndsAt - mini.phaseStartedAt,
+    remainingMs: Math.max(0, mini.phaseEndsAt - Date.now()),
+    players: getMiniGameScoreUpdate(room).players, isReload };
+}
+
+function finishBonOrdreLeaderboard(room, mini) {
+  if (rooms[room.roomCode] !== room || room.gameState.currentMiniGameState !== mini ||
+      room.gameState.phase !== "playing" || mini.subPhase !== "leaderboard") return;
   if (mini.questionIndex < mini.questions.length - 1) {
     mini.questionIndex++;
     mini.playerAnswers = {};
-    mini.finished = false;
+    sendLeBonOrdreQuestion(room.roomCode);
+    return;
+  }
+  mini.subPhase = "ending";
+  mini.finished = true;
+  mini.phaseStartedAt = Date.now();
+  mini.phaseEndsAt = mini.phaseStartedAt + (room.gameMode === "liste" ? LISTE_END_LOGO_DURATION_MS : 7000);
+  beginListeRoundEnd(room);
+  publishBonOrdrePhase(room);
+  io.to(room.roomCode).emit("leBonOrdreExit", getBonOrdreExit(room, mini));
+  const current = captureBonOrdreCallback(room, mini);
+  roomTimeout(room, () => {
+    if (current() && !mini.completionDispatched) {
+      mini.completionDispatched = true;
+      endMiniGame(room.roomCode);
+    }
+  }, Math.max(0, mini.phaseEndsAt - Date.now()));
+}
 
-    sendLeBonOrdreQuestion(roomCode);
-  } else {
-    io.to(roomCode).emit("leBonOrdreEnd");
-    roomTimeout(room, () => {
-      startCorrectionPhase(roomCode);
-    }, 3000);
+// Une restauration ne doit jamais réouvrir une phase dont l'échéance est passée,
+// même si la boucle d'événements n'a pas encore exécuté son callback de fin.
+function advanceBonOrdrePhase(room, mini) {
+  if (rooms[room.roomCode] !== room || room.gameState.currentMiniGameState !== mini ||
+      room.gameState.currentMiniGame !== "le_bon_ordre") return;
+  if (room.gameState.phase === "playing") {
+    if (mini.subPhase === "correction" && Date.now() >= mini.phaseEndsAt) startBonOrdreLeaderboard(room, mini);
+    if (mini.subPhase === "leaderboard" && Date.now() >= mini.phaseEndsAt) finishBonOrdreLeaderboard(room, mini);
+  }
+  if (mini.subPhase === "ending" && Date.now() >= mini.phaseEndsAt && !mini.completionDispatched &&
+      ["playing", "listeRoundEnd"].includes(room.gameState.phase)) {
+    mini.completionDispatched = true;
+    endMiniGame(room.roomCode);
   }
 }
 
@@ -2060,6 +2315,8 @@ function startCorrectionPhase(roomCode) {
   if (!room) return;
   const gs = room.gameState;
   const mini = gs.currentMiniGameState;
+  if (!mini) return;
+  if (mini.type === "le_bon_ordre") return;
 
   mini.correctionIndex = 0;
   mini.gradingPlayerIndex = 0;
@@ -2103,6 +2360,7 @@ function sendCorrectionData(roomCode, targetSocket = null) {
   const gs = room.gameState;
   if (!gs) return;
   const mini = gs.currentMiniGameState;
+  if (mini?.type === "le_bon_ordre") return;
 
   if (room.gameMode === "liste") {
     pruneListeCorrectionPlayers(room);
@@ -2800,19 +3058,35 @@ function startReadyMiniGame(room, startEncheres) {
     }
     // ------- LE BON ORDRE ----------
     else if (gs.currentMiniGame === "le_bon_ordre") {
-      const questions = pickLeBonOrdreQuestions();
-      if (questions && questions.length > 0) {
+      try {
+        if (bonOrdreBankError || !bonOrdreBank) {
+          throw new Error(bonOrdreBankError || "La banque Le Bon Ordre est indisponible.");
+        }
+        const instanceId = randomUUID();
+        const questions = bonOrdreStore.consume(bonOrdreBank, instanceId);
         gs.currentMiniGameState = {
           type: "le_bon_ordre",
+          instanceId,
           questions,
+          participantIds: room.players.filter((p) => isActiveMiniGamePlayer(room, p)).map((p) => p.playerId),
           questionIndex: 0,
+          subPhase: "theme",
+          phaseStartedAt: Date.now(),
+          phaseEndsAt: Date.now() + 2500,
           playerAnswers: {},
           history: {},
           finished: false,
-          timer: null
+          timer: null,
+          scoresGiven: {},
+          timesApplied: {},
+          automaticResults: {}
         };
-
         sendLeBonOrdreQuestion(roomCode);
+      } catch (error) {
+        gs.phase = "rules";
+        gs.currentMiniGameState = null;
+        gs.readyPlayers = {};
+        io.to(roomCode).emit("errorMessage", `Impossible de lancer Le Bon Ordre : ${error.message}`);
       }
     }
     // ------- LE TOUR DU MONDE ----------
@@ -2884,10 +3158,17 @@ io.on("connection", (socket) => {
     if (event !== "createRoom" && event !== "joinRoom" && !getSocketRoom(socket)) return;
     const room = getSocketRoom(socket);
     if (!validSocketMessage(event, payload, room)) {
+      if (event === "leBonOrdreAnswer") {
+        rejectBonOrdreAnswer(socket, payload, "La proposition est invalide.");
+        return;
+      }
       socket.emit("errorMessage", "Message invalide.");
       return;
     }
-    if (room && !validActionPhase(event, room)) return;
+    if (room && !validActionPhase(event, room)) {
+      if (event === "leBonOrdreAnswer") rejectBonOrdreAnswer(socket, payload, "Cette question n'accepte plus de réponse.");
+      return;
+    }
     if (!room || room.gameMode !== "liste") return next();
     if (event.startsWith("encheres")) return;
     const phases = {
@@ -2903,9 +3184,15 @@ io.on("connection", (socket) => {
     if (!phases[event]) return next();
     const player = room.players.find((p) => p.playerId === socket.playerId);
     if (!canUseMiniGameSocket(room, player, socket) || !room.listeTournament.started ||
-        room.listeTournament.finished || room.gameState.phase !== phases[event]) return;
+        room.listeTournament.finished || room.gameState.phase !== phases[event]) {
+      if (event === "leBonOrdreAnswer") rejectBonOrdreAnswer(socket, payload, "Vous ne pouvez pas répondre à cette question.");
+      return;
+    }
     const expected = getListeContext(room);
-    if (!context || Object.keys(expected).some((key) => context[key] !== expected[key])) return;
+    if (!context || Object.keys(expected).some((key) => context[key] !== expected[key])) {
+      if (event === "leBonOrdreAnswer") rejectBonOrdreAnswer(socket, payload, "Cette proposition appartient à une ancienne question.");
+      return;
+    }
     if (["penaveCueFinished", "penaveAnswer", "penaveGrade"].includes(event)) {
       const mini = getPenaveMini(room);
       if (!mini || payload.instanceId !== mini.instanceId ||
@@ -3033,7 +3320,10 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (room.gameMode === "liste" && !canJoinListeRoom(room, playerId)) {
+    const joiningBonOrdreSpectator = room.gameState.phase === "playing" &&
+      room.gameState.currentMiniGame === "le_bon_ordre" &&
+      !room.gameState.currentMiniGameState?.participantIds?.includes(playerId);
+    if (room.gameMode === "liste" && !canJoinListeRoom(room, playerId) && !joiningBonOrdreSpectator) {
       return socket.emit("errorMessage", "Ce tournoi Liste a déjà commencé. Seuls ses participants initiaux peuvent se reconnecter.");
     }
 
@@ -3063,7 +3353,7 @@ io.on("connection", (socket) => {
         isConnected: true,
         eliminated: false,
         withdrawn: false,
-        isSpectator: false,
+        isSpectator: joiningBonOrdreSpectator,
         
         // --- NOUVELLES STATS BATTLE ROYALE ---
         score: 0,           // Score global (Cosmétique / Classement général)
@@ -3450,13 +3740,30 @@ io.on("connection", (socket) => {
     const player = room.players[playerIdx];
     const gs = room.gameState;
 
+    if (player.isSpectator && gs?.currentMiniGame === "le_bon_ordre" && gs.phase === "playing") {
+      room.players.splice(playerIdx, 1);
+      clearSocketRoom(socket);
+      scheduleRoomAbandon(room);
+      io.to(roomCode).emit("roomUpdate", serializeRoom(room));
+      return;
+    }
+
     if (room.gameMode === "liste") {
       if (player.socketId !== socket.id) return;
       if (room.listeTournament.started) {
+        if (player.isSpectator && !room.listeTournament.initialParticipantIds.includes(playerId)) {
+          room.players.splice(playerIdx, 1);
+          clearSocketRoom(socket);
+          scheduleRoomAbandon(room);
+          io.to(roomCode).emit("roomUpdate", serializeRoom(room));
+          return;
+        }
         if (!withdrawListeParticipant(room, playerId, socket.id)) return;
         clearSocketRoom(socket);
         scheduleRoomAbandon(room);
-        if (["playing", "listeRoundEnd"].includes(gs.phase)) {
+        if (gs.currentMiniGame === "le_bon_ordre") {
+          refreshBonOrdreLeaderboard(room);
+        } else if (["playing", "listeRoundEnd"].includes(gs.phase)) {
           io.to(roomCode).emit("scoreUpdate", { ...getMiniGameScoreUpdate(room), refreshLeaderboard: true });
         }
         io.to(roomCode).emit("roomUpdate", serializeRoom(room));
@@ -3551,6 +3858,8 @@ io.on("connection", (socket) => {
       player.isConnected = false;
     }
     clearSocketRoom(socket);
+    maybeEndBonOrdreQuestion(room);
+    refreshBonOrdreLeaderboard(room);
     scheduleRoomAbandon(room);
 
     io.to(roomCode).emit("roomUpdate", serializeRoom(room));
@@ -3568,7 +3877,7 @@ io.on("connection", (socket) => {
 
     socket.emit("roomUpdate", serializeRoom(room));
     socket.emit("gameStateUpdate", getGameStateSummary(room));
-    if (room.gameState?.currentMiniGame === "matrice_football") {
+    if (["matrice_football", "le_bon_ordre"].includes(room.gameState?.currentMiniGame)) {
       syncPlayerWithGame(socket, room);
     }
   });
@@ -3605,41 +3914,38 @@ io.on("connection", (socket) => {
   // -----------------------------------
   //        LE BON ORDRE - RÉPONSE
   // -----------------------------------
-  socket.on("leBonOrdreAnswer", ({ answer } = {}) => {
+  socket.on("leBonOrdreAnswer", (action) => {
     const room = getSocketRoom(socket);
     if (!room) return;
-    const roomCode = room.roomCode;
     const player = room.players.find((p) => p.playerId === socket.playerId);
-    if (!player || player.eliminated || player.isSpectator) return;
-    if (!canUseMiniGameSocket(room, player, socket)) return;
-    const gs = room.gameState;
-    const mini = gs.currentMiniGameState;
-
-  if (!mini || mini.type !== "le_bon_ordre" || mini.finished) return;
-
-    // Vérification : Le timer doit tourner
-    if (!mini.timer || !mini.timer.running) return;
-
-  if (!mini.playerAnswers[socket.playerId]) {
-      if (!mini.responseTimes) mini.responseTimes = {};
-      const timeTaken = (Date.now() - (mini.startTime || Date.now())) / 1000;
-      mini.responseTimes[socket.playerId] = timeTaken;
-      rememberManualResponseTime(mini, socket.playerId, timeTaken);
-
-      mini.playerAnswers[socket.playerId] = answer;
-      socket.emit("leBonOrdreAnswerAck");
-
-      const activePlayers = room.players.filter(
-        (p) => isActiveMiniGamePlayer(room, p)
-      );
-      const allAnswered = activePlayers.every(
-        (p) => mini.playerAnswers && mini.playerAnswers[p.playerId]
-      );
-
-      if (allAnswered) {
-        endLeBonOrdreQuestion(roomCode);
-      }
+    const mini = currentActionMini(room, "le_bon_ordre");
+    if (!player || !isActiveMiniGamePlayer(room, player) ||
+        !canUseMiniGameSocket(room, player, socket) || !mini || mini.finished ||
+        mini.subPhase !== "answering" || !mini.participantIds.includes(player.playerId)) {
+      return rejectBonOrdreAnswer(socket, action, "Vous ne pouvez pas répondre à cette question.");
     }
+    const q = mini.questions[mini.questionIndex];
+    if (action.instanceId !== mini.instanceId || action.questionId !== q.id ||
+        action.questionIndex !== mini.questionIndex ||
+        (action.gameMode !== undefined && action.gameMode !== room.gameMode) ||
+        (action.roundNumber !== undefined && action.roundNumber !== room.gameState.roundNumber)) {
+      return rejectBonOrdreAnswer(socket, action, "Cette proposition appartient à une ancienne question.");
+    }
+    if (!mini.timer?.running || Date.now() >= mini.timer.endsAt) {
+      return rejectBonOrdreAnswer(socket, action, "Le temps de réponse est écoulé.");
+    }
+    if (Object.hasOwn(mini.playerAnswers, player.playerId)) {
+      return rejectBonOrdreAnswer(socket, action, "Votre réponse a déjà été enregistrée.");
+    }
+    if (!action.pass && !isValidBonOrdreAnswer(q, action.orderedIds)) {
+      return rejectBonOrdreAnswer(socket, action, "Les cinq éléments distincts du tirage sont requis.");
+    }
+    const savedAnswer = { pass: action.pass, orderedIds: action.pass ? null : action.orderedIds.slice() };
+    const timeTaken = Math.max(0, Math.min(LE_BON_ORDRE_DURATION, (Date.now() - mini.startTime) / 1000));
+    rememberManualResponseTime(mini, player.playerId, timeTaken);
+    mini.playerAnswers[player.playerId] = savedAnswer;
+    socket.emit("leBonOrdreAnswerAck", { ...getBonOrdreContext(room, mini), savedAnswer });
+    maybeEndBonOrdreQuestion(room);
   });
 
   socket.on("leTourDuMondeAnswer", ({ answer } = {}) => {
@@ -3812,6 +4118,7 @@ io.on("connection", (socket) => {
     const gs = room.gameState;
     const mini = gs.currentMiniGameState;
     if (!mini || !room.activePlayersList) return;
+    if (mini.type === "le_bon_ordre") return;
     if (mini.correctionEnding) return;
 
     const player = room.activePlayersList[mini.gradingPlayerIndex];
@@ -3857,8 +4164,6 @@ io.on("connection", (socket) => {
     let maxDuration = 40; // Valeur par défaut (Qui suis-je, Tour du monde, Blind test)
     if (["petit_bac", "matrice_football"].includes(mini.type)) {
       maxDuration = mini.timer?.totalSeconds ?? 150;
-    } else if (mini.type === "le_bon_ordre") {
-      maxDuration = LE_BON_ORDRE_DURATION;
     }
     const oldTime = mini.timesApplied[mini.correctionIndex][player.playerId] || 0;
     const legacyTime = Number.isFinite(mini.responseTimes?.[player.playerId])
@@ -3935,6 +4240,8 @@ io.on("connection", (socket) => {
 
     if (mini.correctionIndex >= mini.questions.length) {
       beginListeRoundEnd(room);
+      const bonOrdreCurrent = mini.type === "le_bon_ordre" ? captureBonOrdreCallback(room, mini) : null;
+      if (bonOrdreCurrent) mini.correctionEnding = true;
       io.to(room.roomCode).emit("scoreUpdate", getMiniGameScoreUpdate(room));
 
       io.to(room.roomCode).emit("leugtasReveal", {
@@ -3945,9 +4252,12 @@ io.on("connection", (socket) => {
       });
 
       roomTimeout(room, () => {
-        io.to(room.roomCode).emit("leBonOrdreExit");
+        if (bonOrdreCurrent && !bonOrdreCurrent()) return;
+        io.to(room.roomCode).emit("leBonOrdreExit",
+          bonOrdreCurrent ? getBonOrdreContext(room, mini) : undefined);
         // On attend 7s (3s �limination + 3s logo + 1s s�curit�)
         roomTimeout(room, () => {
+          if (bonOrdreCurrent && !bonOrdreCurrent()) return;
           endMiniGame(room.roomCode);
         }, room.gameMode === "liste" ? LISTE_END_LOGO_DURATION_MS : 7000);
       }, 5000);
@@ -4417,18 +4727,36 @@ io.on("connection", (socket) => {
 function syncPlayerWithGame(socket, room) {
   if (!room || !room.gameState || getSocketRoom(socket) !== room) return;
   if (room.gameMode === "liste" &&
-      !isListeParticipant(room, room.players.find((p) => p.playerId === socket.playerId))) return;
+      !isListeParticipant(room, room.players.find((p) => p.playerId === socket.playerId)) &&
+      room.gameState.currentMiniGame !== "le_bon_ordre") return;
   const gs = room.gameState;
   // CORRECTIF : On regarde currentMiniGameState OU room.mini (pour le cas spécifique du Faux du Vrai)
   const mini = gs.currentMiniGameState || room.mini;
 
   publishListeContext(room, socket);
+  if (mini?.type === "le_bon_ordre" && gs.currentMiniGame === "le_bon_ordre") {
+    advanceBonOrdrePhase(room, mini);
+    if (gs.currentMiniGameState !== mini || gs.currentMiniGame !== "le_bon_ordre" ||
+        !["playing", "listeRoundEnd"].includes(gs.phase)) return;
+    if (mini.subPhase === "correction") sendBonOrdrePersonalCorrection(socket, room, mini);
+    else if (mini.subPhase === "leaderboard") {
+      socket.emit("leBonOrdreLeaderboard", getBonOrdreLeaderboard(room, mini, true));
+    } else if (mini.subPhase === "ending") {
+      if (!mini.completionDispatched) socket.emit("leBonOrdreExit", getBonOrdreExit(room, mini, true));
+    } else if (["theme", "answering"].includes(mini.subPhase)) {
+      socket.emit("leBonOrdreQuestion", getBonOrdreQuestionSnapshot(room, mini, socket.playerId, true));
+      socket.emit("leBonOrdreTimerUpdate", {
+        ...getBonOrdreContext(room, mini), ...getBonOrdreTimer(mini)
+      });
+    }
+    return;
+  }
   if (gs.phase !== "playing" || !mini) return;
 
   // === GESTION DE LA CORRECTION (Si le jeu est fini) ===
   if (
     mini.finished &&
-    ["qui_suis_je", "le_bon_ordre", "le_tour_du_monde", "blind_test", "petit_bac", "matrice_football", "les_encheres"].includes(mini.type)
+    ["qui_suis_je", "le_tour_du_monde", "blind_test", "petit_bac", "matrice_football", "les_encheres"].includes(mini.type)
   ) {
     // --- FIX : ON AJOUTE LA V�RIFICATION DE L'INDEX ICI ---
     if (typeof mini.correctionIndex !== "undefined" && mini.correctionIndex < mini.questions.length) {
@@ -4451,17 +4779,6 @@ function syncPlayerWithGame(socket, room) {
     }
     if (mini.timer && mini.timer.running) {
       socket.emit("quiSuisJeTimerUpdate", { remaining: mini.timer.remainingSeconds, total: mini.timer.totalSeconds });
-    }
-  }
-  // 2. LE BON ORDRE
-  else if (mini.type === "le_bon_ordre") {
-    const q = mini.questions[mini.questionIndex];
-    if (q) {
-      const safeQ = { ...q, image_question: q.image_question || q.image };
-      socket.emit("leBonOrdreQuestion", { question: safeQ, themeName: q.themeName, index: mini.questionIndex + 1, total: mini.questions.length });
-    }
-    if (mini.timer && mini.timer.running) {
-      socket.emit("leBonOrdreTimerUpdate", { remaining: mini.timer.remainingSeconds, total: mini.timer.totalSeconds });
     }
   }
   // 3. LE TOUR DU MONDE
@@ -4594,7 +4911,8 @@ app.use("/admin/memory", requireMemoryAdmin);
 
 app.get("/admin/memory/view", (req, res) => {
   const history = getPlayedHistory();
-  res.json(history);
+  try { res.json({ ...history, le_bon_ordre_elements_v1: bonOrdreStore.read() }); }
+  catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.get(["/admin/memory/reset-all", "/admin/memory/reset/", "/admin/memory/reset/:game"], (req, res) => {
@@ -4602,13 +4920,22 @@ app.get(["/admin/memory/reset-all", "/admin/memory/reset/", "/admin/memory/reset
 });
 
 app.post("/admin/memory/reset-all", (req, res) => {
-  savePlayedHistory({});
-  res.json({ reset: "all" });
+  try {
+    bonOrdreStore.reset();
+    savePlayedHistory({});
+    res.json({ reset: "all" });
+  } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post("/admin/memory/reset/:game", (req, res) => {
   const game = req.params.game;
   if (!ADMIN_MEMORY_GAMES.has(game)) return res.status(400).json({ error: "Jeu inconnu" });
+  if (game === "le_bon_ordre") {
+    try {
+      bonOrdreStore.reset();
+      return res.json({ reset: game });
+    } catch (error) { return res.status(500).json({ error: error.message }); }
+  }
   resetGameHistory(game);
   res.json({ reset: game });
 });

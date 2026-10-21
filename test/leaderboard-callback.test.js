@@ -38,6 +38,8 @@ function client(gameMode = "liste", game = "le_faux_du_vrai") {
     listeActionContext: { tournamentId: "tour-1", roundNumber: 1, miniGame: game, phase: "playing", question: 0 },
     currentPlayersData: [{ id: "p", nickname: "Joueur", score: 1, time: 4, place: 1 }],
     playerId: "p", isQuitting: false, console: { log() {} },
+    bonOrdreCorrectionContext: null, bonOrdreState: null,
+    syncBonOrdrePhase() {},
     document: { getElementById: (id) => elements[id], querySelectorAll: () => [] },
     socket: { emit() {}, disconnect() {}, connect() {}, on: (name, fn) => { handlers[name] = fn; } },
     confirmQuitBtn: { addEventListener: (_, fn) => { quit = fn; } },

@@ -42,6 +42,8 @@ function client(gameMode = "liste") {
     POSSIBLE_MINI_GAMES: ["qui_suis_je"], sfxTirage: sound,
     sfxTheme: sound, sfxRuleQuiSuisJe: sound,
     updateGameModeUI() {}, clearIntroLayer() {}, hideListeLeaderboard() {},
+    bonOrdreCorrectionContext: null, bonOrdreState: null,
+    syncBonOrdrePhase() {},
     stopListeIntro() {}, syncListeIntro() {}, stopListeFinale() {}, syncListeFinale() {},
     invalidateMiniGameLeaderboard() {}, // Le mécanisme du classement est testé séparément.
     stopRuleSounds() {}, updateReadyPlayersListUI() {},

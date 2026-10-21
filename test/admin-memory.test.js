@@ -7,9 +7,11 @@ const os = require("node:os");
 const path = require("node:path");
 const vm = require("node:vm");
 const { timingSafeEqual } = require("node:crypto");
+const { memoryFs } = require("./helpers/bon-ordre-memory.cjs");
+const { createBonOrdreStore } = require("../le-bon-ordre");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "server.js"), "utf8");
-const historyCode = source.slice(source.indexOf("function getPlayedHistory()"), source.indexOf("const leBonOrdreData"));
+const historyCode = source.slice(source.indexOf("function getPlayedHistory()"), source.indexOf("const blindTestData"));
 const gamesCode = source.slice(source.indexOf("const POSSIBLE_MINI_GAMES ="), source.indexOf("const LEUGTAS_TIMER_DURATION_SECONDS"));
 const routesCode = source.slice(source.indexOf("const ADMIN_MEMORY_SECRET ="), source.indexOf("const PORT = process.env.PORT"));
 
@@ -23,6 +25,7 @@ function harness(file, env) {
   };
   vm.runInNewContext(historyCode + gamesCode + routesCode, {
     fs, HISTORY_FILE: file, app, process: { env }, Buffer, timingSafeEqual,
+    bonOrdreStore: createBonOrdreStore(file + ".bon-ordre", { fs: memoryFs() }),
     console: { log() {}, error: assert.fail }
   });
   assert.ok(middleware);
@@ -64,7 +67,8 @@ test("routes mémoire : désactivation, secret, méthode et liste autorisée", (
       assert.equal(request(method, route, "incorrect").statusCode, 401);
       unchanged();
     }
-    assert.equal(JSON.stringify(request("GET", "/admin/memory/view", secret).body), initial);
+    const viewed = request("GET", "/admin/memory/view", secret).body;
+    assert.deepEqual(JSON.parse(JSON.stringify(viewed)), { ...JSON.parse(initial), le_bon_ordre_elements_v1: { version: 1, pools: {} } });
     for (const route of ["/admin/memory/reset-all", "/admin/memory/reset/", "/admin/memory/reset/petit_bac"]) {
       assert.equal(request("GET", route, secret).statusCode, 405);
       unchanged();
