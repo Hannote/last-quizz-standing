@@ -2,6 +2,16 @@
 // Last Quizz Standing - Tirage au sort animé + règles + prêts
 // + mini-jeu Leugtas phase 2.4 (envoi question au client).
 
+// Vérifier le moteur avant de charger les dépendances ou les historiques du jeu.
+const nodeVersion = require("node:process").version;
+const [nodeMajor, nodeMinor, nodePatch] = nodeVersion.slice(1).split(".").map(Number);
+if (!/^v\d+\.\d+\.\d+$/.test(nodeVersion) || nodeMajor !== 24 ||
+    nodeMinor < 22 || (nodeMinor === 22 && nodePatch < 1)) {
+  throw new Error(`Version Node.js incompatible : ${nodeVersion} détectée. ` +
+    "Version requise : >=24.22.1 <25. Installez une version corrigée de Node.js 24, puis relancez le serveur.");
+}
+console.log(`[RUNTIME] Node.js ${nodeVersion}`);
+
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
