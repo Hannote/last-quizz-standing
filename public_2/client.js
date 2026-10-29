@@ -1234,7 +1234,7 @@ function rulesTextForMiniGame(code) {
       return (
 
 
-        "Des extraits audios tirés de la télévision ou de musiques vont être joués. " +
+        "Neuf extraits audios vont être joués : 3 dessins animés, 1 programme de télévision et 5 musiques. " +
 
 
         "A toi de retrouver le nom du programme ou le chanteur et le titre de la chanson !"

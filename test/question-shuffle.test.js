@@ -36,6 +36,7 @@ function selectors(mode) {
     fauxVraiQuestions: fauxVrai.questions,
     PETIT_BAC_CATEGORIES: Array.from({ length: 14 }, (_, i) => `cat-${i}`),
     getPlayedHistory: () => history,
+    savePlayedHistory() {},
     getUnusedQuestions: (questions, game) => questions.filter((q) => !(history[game] || []).includes(q.id)),
     markQuestionsAsPlayed: (questions, game) => {
       history[game] ||= [];
@@ -50,7 +51,7 @@ function selectors(mode) {
   // Le Bon Ordre possède désormais sa propre mémoire d'éléments, testée séparément.
   const names = ["pickBlindTestQuestions", "pickLeTourDuMondeQuestions",
     "pickQuiSuisJeQuestions", "startFauxVrai", "startPetitBac"];
-  vm.runInNewContext(names.map(functionSource).join("\n") +
+  vm.runInNewContext(source.match(/const BLIND_TEST_QUOTAS = [^\n]+/)[0] + "\n" + names.map(functionSource).join("\n") +
     `\nglobalThis.picks = { ${names.join(", ")} };`, context);
   return { ...context.picks, context, history, resets,
     banks: { blindTest, tourDuMonde, quiSuisJe, fauxVrai } };
@@ -95,9 +96,10 @@ for (const mode of ["battle_royale", "liste"]) {
       [name, JSON.stringify(bank)]));
 
     const blind = h.pickBlindTestQuestions();
-    assert.equal(blind.length, 8);
-    assert.equal(blind.filter((q) => ["television", "television_g"].includes(q.theme_id)).length, 2);
-    assert.equal(blind.filter((q) => ["musique", "music"].includes(q.theme_id)).length, 6);
+    assert.equal(blind.length, 9);
+    assert.equal(blind.filter((q) => q.theme_id === "dessin_anime").length, 3);
+    assert.equal(blind.filter((q) => q.theme_id === "television").length, 1);
+    assert.equal(blind.filter((q) => q.theme_id === "musique").length, 5);
 
     const tour = h.pickLeTourDuMondeQuestions();
     assert.equal(tour.length, h.banks.tourDuMonde.themes.length);
@@ -137,7 +139,6 @@ for (const mode of ["battle_royale", "liste"]) {
 
 test("les conditions de remise à zéro et l'enregistrement restent en place", () => {
   const cases = [
-    ["blind_test", "blindTest", "pickBlindTestQuestions"],
     ["le_tour_du_monde", "tourDuMonde", "pickLeTourDuMondeQuestions"],
     ["qui_suis_je", "quiSuisJe", "pickQuiSuisJeQuestions"],
     ["faux_vrai", "fauxVrai", "startFauxVrai"]

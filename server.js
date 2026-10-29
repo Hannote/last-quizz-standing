@@ -96,11 +96,12 @@ function getPlayedHistory() {
 }
 
 // 4. Sauvegarder l'historique
-function savePlayedHistory(history) {
+function savePlayedHistory(history, throwOnError = false) {
   try {
     fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
   } catch (e) {
     console.error("Erreur sauvegarde historique:", e);
+    if (throwOnError) throw e;
   }
 }
 
@@ -138,6 +139,7 @@ const blindTestData = require(
 );
 const BLIND_TEST_QUESTIONS = blindTestData.questions || [];
 const BLIND_TEST_THEMES = blindTestData.themes || [];
+const BLIND_TEST_QUOTAS = Object.freeze({ dessin_anime: 3, television: 1, musique: 5 });
 
 const leTourDuMondeData = require(
   path.join(__dirname, "public_2", "le_tour_du_monde", "le_tour_du_monde.json")
@@ -2472,36 +2474,44 @@ function sendCorrectionData(roomCode, targetSocket = null) {
 
 // --- BLIND TEST HELPERS ---
 function pickBlindTestQuestions() {
-  let available = getUnusedQuestions(BLIND_TEST_QUESTIONS, "blind_test");
-
-  const tvPool = available.filter(q => ["television", "television_g"].includes(q.theme_id));
-  const musicPool = available.filter(q => ["musique", "music"].includes(q.theme_id));
-
-  // On veut 2 TV et 6 Musique
-  if (tvPool.length < 2 || musicPool.length < 6) {
-    resetGameHistory("blind_test");
-    // On recharge tout depuis le JSON original
-    const allTv = BLIND_TEST_QUESTIONS.filter(q => ["television", "television_g"].includes(q.theme_id));
-    const allMusic = BLIND_TEST_QUESTIONS.filter(q => ["musique", "music"].includes(q.theme_id));
-    
-    var rawGameSet = [
-        ...shuffleCopy(allTv).slice(0, 2),
-        ...shuffleCopy(allMusic).slice(0, 6)
-    ];
-    rawGameSet = shuffleCopy(rawGameSet);
-    
-    markQuestionsAsPlayed(rawGameSet, "blind_test");
-  } else {
-    var rawGameSet = [
-        ...shuffleCopy(tvPool).slice(0, 2),
-        ...shuffleCopy(musicPool).slice(0, 6)
-    ];
-    rawGameSet = shuffleCopy(rawGameSet);
-    
-    markQuestionsAsPlayed(rawGameSet, "blind_test");
+  // Valider tous les pools avant de consommer le moindre identifiant.
+  const pools = Object.entries(BLIND_TEST_QUOTAS).map(([themeId, quota]) => {
+    const pool = [...new Map(BLIND_TEST_QUESTIONS.filter(q => q.theme_id === themeId)
+      .map(q => [q.id, q])).values()];
+    if (pool.some(q => q.id === undefined || q.id === null || q.id === "")) {
+      throw new Error(`Blind Test : identifiant manquant dans le thème "${themeId}".`);
+    }
+    if (pool.length < quota) {
+      throw new Error(`Blind Test : le thème "${themeId}" contient ${pool.length} questions distinctes ; ${quota} requises.`);
+    }
+    return { pool, quota };
+  });
+  const allIds = pools.flatMap(({ pool }) => pool.map(q => q.id));
+  if (new Set(allIds).size !== allIds.length) {
+    throw new Error("Blind Test : un identifiant est partagé par plusieurs thèmes.");
   }
 
-  return rawGameSet.map(q => {
+  const history = getPlayedHistory();
+  const playedIds = new Set(history.blind_test || []);
+  const selected = [];
+  for (const { pool, quota } of pools) {
+    const remaining = pool.filter(q => !playedIds.has(q.id));
+    const picked = shuffleCopy(remaining).slice(0, quota);
+    let currentCyclePicks = picked;
+    if (picked.length < quota) {
+      // Les dernières inédites appartiennent à l'ancien cycle. Ne mémoriser
+      // dans le nouveau que le complément, sans rejouer ces dernières inédites.
+      const oldCycleIds = new Set(picked.map(q => q.id));
+      for (const q of pool) playedIds.delete(q.id);
+      currentCyclePicks = shuffleCopy(pool.filter(q => !oldCycleIds.has(q.id)))
+        .slice(0, quota - picked.length);
+      picked.push(...currentCyclePicks);
+    }
+    for (const q of currentCyclePicks) playedIds.add(q.id);
+    selected.push(...picked);
+  }
+
+  const questions = shuffleCopy(selected).map(q => {
     const theme = BLIND_TEST_THEMES.find((th) => th.id === q.theme_id);
     return {
       ...q,
@@ -2513,11 +2523,20 @@ function pickBlindTestQuestions() {
       image: q.image_reponse
     };
   });
+  history.blind_test = [...playedIds];
+  // Même fichier local/Railway que les autres jeux, une sauvegarde dès le tirage.
+  // Un échec de persistance doit empêcher le lancement de ce Blind Test.
+  savePlayedHistory(history, true);
+  return questions;
 }
 
 function sendBlindTestQuestion(roomCode) {
   const room = rooms[roomCode];
-  const mini = room.gameState.currentMiniGameState;
+  const gs = room?.gameState;
+  const mini = gs?.currentMiniGameState;
+  if (!mini || mini.type !== "blind_test" || mini.finished) return;
+  const gameMode = room.gameMode;
+  const questionIndex = mini.questionIndex;
   const q = mini.questions[mini.questionIndex];
 
   publishListeContext(room);
@@ -2529,6 +2548,9 @@ function sendBlindTestQuestion(roomCode) {
   });
 
   roomTimeout(room, () => {
+    if (rooms[roomCode] !== room || room.gameState !== gs || room.gameMode !== gameMode ||
+        gs.phase !== "playing" || gs.currentMiniGameState !== mini || mini.finished ||
+        mini.questionIndex !== questionIndex) return;
     startBlindTestTimer(room);
   }, 2500);
 }
@@ -2536,7 +2558,10 @@ function sendBlindTestQuestion(roomCode) {
 function startBlindTestTimer(room) {
   const roomCode = room.roomCode;
   const mini = room.gameState.currentMiniGameState;
-  if (!mini) return;
+  if (!mini || mini.type !== "blind_test" || mini.finished) return;
+  const gs = room.gameState;
+  const gameMode = room.gameMode;
+  const questionIndex = mini.questionIndex;
 
   mini.startTime = Date.now();
 
@@ -2550,9 +2575,11 @@ function startBlindTestTimer(room) {
 
   if (room.blindTestInterval) clearInterval(room.blindTestInterval);
 
-  room.blindTestInterval = roomInterval(room, () => {
-    if (!mini.timer || !mini.timer.running) {
-      clearInterval(room.blindTestInterval);
+  const interval = roomInterval(room, () => {
+    if (rooms[roomCode] !== room || room.gameState !== gs || room.gameMode !== gameMode ||
+        gs.phase !== "playing" || gs.currentMiniGameState !== mini || mini.finished ||
+        mini.questionIndex !== questionIndex || !mini.timer || !mini.timer.running) {
+      clearInterval(interval);
       return;
     }
 
@@ -2566,13 +2593,14 @@ function startBlindTestTimer(room) {
       endBlindTestQuestion(roomCode);
     }
   }, 1000);
+  room.blindTestInterval = interval;
 }
 
 function endBlindTestQuestion(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
   const mini = room.gameState.currentMiniGameState;
-  if (!mini || mini.finished) return;
+  if (!mini || mini.type !== "blind_test" || mini.finished) return;
 
   mini.finished = true;
   if (mini.timer) mini.timer.running = false;
@@ -2591,7 +2619,12 @@ function endBlindTestQuestion(roomCode) {
     sendBlindTestQuestion(roomCode);
   } else {
     io.to(roomCode).emit("blindTestEnd");
+    const gs = room.gameState;
+    const gameMode = room.gameMode;
     roomTimeout(room, () => {
+      if (rooms[roomCode] !== room || room.gameState !== gs || room.gameMode !== gameMode ||
+          gs.phase !== "playing" || gs.currentMiniGameState !== mini || !mini.finished ||
+          mini.correctionIndex !== undefined) return;
       startCorrectionPhase(roomCode);
     }, 3000);
   }
@@ -3119,8 +3152,8 @@ function startReadyMiniGame(room, startEncheres) {
     }
     // ------- BLIND TEST ----------
     else if (gs.currentMiniGame === "blind_test") {
-      const questions = pickBlindTestQuestions();
-      if (questions && questions.length > 0) {
+      try {
+        const questions = pickBlindTestQuestions();
         gs.currentMiniGameState = {
           type: "blind_test",
           questions,
@@ -3133,6 +3166,11 @@ function startReadyMiniGame(room, startEncheres) {
         };
 
         sendBlindTestQuestion(roomCode);
+      } catch (error) {
+        gs.phase = "rules";
+        gs.currentMiniGameState = null;
+        gs.readyPlayers = {};
+        io.to(roomCode).emit("errorMessage", `Impossible de lancer le Blind Test : ${error.message}`);
       }
     }
     // ------- PETIT BAC ----------
