@@ -55,6 +55,104 @@
         "matrice_football/verticale/champions_league.jpg",
         "matrice_football/verticale/beckham.jpg"
       ]
+    },
+    {
+      "id": 5,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/carre/dortmund.jpg",
+        "matrice_football/carre/espagne.jpg",
+        "matrice_football/carre/liverpool.jpg"
+      ],
+      "rows": [
+        "matrice_football/carre/psg.jpg",
+        "matrice_football/carre/milan_ac.jpg",
+        "matrice_football/carre/juventus.jpg"
+      ]
+    },
+    {
+      "id": 6,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/carre/france.jpg",
+        "matrice_football/carre/city.jpg",
+        "matrice_football/carre/arsenal.jpg"
+      ],
+      "rows": [
+        "matrice_football/carre/juventus.jpg",
+        "matrice_football/carre/barcelone.jpg",
+        "matrice_football/carre/tottenham.jpg"
+      ]
+    },
+    {
+      "id": 7,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/carre/juventus.jpg",
+        "matrice_football/carre/atletico.jpg",
+        "matrice_football/carre/barcelone.jpg"
+      ],
+      "rows": [
+        "matrice_football/carre/bresil.jpg",
+        "matrice_football/carre/milan_ac.jpg",
+        "matrice_football/carre/mourinho.jpg"
+      ]
+    },
+    {
+      "id": 8,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/carre/arsenal.jpg",
+        "matrice_football/carre/newcastle.jpg",
+        "matrice_football/carre/dortmund.jpg"
+      ],
+      "rows": [
+        "matrice_football/carre/espagne.jpg",
+        "matrice_football/carre/psg.jpg",
+        "matrice_football/carre/inter.jpg"
+      ]
+    },
+    {
+      "id": 9,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/carre/liverpool.jpg",
+        "matrice_football/carre/real.jpg",
+        "matrice_football/carre/city.jpg"
+      ],
+      "rows": [
+        "matrice_football/carre/guardiola.jpg",
+        "matrice_football/carre/inter.jpg",
+        "matrice_football/carre/espagne.jpg"
+      ]
+    },
+    {
+      "id": 10,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/carre/bayern.jpg",
+        "matrice_football/carre/atletico.jpg",
+        "matrice_football/carre/allemagne.jpg"
+      ],
+      "rows": [
+        "matrice_football/carre/inter.jpg",
+        "matrice_football/carre/barcelone.jpg",
+        "matrice_football/carre/ancelotti.jpg"
+      ]
+    },
+    {
+      "id": 11,
+      "question": "Trouve un joueur correspondant aux deux critères de chaque case.",
+      "columns": [
+        "matrice_football/carre/psg.jpg",
+        "matrice_football/carre/city.jpg",
+        "matrice_football/carre/arsenal.jpg"
+      ],
+      "rows": [
+        "matrice_football/carre/united.jpg",
+        "matrice_football/carre/atletico.jpg",
+        "matrice_football/carre/chelsea.jpg"
+      ]
     }
   ]
 }
