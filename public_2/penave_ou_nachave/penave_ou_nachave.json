@@ -1,107 +1,189 @@
 {
   "themes": [
     {
-      "id": "Football",
+      "id": "football",
       "name": "Football"
     },
     {
-      "id": "Jeux-vidéos",
+      "id": "jeux_videos",
       "name": "Jeux-vidéos"
     },
     {
-      "id": "Olympisme",
-      "name": "Olympisme"
+      "id": "series_tv",
+      "name": "Séries-TV"
     },
     {
-      "id": "Séries-TV",
-      "name": "Séries-TV"
+      "id": "bouffe",
+      "name": "Bouffe"
+    },
+    {
+      "id": "musique",
+      "name": "Musique"
+    },
+    {
+      "id": "geographie",
+      "name": "Géographie"
+    },
+    {
+      "id": "cinema",
+      "name": "Cinéma"
     }
   ],
   "questions": [
     {
+      "id": 1,
+      "theme_id": "football",
+      "question": "Citez des meilleurs buteurs de Premier League"
+    },
+    {
+      "id": 2,
+      "theme_id": "football",
+      "question": "Citez des clubs ayant remporté la Ligue des Champions"
+    },
+    {
       "id": 3,
-      "theme_id": "Football",
-      "question": "Combien de meilleurs buteurs de Premier League pouvez-vous citer ?"
+      "theme_id": "football",
+      "question": "Citez des joueurs ayant gagné la coupe du monde et la ligue des champions"
     },
     {
       "id": 4,
-      "theme_id": "Football",
-      "question": "Combien de meilleurs buteurs de la Ligue 1 pouvez-vous citer ?"
+      "theme_id": "football",
+      "question": "Citez des vainqueurs du ballon d'or"
     },
     {
       "id": 5,
-      "theme_id": "Football",
-      "question": "Combien de stades à plus de 50 000 spectateurs pouvez-vous citer ?"
+      "theme_id": "football",
+      "question": "Citez des joueurs ayant évolué dans au moins 3 championnats européens (big 5 + Portugal & Pays-Bas)"
     },
     {
       "id": 6,
-      "theme_id": "Football",
-      "question": "Combien de joueurs ayant évolué dans au moins 3 championnats européens (big 5 + Portugal & Pays-Bas) pouvez-vous citer ?"
+      "theme_id": "football",
+      "question": "Citez des joueurs ayant marqué en finale de Coupe Du Monde"
+    },
+    {
+      "id": 7,
+      "theme_id": "football",
+      "question": "Citez des clubs dont le logo comporte un animal"
     },
     {
       "id": 8,
-      "theme_id": "Football",
-      "question": "Combien de joueurs ayant marqué en finale de Coupe Du Monde pouvez-vous citer ?"
+      "theme_id": "football",
+      "question": "Citez des entraîneurs ayant remporté la ligue des champions"
     },
     {
       "id": 9,
-      "theme_id": "Football",
-      "question": "Combien de clubs dont le logo comporte un animal pouvez-vous citer ?"
+      "theme_id": "football",
+      "question": "Citez des joueurs français ayant joué au Fc Barcelone"
+    },
+    {
+      "id": 10,
+      "theme_id": "football",
+      "question": "Citez des transferts à 100 millions d'euros ou plus"
+    },
+    {
+      "id": 11,
+      "theme_id": "football",
+      "question": "Citez des clubs dont la couleur du maillot domicile est dominé par le rouge"
     },
     {
       "id": 12,
-      "theme_id": "Football",
-      "question": "Combien d'entraîneurs ayant remporté la ligue des champions pouvez-vous citer ?"
+      "theme_id": "jeux_videos",
+      "question": "Citez des maps de Call of Duty"
     },
     {
       "id": 13,
-      "theme_id": "Football",
-      "question": "Combien de joueurs français ayant joué au Fc Barcelone pouvez-vous citer ?"
+      "theme_id": "jeux_videos",
+      "question": "Citez des joueurs qui ont ou ont eu une carte légende sur Fifa / FC ?"
+    },
+    {
+      "id": 14,
+      "theme_id": "jeux_videos",
+      "question": "Citez des jeux Ubisoft"
     },
     {
       "id": 15,
-      "theme_id": "Football",
-      "question": "Combien de transferts à 100 millions d'euros ou plus pouvez-vous citer ?"
+      "theme_id": "jeux_videos",
+      "question": "Citez des fps"
     },
     {
       "id": 16,
-      "theme_id": "Football",
-      "question": "Combien de clubs dont la couleur du maillot domicile est dominé par le rouge pouvez-vous citer ?"
+      "theme_id": "jeux_videos",
+      "question": "Citez des consoles de jeux vidéo"
+    },
+    {
+      "id": 17,
+      "theme_id": "series_tv",
+      "question": "Citez des personnages de Les Simpson"
+    },
+    {
+      "id": 18,
+      "theme_id": "bouffe",
+      "question": "Citez des fruits"
+    },
+    {
+      "id": 19,
+      "theme_id": "bouffe",
+      "question": "Citez des patisseries / vienoiseries"
+    },
+    {
+      "id": 20,
+      "theme_id": "bouffe",
+      "question": "Citez des types de céréale (petit déjeuner)"
+    },
+    {
+      "id": 21,
+      "theme_id": "bouffe",
+      "question": "Citez des boissons (soda ou soft)"
+    },
+    {
+      "id": 22,
+      "theme_id": "musique",
+      "question": "Citez des rappeurs français"
+    },
+    {
+      "id": 23,
+      "theme_id": "musique",
+      "question": "Citez des musiques de Booba"
     },
     {
       "id": 24,
-      "theme_id": "Olympisme",
-      "question": "Combien de villes ayant déjà accueilli les Jeux Olympiques pouvez-vous citer ?"
+      "theme_id": "geographie",
+      "question": "Citez des villes des Yvelines"
     },
     {
-      "id": 43,
-      "theme_id": "Jeux-vidéos",
-      "question": "Combien de map call of duty pouvez-vous citer ?"
+      "id": 25,
+      "theme_id": "geographie",
+      "question": "Citez des pays commençant par la lettre C"
     },
     {
-      "id": 44,
-      "theme_id": "Jeux-vidéos",
-      "question": "Combien de cartes légendes de FC 26 pouvez-vous citer ?"
+      "id": 26,
+      "theme_id": "geographie",
+      "question": "Citez des pays commençant par la lettre M"
     },
     {
-      "id": 48,
-      "theme_id": "Jeux-vidéos",
-      "question": "Combien de jeux de combats pouvez-vous citer ?"
+      "id": 27,
+      "theme_id": "geographie",
+      "question": "Citez des pays commençant par la lettre S"
     },
     {
-      "id": 49,
-      "theme_id": "Jeux-vidéos",
-      "question": "Combien de jeux Ubisoft pouvez-vous citer ?"
+      "id": 28,
+      "theme_id": "geographie",
+      "question": "Citez des pays d'Europe"
     },
     {
-      "id": 50,
-      "theme_id": "Jeux-vidéos",
-      "question": "Combien de FPS pouvez-vous citer ?"
+      "id": 29,
+      "theme_id": "geographie",
+      "question": "Citez des pays d'Afrique"
     },
     {
-      "id": 61,
-      "theme_id": "Séries-TV",
-      "question": "Combien de personnages de Les Simpsons pouvez-vous citer ?"
+      "id": 30,
+      "theme_id": "cinema",
+      "question": "Citez des films d'animation sortis aux cinémas (hors manga)"
+    },
+    {
+      "id": 31,
+      "theme_id": "cinema",
+      "question": "Citez des films de super-héros sortis aux cinémas"
     }
   ]
 }
