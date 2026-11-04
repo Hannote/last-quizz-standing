@@ -304,6 +304,7 @@ const sfxPenaveBoard = new Howl({ src: ['sons/board.mp3'], volume: 0.6, preload:
 const sfxPenaveCorrect = new Howl({ src: ['sons/correction_1point.mp3'], volume: 0.5, preload: true });
 const sfxPenaveWrong = new Howl({ src: ['sons/correction_0point.mp3'], volume: 0.5, preload: true });
 const sfxPenaveOut = new Howl({ src: ['sons/penave_ou_nachave_out.mp3'], volume: 0.7, preload: true });
+const sfxPenaveVictory = new Howl({ src: ['sons/terroristes.mp3'], volume: 0.7, preload: true });
 
 
 const sfxTirage = new Howl({
@@ -4988,7 +4989,7 @@ let penaveTurnSoundKey = null;
 let penaveThemeSoundKey = null;
 let penaveSuspenseKey = null;
 let penaveGradeSoundKey = null;
-let penaveOutSoundKey = null;
+let penaveAnnouncementSoundKey = null;
 let penaveEndSoundKey = null;
 let penaveBoardLastKey = null;
 let penaveBoardLastTurnKey = null;
@@ -5009,21 +5010,29 @@ function stopPenaveFlight() {
   document.querySelector("#penaveBoard .penave-answer-arriving")?.classList.remove("penave-answer-arriving");
 }
 
-function syncPenaveOverlay(id, visible, text, animation, elapsedMs = 0) {
+function syncPenaveOverlay(id, visible, text, animation, elapsedMs, durationMs, phaseKey) {
   const overlay = document.getElementById(id);
   const label = overlay?.firstElementChild;
   if (!overlay || !label) return;
   if (text != null) label.textContent = text;
   overlay.classList.toggle("hidden", !visible);
-  if (visible) {
-    label.style.animation = `${animation} ${animation === "palierStay" ? 0.6 : 1.5}s ease-out both`;
+  if (visible && overlay.dataset.penavePhaseKey !== phaseKey) {
+    overlay.dataset.penavePhaseKey = phaseKey;
+    label.style.animation = animation ? `${animation} ${durationMs}ms ease-out both` : "none";
     label.style.animationDelay = `-${Math.max(0, elapsedMs)}ms`;
   }
 }
 
+function playPenavePhaseSound(sound, elapsedMs, remainingMs) {
+  if (remainingMs <= 0 || (sound.duration() > 0 && elapsedMs >= sound.duration() * 1000)) return;
+  const id = sound.play();
+  if (elapsedMs > 0) sound.seek(elapsedMs / 1000, id);
+}
+
 function stopPenaveDisplay() {
+  document.body.classList.remove("penave-active");
   if (penaveSnapshot?.subPhase === "end_logo") sfxFinJeu.stop();
-  if (penaveSnapshot?.subPhase === "theme") sfxTheme.stop();
+  if (["theme", "round_summary"].includes(penaveSnapshot?.subPhase)) sfxTheme.stop();
   stopPenaveFlight();
   penaveSnapshot = null;
   penaveClock = null;
@@ -5032,7 +5041,7 @@ function stopPenaveDisplay() {
   penaveThemeSoundKey = null;
   penaveSuspenseKey = null;
   penaveGradeSoundKey = null;
-  penaveOutSoundKey = null;
+  penaveAnnouncementSoundKey = null;
   penaveEndSoundKey = null;
   penaveBoardLastKey = null;
   penaveBoardLastTurnKey = null;
@@ -5049,12 +5058,16 @@ function stopPenaveDisplay() {
   sfxPenaveCorrect.stop();
   sfxPenaveWrong.stop();
   sfxPenaveOut.stop();
+  sfxPenaveVictory.stop();
   document.getElementById("penaveContainer")?.classList.add("hidden");
   document.getElementById("penaveThemeOverlay")?.classList.add("hidden");
+  document.getElementById("penaveQuestionOverlay")?.classList.add("hidden");
   document.getElementById("penaveAnnouncementOverlay")?.classList.add("hidden");
   document.getElementById("leaderboard-overlay")?.classList.remove("active");
   document.getElementById("leaderboard-overlay")?.classList.remove("penave-ranking-active");
   document.getElementById("penaveEndOverlay")?.classList.add("hidden");
+  for (const id of ["penaveThemeOverlay", "penaveQuestionOverlay", "penaveAnnouncementOverlay"])
+    if (document.getElementById(id)) delete document.getElementById(id).dataset.penavePhaseKey;
 }
 
 function penaveSend(event, payload) {
@@ -5088,14 +5101,18 @@ function renderPenave(state) {
   if (!container || !state) return;
   const previous = penaveSnapshot;
   if (previous && previous.instanceId !== state.instanceId) stopPenaveDisplay();
+  document.body.classList.add("penave-active");
   penaveSnapshot = state;
   const firstSnapshot = !penaveInitialStateSeen;
   penaveInitialStateSeen = true;
   const themeOnly = state.subPhase === "theme";
+  const questionOnly = state.subPhase === "question_intro";
+  const phaseKey = `${state.instanceId}:${state.subPhase}:${state.phaseStartedAt}`;
+  const phaseElapsed = Math.max(0, state.phaseDurationMs - state.phaseRemainingMs);
   const endLogo = state.subPhase === "end_logo";
   const ranking = state.subPhase === "final_ranking";
   const announcing = ["round_summary", "victory"].includes(state.subPhase);
-  const showBoard = !themeOnly && !endLogo && !ranking && !announcing;
+  const showBoard = !themeOnly && !questionOnly && !endLogo && !ranking && !announcing;
   container.classList.toggle("hidden", !showBoard);
   const affirmation = document.getElementById("penaveAffirmation");
   affirmation.textContent = state.affirmation;
@@ -5129,9 +5146,10 @@ function renderPenave(state) {
   document.getElementById("penavePass").disabled = !active;
   document.getElementById("penaveForm").classList.toggle("hidden", !["cue", "answer"].includes(state.subPhase) || !isActor);
   if (state.subPhase === "cue" && isActor && penaveTurnSoundKey !== passageKey &&
-      Date.now() - state.cueStartedAt < 1050) {
+      phaseElapsed < 917) {
     penaveTurnSoundKey = passageKey;
     penaveCuePlayId = sfxPenaveTurn.play();
+    if (phaseElapsed > 0) sfxPenaveTurn.seek(phaseElapsed / 1000, penaveCuePlayId);
     sfxPenaveTurn.once("end", () => {
       if (penaveSnapshot?.subPhase === "cue" &&
           `${penaveSnapshot.instanceId}:${penaveSnapshot.passageId}` === passageKey)
@@ -5153,20 +5171,27 @@ function renderPenave(state) {
   document.getElementById("penaveTimer").classList.toggle("hidden", !["cue", "answer"].includes(state.subPhase));
   document.getElementById("penaveTimerFill").parentElement.classList.toggle("hidden", !["cue", "answer"].includes(state.subPhase));
   syncPenaveOverlay("penaveThemeOverlay", themeOnly, state.theme, "palierZoomFade",
-    Math.max(0, 1500 - (state.phaseEndsAt - Date.now())));
-  if (themeOnly && penaveThemeSoundKey !== state.instanceId && state.phaseEndsAt - Date.now() > 900) {
+    phaseElapsed, state.phaseDurationMs, phaseKey);
+  syncPenaveOverlay("penaveQuestionOverlay", questionOnly, state.affirmation, null,
+    phaseElapsed, state.phaseDurationMs, phaseKey);
+  if (themeOnly && penaveThemeSoundKey !== state.instanceId) {
     penaveThemeSoundKey = state.instanceId;
-    sfxTheme.play();
+    playPenavePhaseSound(sfxTheme, phaseElapsed, state.phaseRemainingMs);
   }
   syncPenaveOverlay("penaveAnnouncementOverlay", announcing && !!state.announcement,
-    state.announcement, "palierStay", announcing ? Math.max(0,
-      (state.subPhase === "victory" ? 2800 : 3200) - (state.phaseEndsAt - Date.now())) : 0);
-  if (state.subPhase === "round_summary" && state.roundEliminatedIds.length &&
-      penaveOutSoundKey !== `${state.instanceId}:${state.turnNumber}` &&
-      state.phaseEndsAt - Date.now() > 2200) {
-    penaveOutSoundKey = `${state.instanceId}:${state.turnNumber}`;
-    sfxPenaveOut.play();
-  } else if (state.subPhase !== "round_summary") sfxPenaveOut.stop();
+    state.announcement, state.subPhase === "round_summary" && !state.announcementEliminatedIds.length
+      ? "palierZoomFade" : "penaveAnnouncementZoom",
+    phaseElapsed, state.phaseDurationMs, phaseKey);
+  // Le thème remplace le son « out » pour garder l'annonce clairement audible.
+  if (previous?.subPhase !== state.subPhase) {
+    if (["theme", "round_summary"].includes(previous?.subPhase)) sfxTheme.stop();
+    if (previous?.subPhase === "victory") sfxPenaveVictory.stop();
+  }
+  if (announcing && penaveAnnouncementSoundKey !== phaseKey) {
+    penaveAnnouncementSoundKey = phaseKey;
+    playPenavePhaseSound(state.subPhase === "victory" ? sfxPenaveVictory : sfxTheme,
+      phaseElapsed, state.phaseRemainingMs);
+  }
   const board = document.getElementById("penaveBoard");
   const boardPreviousScroll = board.scrollTop;
   board.replaceChildren();
@@ -5274,7 +5299,7 @@ function renderPenave(state) {
   if (ranking && state.ranking) {
     document.getElementById("leaderboard-overlay")?.classList.add("penave-ranking-active");
     const mapped = state.ranking.map((entry) => ({ ...entry, nickname: entry.pseudo, score: entry.points }));
-    handleInterimLeaderboard(mapped, null, Math.max(0, state.phaseEndsAt - Date.now()),
+    handleInterimLeaderboard(mapped, null, state.phaseRemainingMs,
       "Classement Pénave ou Nachave", penaveRankingKey === state.instanceId);
     penaveRankingKey = state.instanceId;
   } else if (penaveRankingKey) {
@@ -5289,10 +5314,10 @@ function renderPenave(state) {
     const logo = endOverlay.querySelector(".leugtas-end-logo");
     logo.style.animation = "none";
     void logo.offsetWidth;
-    logo.style.animation = "spinAndShoot 3.5s ease-out forwards";
-    logo.style.animationDelay = `-${Math.max(0, 3500 - (state.phaseEndsAt - Date.now()))}ms`;
+    logo.style.animation = `spinAndShoot ${state.phaseDurationMs}ms ease-out forwards`;
+    logo.style.animationDelay = `-${phaseElapsed}ms`;
   }
-  if (endLogo && penaveEndSoundKey !== state.instanceId && state.phaseEndsAt - Date.now() > 3200) {
+  if (endLogo && penaveEndSoundKey !== state.instanceId && phaseElapsed < 300) {
     penaveEndSoundKey = state.instanceId;
     sfxFinJeu.play();
   }

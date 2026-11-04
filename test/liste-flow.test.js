@@ -144,7 +144,7 @@ function startPenaveRound() {
   clients.forEach((client) => client.send("playerSetReady", { isReady: true }));
   assert.equal(room.gameState.phase, "playing");
   assert.equal(room.gameState.currentMiniGame, "penave_ou_nachave");
-  h.advance(4000);
+  h.advance(1500 + 5000 + 1700);
   return { h, room, clients, mini: room.gameState.currentMiniGameState };
 }
 
@@ -171,7 +171,7 @@ test("Pénave : trois tours conservent les réponses dans l'ordre serveur", () =
     assert.deepEqual(Array.from(mini.entries.filter((entry) => entry.turnNumber === turn),
       (entry) => entry.playerId), Array.from(mini.order));
     if (turn < 3) {
-      h.advance(1300);
+      h.advance(1500);
       assert.equal(mini.turnNumber, turn + 1);
       assert.equal(mini.subPhase, "cue");
     }
@@ -183,19 +183,20 @@ test("Pénave : trois tours conservent les réponses dans l'ordre serveur", () =
 function answerPenaveTurn(h, room, clients, acceptedIds) {
   const mini = room.gameState.currentMiniGameState;
   const turn = mini.turnNumber;
-  if (mini.subPhase === "cue") h.advance(1000);
+  if (mini.subPhase === "cue") h.advance(1700);
   while (mini.turnNumber === turn && mini.subPhase === "answer") {
     const activeId = mini.activePlayerId;
     const active = clients.find((client) => client.playerId === activeId);
     if (acceptedIds.includes(activeId)) {
       active.send("penaveAnswer", penaveMessage(mini, { answer: "Réponse", pass: false }));
+      h.advance(850);
       clients.find((client) => client.playerId === room.hostId)
         .send("penaveGrade", penaveMessage(mini, { accepted: true }));
     } else {
       active.send("penaveAnswer", penaveMessage(mini, { answer: "", pass: true }));
     }
-    h.advance(450);
-    if (mini.subPhase === "cue") h.advance(1000);
+    h.advance(1100);
+    if (mini.subPhase === "cue") h.advance(1700);
   }
 }
 
@@ -204,7 +205,7 @@ test("Pénave : A et B abandonnent après avoir survécu, C et D poursuivent le 
   answerPenaveTurn(h, room, clients, ["p0", "p1"]);
   assert.equal(mini.subPhase, "round_summary");
   assert.deepEqual([...mini.survivors].sort(), ["p0", "p1"]);
-  h.advance(3200);
+  h.advance(4200);
   assert.equal(mini.turnNumber, 2);
   clients[0].send("leaveRoom");
   clients[1].send("leaveRoom");
@@ -215,10 +216,10 @@ test("Pénave : A et B abandonnent après avoir survécu, C et D poursuivent le 
   const expected = mini.tieOrder.filter((id) => ["p2", "p3"].includes(id));
   assert.deepEqual(Array.from(mini.ranking, (entry) => entry.playerId), expected);
   assert.deepEqual(Array.from(mini.ranking, (entry) => entry.points), [4, 3]);
-  h.advance(1300);
+  h.advance(1500);
   assert.equal(mini.subPhase, "victory");
   assert.ok(mini.announcement.includes(room.players.find((p) => p.playerId === expected[0]).pseudo));
-  h.advance(2800);
+  h.advance(3000);
   assert.equal(mini.subPhase, "final_ranking");
   h.advance(5000);
   assert.equal(mini.subPhase, "end_logo");
@@ -245,11 +246,11 @@ test("Pénave : abandon pendant la correction sans blocage ni points pour le jou
   active.send("penaveAnswer", penaveMessage(mini, { answer: "Réponse", pass: false }));
   assert.equal(mini.subPhase, "correction");
   active.send("leaveRoom");
-  assert.equal(mini.entries.at(-1).status, "refused");
+  assert.equal(mini.entries.at(-1).status, "withdrawn");
   h.advance(0);
   answerPenaveTurn(h, room, clients, []);
   assert.equal(mini.subPhase, "round_summary");
-  h.advance(3200 + 2800 + 5000 + 3500);
+  h.advance(4200 + 3000 + 5000 + 3500);
   assert.equal(room.gameState.phase, "listeLeaderboard");
   assert.equal(room.listeTournament.roundResults.length, 1);
   assert.equal(room.listeTournament.roundResults[0].placements.some((p) => p.playerId === activeId), false);
@@ -266,26 +267,30 @@ test("Pénave : ✓ valide, ✗ refuse avec 20 s, hôte seul et décision unique
   assert.equal(mini.subPhase, "correction");
   guest.send("penaveGrade", penaveMessage(mini, { accepted: false }));
   assert.equal(mini.entries.at(-1).status, "pending");
+  h.advance(850);
+  guest.send("penaveGrade", penaveMessage(mini, { accepted: false }));
+  assert.equal(mini.entries.at(-1).status, "pending");
   host.send("penaveGrade", penaveMessage(mini, { accepted: true }));
   host.send("penaveGrade", penaveMessage(mini, { accepted: false }));
   assert.equal(mini.entries.at(-1).status, "accepted");
   assert.equal(mini.stats[firstId].correct, 1);
   assert.equal(mini.stats[firstId].timeMs, 0);
-  h.advance(450);
-  h.advance(1000);
+  h.advance(1100);
+  h.advance(1700);
   assert.equal(mini.subPhase, "answer");
   const secondId = mini.activePlayerId;
   assert.notEqual(secondId, firstId);
   clients.find((client) => client.playerId === secondId)
     .send("penaveAnswer", penaveMessage(mini, { answer: "Réponse refusée", pass: false }));
   const passageId = mini.passageId;
+  h.advance(850);
   host.send("penaveGrade", penaveMessage(mini, { accepted: false }));
   host.send("penaveGrade", penaveMessage(mini, { accepted: true }));
   assert.equal(mini.entries.at(-1).status, "refused");
   assert.equal(mini.stats[secondId].correct, 0);
   assert.equal(mini.stats[secondId].timeMs, 20000);
-  h.advance(450);
-  h.advance(1000);
+  h.advance(1100);
+  h.advance(1700);
   assert.equal(mini.subPhase, "answer");
   assert.notEqual(mini.passageId, passageId);
 });
@@ -301,13 +306,13 @@ test("Pénave : le tournoi se termine lorsque tous les participants se retirent 
 test("Pénave : abandons pendant la victoire, le classement et le logo final", () => {
   const { h, room, clients, mini } = startPenaveRound();
   answerPenaveTurn(h, room, clients, []);
-  h.advance(3200);
+  h.advance(4200);
   assert.equal(mini.subPhase, "victory");
   const [first, second, third, last] = mini.ranking.map((entry) => entry.playerId);
   clients.find((client) => client.playerId === first).send("leaveRoom");
   assert.equal(mini.ranking[0].playerId, second);
   assert.ok(mini.announcement.includes(room.players.find((p) => p.playerId === second).pseudo));
-  h.advance(2800);
+  h.advance(3000);
   assert.equal(mini.subPhase, "final_ranking");
   clients.find((client) => client.playerId === second).send("leaveRoom");
   assert.equal(mini.ranking[0].playerId, third);

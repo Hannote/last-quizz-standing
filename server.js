@@ -1150,12 +1150,13 @@ function beginListeRoundEnd(room) {
 }
 
 const PENAVE_THEME_MS = 1500;
+const PENAVE_QUESTION_INTRO_MS = 5000;
 // a_toi_de_jouer.mp3 dure 917 ms ; le navigateur actif confirme sa fin.
 const PENAVE_TURN_CUE_MS = 1700;
 const PENAVE_BOARD_MS = 850;
 const PENAVE_VERDICT_MS = 1100;
-const PENAVE_ELIMINATION_MS = 3200;
-const PENAVE_VICTORY_MS = 2800;
+const PENAVE_ELIMINATION_MS = 4200;
+const PENAVE_VICTORY_MS = 3000;
 const PENAVE_RANKING_MS = 5000;
 
 function pickPenaveQuestion() {
@@ -1206,17 +1207,28 @@ function getPenaveSnapshot(room) {
       ? Date.now() - mini.correctionStartedAt : null,
     gradeElapsedMs: mini.entries.at(-1)?.gradedAt != null
       ? Date.now() - mini.entries.at(-1).gradedAt : null,
+    phaseStartedAt: mini.phaseStartedAt || null,
+    phaseDurationMs: mini.phaseDurationMs || 0,
+    phaseRemainingMs: mini.phaseEndsAt ? Math.max(0, mini.phaseEndsAt - Date.now()) : 0,
     phaseEndsAt: mini.phaseEndsAt || null, announcement: mini.announcement || null,
     correctionStartedAt: mini.correctionStartedAt || null,
     cueStartedAt: mini.cueStartedAt || null,
     entries: mini.entries, eliminatedIds: Object.keys(mini.stats).filter((id) => mini.stats[id].eliminatedRound),
     roundEliminatedIds: mini.roundEliminatedIds || [],
+    announcementEliminatedIds: mini.announcementEliminatedIds || [],
     ranking: mini.ranking || null, durationMs: PENAVE_DURATION_MS
   };
 }
 
 function publishPenave(room) {
   io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+}
+
+function penaveSetPhase(mini, subPhase, durationMs) {
+  mini.subPhase = subPhase;
+  mini.phaseStartedAt = Date.now();
+  mini.phaseDurationMs = durationMs;
+  mini.phaseEndsAt = mini.phaseStartedAt + durationMs;
 }
 
 function startPenave(room) {
@@ -1232,22 +1244,28 @@ function startPenave(room) {
     phaseEndsAt: Date.now() + PENAVE_THEME_MS, entries: [], stats: {}, ranking: null
   };
   for (const id of order) mini.stats[id] = { correct: 0, timeMs: 0, eliminatedRound: null };
+  penaveSetPhase(mini, "theme", PENAVE_THEME_MS);
   room.gameState.currentMiniGameState = mini;
   publishPenave(room);
   roomTimeout(room, () => {
-    mini.queue = mini.survivors.filter((id) => isListeParticipant(room, room.players.find((p) => p.playerId === id)));
-    penaveOpenPassage(room);
+    penaveSetPhase(mini, "question_intro", PENAVE_QUESTION_INTRO_MS);
+    publishPenave(room);
+    roomTimeout(room, () => {
+      mini.queue = mini.survivors.filter((id) => isListeParticipant(room, room.players.find((p) => p.playerId === id)));
+      mini.subPhase = "between";
+      penaveOpenPassage(room);
+    }, PENAVE_QUESTION_INTRO_MS);
   }, PENAVE_THEME_MS);
 }
 
 function penaveOpenPassage(room) {
   const mini = getPenaveMini(room);
-  if (!mini || mini.subPhase === "end_logo") return;
+  if (!mini || mini.subPhase !== "between") return;
   mini.queue = mini.queue.filter((id) => isListeParticipant(room, room.players.find((p) => p.playerId === id)));
   if (!mini.queue.length) return penaveCloseTurn(room);
   mini.activePlayerId = mini.queue.shift();
   mini.passageId++;
-  mini.subPhase = "cue";
+  penaveSetPhase(mini, "cue", PENAVE_TURN_CUE_MS);
   mini.cueStartedAt = Date.now();
   mini.openedAt = null;
   mini.deadline = null;
@@ -1354,13 +1372,10 @@ function penaveCloseTurn(room) {
   mini.survivors = current.filter((id) => success.has(id));
   const final = mini.survivors.length <= 1;
   if (final) penaveFreezeRanking(room);
-  const names = failed.map((id) => room.players.find((p) => p.playerId === id)?.pseudo || "");
-  mini.announcement = names.length
-    ? `${names.join(", ")} ${names.length === 1 ? "est éliminé" : "sont éliminés"}`
-    : `Tour ${mini.turnNumber} terminé`;
-  mini.subPhase = "round_summary";
+  penaveSetTurnAnnouncement(room, mini);
+  const summaryDuration = mini.announcementEliminatedIds.length ? PENAVE_ELIMINATION_MS : PENAVE_THEME_MS;
+  penaveSetPhase(mini, "round_summary", summaryDuration);
   mini.activePlayerId = null;
-  mini.phaseEndsAt = Date.now() + (names.length ? PENAVE_ELIMINATION_MS : 1300);
   publishPenave(room);
   roomTimeout(room, () => {
     if (final || mini.survivors.length <= 1) {
@@ -1372,7 +1387,18 @@ function penaveCloseTurn(room) {
       isListeParticipant(room, room.players.find((p) => p.playerId === id)));
     mini.subPhase = "between";
     penaveOpenPassage(room);
-  }, names.length ? PENAVE_ELIMINATION_MS : 1300);
+  }, summaryDuration);
+}
+
+function penaveSetTurnAnnouncement(room, mini) {
+  // L'échec collectif ne change pas le classement : seul le texte exclut le vainqueur.
+  const winnerId = mini.ranking?.[0]?.playerId;
+  mini.announcementEliminatedIds = (mini.roundEliminatedIds || []).filter((id) =>
+    id !== winnerId && isListeParticipant(room, room.players.find((p) => p.playerId === id)));
+  const names = mini.announcementEliminatedIds.map((id) => room.players.find((p) => p.playerId === id).pseudo);
+  mini.announcement = names.length
+    ? `${names.join(", ")} ${names.length === 1 ? "est éliminé" : "sont éliminés"}`
+    : `Tour ${mini.turnNumber} terminé`;
 }
 
 function penaveVictory(room) {
@@ -1380,16 +1406,13 @@ function penaveVictory(room) {
   if (!mini || mini.subPhase !== "round_summary") return;
   if (!mini.ranking?.length) return finishListeTournament(room);
   mini.announcement = `${mini.ranking[0].pseudo} gagne la partie`;
-  mini.subPhase = "victory";
-  mini.phaseEndsAt = Date.now() + PENAVE_VICTORY_MS;
+  penaveSetPhase(mini, "victory", PENAVE_VICTORY_MS);
   publishPenave(room);
   roomTimeout(room, () => {
-    mini.subPhase = "final_ranking";
-    mini.phaseEndsAt = Date.now() + PENAVE_RANKING_MS;
+    penaveSetPhase(mini, "final_ranking", PENAVE_RANKING_MS);
     publishPenave(room);
     roomTimeout(room, () => {
-      mini.subPhase = "end_logo";
-      mini.phaseEndsAt = Date.now() + LISTE_END_LOGO_DURATION_MS;
+      penaveSetPhase(mini, "end_logo", LISTE_END_LOGO_DURATION_MS);
       beginListeRoundEnd(room);
       publishPenave(room);
       roomTimeout(room, () => endListeMiniGame(room), LISTE_END_LOGO_DURATION_MS);
@@ -1412,6 +1435,7 @@ function penaveWithdraw(room, playerId) {
     roomTimeout(room, () => penaveOpenPassage(room), 0);
   }
   if (mini.ranking) penaveFreezeRanking(room);
+  if (mini.subPhase === "round_summary") penaveSetTurnAnnouncement(room, mini);
   if (mini.subPhase === "victory" && mini.ranking?.length) {
     mini.announcement = `${mini.ranking[0].pseudo} gagne la partie`;
   }
