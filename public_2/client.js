@@ -298,6 +298,7 @@ const sfxRuleEncheres = new Howl({ src: ['sons/enchere_final.mp3'], volume: 0.6 
 
 const sfxRuleFauxVrai = new Howl({ src: ['sons/le_faux_du_vrai.mp3'], volume: 0.6 });
 const sfxRulePenave = new Howl({ src: ['sons/penave_ou_nachave.mp3'], volume: 0.6 });
+const sfxPenaveQuestion = new Howl({ src: ['sons/hum.mp3'], volume: 0.6, preload: true });
 const sfxPenaveTurn = new Howl({ src: ['sons/a_toi_de_jouer.mp3'], volume: 0.7, preload: true });
 const sfxPenaveSuspense = new Howl({ src: ['sons/40s.mp3'], volume: 0.5, preload: true });
 const sfxPenaveBoard = new Howl({ src: ['sons/board.mp3'], volume: 0.6, preload: true });
@@ -5174,6 +5175,9 @@ function renderPenave(state) {
     phaseElapsed, state.phaseDurationMs, phaseKey);
   syncPenaveOverlay("penaveQuestionOverlay", questionOnly, state.affirmation, null,
     phaseElapsed, state.phaseDurationMs, phaseKey);
+  if (questionOnly && (previous?.instanceId !== state.instanceId || previous?.subPhase !== state.subPhase)) {
+    playPenavePhaseSound(sfxPenaveQuestion, phaseElapsed, state.phaseRemainingMs);
+  }
   if (themeOnly && penaveThemeSoundKey !== state.instanceId) {
     penaveThemeSoundKey = state.instanceId;
     playPenavePhaseSound(sfxTheme, phaseElapsed, state.phaseRemainingMs);
