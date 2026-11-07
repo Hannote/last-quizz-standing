@@ -21,6 +21,7 @@ const PRIORITY_IMAGES = [
   "titres/le_petit_bac.png",
   "titres/matrice_football.png",
   "titres/le_tour_du_monde.png",
+  "titres/logomania.png",
   "titres/les_encheres.png",
   "titres/penave_ou_nachave.png",
   "titres/qui_suis_je.png",
@@ -70,6 +71,11 @@ let listeActionContext = null;
 socket.on("listeContext", (context) => { listeActionContext = context; });
 
 function emitGameAction(event, payload, context = listeActionContext) {
+  if (typeof logomaniaCorrectionContext !== "undefined" && logomaniaCorrectionContext &&
+      currentGameState.currentMiniGame === "logomania" &&
+      ["hostGradePlayer", "correctionNavigate", "correctionPrevQuestion", "correctionNextQuestion"].includes(event)) {
+    payload = { ...payload, ...logomaniaCorrectionContext };
+  }
   if (currentRoom?.gameMode === "liste") socket.emit(event, payload ?? null, context);
   else if (payload === undefined) socket.emit(event);
   else socket.emit(event, payload);
@@ -281,6 +287,7 @@ const sfxRuleLeugtas = new Howl({ src: ['sons/qui_veut_gagner_des_leugtas.mp3'],
 
 
 const sfxRuleTourDuMonde = new Howl({ src: ['sons/le_tour_du_monde.mp3'], volume: 0.6 });
+const sfxRuleLogomania = new Howl({ src: ['sons/logomania.mp3'], volume: 0.6 });
 
 
 const sfxRulePetitBac = new Howl({ src: ['sons/petit_bac.mp3'], volume: 0.6 });
@@ -342,6 +349,7 @@ function stopRuleSounds() {
 
 
   sfxRuleTourDuMonde.stop();
+  sfxRuleLogomania.stop();
 
 
   sfxRulePetitBac.stop();
@@ -442,6 +450,7 @@ socket.on("reconnectCredential", ({ roomCode, playerId: credentialPlayerId, reco
 
 
 const ALL_MINI_GAMES = [
+  "logomania",
 
 
   "qui_suis_je",
@@ -1154,6 +1163,7 @@ function miniGameCodeToLabel(code) {
 
 
     le_tour_du_monde: "Le tour du monde",
+    logomania: "Logomania",
 
 
     le_bon_ordre: "Le bon ordre",
@@ -1210,6 +1220,7 @@ function miniGameCodeToLogoPath(code) {
 
 
 function rulesTextForMiniGame(code) {
+  if (code === "logomania") return "Trouve la marque ou le club de foot derrière le logo / emballage";
 
 
   switch (code) {
@@ -1526,6 +1537,7 @@ function showMainZone(mode) {
 
 
 function hideAllMiniGames() {
+  document.getElementById("logomaniaContainer")?.classList.add("hidden");
   closeBonOrdreRankSelector();
   document.getElementById("bonOrdreCorrectionContainer")?.classList.add("hidden");
   document.getElementById("penaveContainer")?.classList.add("hidden");
@@ -3070,6 +3082,209 @@ socket.on("quiSuisJeEnd", () => {
 
 });
 
+
+// Logomania suit les phases serveur ; aucun délai local n'ouvre la saisie.
+let logomaniaSnapshot = null;
+let logomaniaClockInterval = null;
+let logomaniaCorrectionContext = null;
+let logomaniaEndDisplay = null;
+
+function logomaniaEventMatches(data) {
+  return !!data && currentRoom?.roomCode === data.roomCode && currentRoom.gameMode === data.gameMode &&
+    currentGameState.currentMiniGame === "logomania" && currentGameState.logomaniaInstanceId === data.instanceId &&
+    currentGameState.roundNumber === data.roundNumber && currentGameState.logomaniaPhase === data.subPhase &&
+    currentGameState.logomaniaQuestionIndex === data.questionIndex &&
+    ["playing", "listeRoundEnd"].includes(currentGameState.phase);
+}
+
+function stopLogomaniaDisplay() {
+  clearInterval(logomaniaClockInterval);
+  logomaniaClockInterval = null;
+  if (logomaniaSnapshot?.subPhase === "theme") sfxTheme.stop();
+  if (logomaniaSnapshot) sfx40s.stop();
+  if (logomaniaEndDisplay) {
+    invalidateMiniGameLeaderboard();
+    leugtasEndOverlay?.classList.add("hidden");
+    sfxFinJeu.stop();
+    const logo = document.getElementById("leugtasEndLogo");
+    if (logo) { logo.style.animation = ""; logo.style.animationDelay = ""; }
+  }
+  if (logomaniaSnapshot || logomaniaEndDisplay) {
+    palierOverlay?.classList.add("hidden");
+    if (palierOverlayText) {
+      for (const property of ["animation", "animationDelay", "color", "textShadow", "webkitTextStroke", "fontSize", "fontWeight"])
+        palierOverlayText.style[property] = "";
+    }
+  }
+  logomaniaSnapshot = null;
+  logomaniaCorrectionContext = null;
+  logomaniaEndDisplay = null;
+  document.getElementById("logomaniaContainer")?.classList.add("hidden");
+  document.body.classList.remove("logomania-active");
+}
+
+function syncLogomaniaGameState(gs) {
+  const active = gs.currentMiniGame === "logomania" && ["playing", "listeRoundEnd"].includes(gs.phase);
+  if (!active || (logomaniaSnapshot && logomaniaSnapshot.instanceId !== gs.logomaniaInstanceId)) stopLogomaniaDisplay();
+  document.body.classList.toggle("logomania-active", active);
+}
+
+function logomaniaRemainingMs() {
+  return Math.max(0, logomaniaSnapshot.remainingMs - (performance.now() - logomaniaSnapshot.receivedAt));
+}
+
+function renderLogomaniaClock() {
+  const state = logomaniaSnapshot;
+  if (!state || !logomaniaEventMatches(state)) return;
+  const remaining = logomaniaRemainingMs();
+  const answering = state.subPhase === "answering";
+  const active = answering && remaining > 0 && !amISpectator() && state.participantIds.includes(playerId) &&
+    !state.savedAnswer && !state.pending;
+  document.getElementById("logomaniaTimerNumber").textContent = answering ? Math.ceil(remaining / 1000) : 40;
+  const fill = document.getElementById("logomaniaTimerFill");
+  fill.style.width = `${answering ? Math.min(100, remaining / 400) : 100}%`;
+  fill.style.background = answering && remaining <= 5000 ? "#ff3b30" : "#ffcc00";
+  for (const id of ["logomaniaInput", "logomaniaValidateBtn", "logomaniaPassBtn"])
+    document.getElementById(id).disabled = !active;
+  if (answering && remaining <= 0) sfx40s.stop();
+}
+
+function renderLogomaniaQuestion(data) {
+  if (!logomaniaEventMatches(data)) return;
+  const previous = logomaniaSnapshot;
+  const sameQuestion = previous?.instanceId === data.instanceId && previous?.questionIndex === data.questionIndex;
+  if (sameQuestion && previous.subPhase === "answering" && data.subPhase === "theme") return;
+  const newPhase = !sameQuestion || previous.subPhase !== data.subPhase;
+  const remainingMs = Math.max(0, data.remainingMs);
+  logomaniaSnapshot = { ...data, receivedAt: performance.now(),
+    remainingMs: !newPhase ? Math.min(remainingMs, logomaniaRemainingFrom(previous)) : remainingMs,
+    savedAnswer: data.savedAnswer || (sameQuestion ? previous.savedAnswer : null),
+    pending: sameQuestion && previous.pending && !data.savedAnswer };
+  logomaniaCorrectionContext = null;
+  if (newPhase) {
+    invalidateMiniGameLeaderboard();
+    hideAllMiniGames();
+    [mainDefault, mainDrawing, mainRules, mainPlaying].forEach(element => element?.classList.add("hidden"));
+    sfx40s.stop();
+    if (previous?.subPhase === "theme") sfxTheme.stop();
+    const input = document.getElementById("logomaniaInput");
+    if (!sameQuestion) input.value = "";
+    document.getElementById("logomaniaFeedback").textContent = "";
+    const image = document.getElementById("logomaniaMainImage");
+    image.removeAttribute("src");
+    image.src = data.question.image_question;
+    document.getElementById("logomaniaQuestion").textContent = data.question.question;
+    document.getElementById("logomaniaQuestionNumber").textContent = `Question ${data.index} / ${data.total}`;
+    if (data.subPhase === "theme") {
+      palierOverlayText.style.animation = "";
+      palierOverlayText.style.animationDelay = `-${Math.max(0, data.durationMs - remainingMs)}ms`;
+      palierOverlayText.textContent = data.themeName;
+      palierOverlay.classList.remove("hidden");
+      playLogomaniaPhaseSound(sfxTheme, data.durationMs - remainingMs, remainingMs);
+    } else {
+      palierOverlay.classList.add("hidden");
+      document.getElementById("logomaniaContainer").classList.remove("hidden");
+      if (!amISpectator() && !logomaniaSnapshot.savedAnswer) playLogomaniaPhaseSound(sfx40s, 40000 - remainingMs, remainingMs);
+    }
+  }
+  if (logomaniaSnapshot.savedAnswer) {
+    document.getElementById("logomaniaInput").value = logomaniaSnapshot.savedAnswer.pass ? "JE PASSE" : logomaniaSnapshot.savedAnswer.answer;
+    document.getElementById("logomaniaFeedback").textContent = "Réponse enregistrée ! En attente des autres...";
+    document.getElementById("logomaniaFeedback").style.color = "#2ecc71";
+    sfx40s.stop();
+  } else if (amISpectator()) document.getElementById("logomaniaFeedback").textContent = "Mode Spectateur";
+  renderLogomaniaClock();
+  if (!logomaniaClockInterval) logomaniaClockInterval = setInterval(renderLogomaniaClock, 100);
+}
+
+function logomaniaRemainingFrom(state) {
+  return Math.max(0, state.remainingMs - (performance.now() - state.receivedAt));
+}
+
+function playLogomaniaPhaseSound(sound, elapsedMs, remainingMs) {
+  if (remainingMs <= 0 || (sound.duration() > 0 && elapsedMs >= sound.duration() * 1000)) return;
+  const id = sound.play();
+  if (elapsedMs > 0) sound.seek(elapsedMs / 1000, id);
+}
+
+palierOverlayText?.addEventListener("animationend", event => {
+  const state = logomaniaSnapshot;
+  if (event.target !== palierOverlayText || event.animationName !== "palierZoomFade" ||
+      state?.subPhase !== "theme" || !logomaniaEventMatches(state)) return;
+  palierOverlay.classList.add("hidden");
+  document.getElementById("logomaniaContainer").classList.remove("hidden");
+});
+
+function submitLogomania(pass) {
+  const state = logomaniaSnapshot;
+  if (!state || !logomaniaEventMatches(state) || document.getElementById("logomaniaPassBtn").disabled) return;
+  const answer = document.getElementById("logomaniaInput").value.trim();
+  if (!pass && !answer) return;
+  state.pending = true;
+  sfx40s.stop();
+  sfxBubbleClick.play();
+  renderLogomaniaClock();
+  emitGameAction("logomaniaAnswer", { answer: pass ? "" : answer, pass,
+    instanceId: state.instanceId, questionId: state.questionId, questionIndex: state.questionIndex });
+}
+
+socket.on("logomaniaQuestion", renderLogomaniaQuestion);
+socket.on("logomaniaTimerUpdate", data => {
+  if (!logomaniaEventMatches(data) || !logomaniaSnapshot || logomaniaSnapshot.questionId !== data.questionId) return;
+  logomaniaSnapshot.remainingMs = Math.min(data.remainingMs, logomaniaRemainingMs());
+  logomaniaSnapshot.receivedAt = performance.now();
+  renderLogomaniaClock();
+});
+socket.on("logomaniaAnswerAck", data => {
+  if (!logomaniaEventMatches(data) || !logomaniaSnapshot || logomaniaSnapshot.questionId !== data.questionId) return;
+  renderLogomaniaQuestion({ ...logomaniaSnapshot, savedAnswer: data.savedAnswer, remainingMs: logomaniaRemainingMs() });
+});
+socket.on("logomaniaEnd", data => {
+  if (!logomaniaEventMatches(data)) return;
+  clearInterval(logomaniaClockInterval);
+  logomaniaClockInterval = null;
+  sfx40s.stop();
+  document.getElementById("logomaniaFeedback").textContent = "Fin du jeu !";
+  for (const id of ["logomaniaInput", "logomaniaValidateBtn", "logomaniaPassBtn"]) document.getElementById(id).disabled = true;
+});
+document.getElementById("logomaniaForm")?.addEventListener("submit", event => { event.preventDefault(); submitLogomania(false); });
+document.getElementById("logomaniaPassBtn")?.addEventListener("click", () => submitLogomania(true));
+
+function showLogomaniaLeaderboard(data) {
+  if (!logomaniaEventMatches(data) || logomaniaEndDisplay?.key === `${data.instanceId}:leaderboard`) return;
+  hideAllMiniGames();
+  sfx40s.stop();
+  clearInterval(logomaniaClockInterval);
+  logomaniaClockInterval = null;
+  logomaniaEndDisplay = { key: `${data.instanceId}:leaderboard` };
+  handleInterimLeaderboard(data.players, () => {}, data.remainingMs, "CLASSEMENT FINAL");
+}
+
+function showLogomaniaEnding(data) {
+  if (!logomaniaEventMatches(data) || logomaniaEndDisplay?.key === `${data.instanceId}:ending`) return;
+  hideAllMiniGames();
+  invalidateMiniGameLeaderboard();
+  const display = { key: `${data.instanceId}:ending` };
+  logomaniaEndDisplay = display;
+  const elapsedMs = Math.max(0, data.durationMs - data.remainingMs);
+  const receivedAt = performance.now();
+  const isCurrent = () => logomaniaEndDisplay === display && logomaniaEventMatches(data);
+  const showLogo = () => {
+    if (!isCurrent()) return;
+    const logoElapsed = Math.max(0, elapsedMs + performance.now() - receivedAt - (data.gameMode === "liste" ? 0 : 3500));
+    if (logoElapsed >= 3500) return;
+    const logo = document.getElementById("leugtasEndLogo");
+    logo.src = "titres/logomania.png";
+    logo.style.animation = "none";
+    void logo.offsetWidth;
+    logo.style.animation = "spinAndShoot 3.5s ease-out forwards";
+    logo.style.animationDelay = `-${logoElapsed}ms`;
+    if (logoElapsed < 300) sfxFinJeu.play();
+    leugtasEndOverlay.classList.remove("hidden");
+    setTimeout(() => { if (isCurrent()) leugtasEndOverlay.classList.add("hidden"); }, 3500 - logoElapsed);
+  };
+  runEliminationSequence(data.players, showLogo, { isCurrent, elapsedMs });
+}
 
 socket.on("leTourDuMondeQuestion", (data) => {
 
@@ -5362,6 +5577,8 @@ function updateGameStateUI(gs) {
       ["playing", "listeRoundEnd"].includes(currentGameState.phase))) stopPenaveDisplay();
   if (currentRoom && gs?.gameMode) currentRoom.gameMode = gs.gameMode;
   syncBonOrdrePhase(currentGameState);
+  if (currentGameState.currentMiniGame === "logomania" ||
+      (typeof logomaniaSnapshot !== "undefined" && (logomaniaSnapshot || logomaniaCorrectionContext || logomaniaEndDisplay))) syncLogomaniaGameState(currentGameState);
   updateGameModeUI();
   if (currentGameState.phase === "listeIntro" && currentGameState.gameMode === "liste") {
     syncListeIntro(currentGameState);
@@ -5486,6 +5703,12 @@ function updateGameStateUI(gs) {
   }
   stopPenaveDisplay();
 
+  if (gs.currentMiniGame === "logomania" && ["playing", "listeRoundEnd"].includes(gs.phase)) {
+    stopDrawAnimation();
+    stopRuleSounds();
+    [mainDefault, mainDrawing, mainRules, mainPlaying].forEach(element => element?.classList.add("hidden"));
+    return;
+  }
   if (gs.gameMode === "liste" && ["listeRoundEnd", "listeTransition", "listeFinished"].includes(gs.phase)) {
     stopDrawAnimation();
     stopRuleSounds();
@@ -5584,6 +5807,7 @@ function updateGameStateUI(gs) {
 
 
             case "le_tour_du_monde": sfxRuleTourDuMonde.play(); break;
+            case "logomania": sfxRuleLogomania.play(); break;
 
 
             case "petit_bac": 
@@ -6485,6 +6709,7 @@ if (confirmQuitBtn) {
 
 
   confirmQuitBtn.addEventListener("click", () => {
+    if (currentGameState.currentMiniGame === "logomania") stopLogomaniaDisplay();
     isQuitting = true; 
     stopListeIntro();
     invalidateMiniGameLeaderboard();
@@ -6670,6 +6895,10 @@ socket.on("listeConfigResult", (result) => {
 });
 
 socket.on("disconnect", () => {
+  if (currentGameState.currentMiniGame === "logomania") {
+    stopLogomaniaDisplay();
+    sfxRuleLogomania.stop();
+  }
   updateListeConfigControls();
   if (listeConfigDirty && currentRoom?.gameMode === "liste") {
     listeConfigStatus.textContent = "Connexion interrompue. Les choix non validés ne sont pas sauvegardés.";
@@ -7314,6 +7543,7 @@ socket.on("scoreUpdate", (data) => {
 
 
 socket.on("leugtasReveal", (data) => {
+  if (data.logomaniaContext) return showLogomaniaLeaderboard(data.logomaniaContext);
   miniGameLeaderboardVersion++;
   const isCurrentReveal = captureMiniGameLeaderboardContext();
   if (!isCurrentReveal()) return;
@@ -7911,6 +8141,16 @@ socket.on("playCorrectionArrow", () => {
 
 
 socket.on("correctionUpdate", (data) => {
+  if (data.miniGameType === "logomania" &&
+      (currentGameState.currentMiniGame !== "logomania" || data.roomCode !== currentRoom?.roomCode ||
+       data.logomaniaContext?.instanceId !== currentGameState.logomaniaInstanceId ||
+       currentGameState.logomaniaPhase !== "correction")) return;
+  if (data.miniGameType === "logomania") {
+    clearInterval(logomaniaClockInterval);
+    logomaniaClockInterval = null;
+    sfx40s.stop();
+    palierOverlay?.classList.add("hidden");
+  }
   if (data.miniGameType === "le_bon_ordre") return;
   if (data.gameMode === "liste" &&
       (currentRoom?.gameMode !== "liste" || data.roomCode !== currentRoom.roomCode)) return;
@@ -7973,6 +8213,7 @@ socket.on("correctionUpdate", (data) => {
 
 // --- FONCTION 1 : CORRECTION STANDARD (Corrig�e et Renforc�e) ---
 function handleStandardCorrection(data, container) {
+  logomaniaCorrectionContext = data.miniGameType === "logomania" ? data.logomaniaContext : null;
   if (!container) return;
   container.classList.remove("hidden");
 
@@ -8029,7 +8270,7 @@ function handleStandardCorrection(data, container) {
   else {
       if (blockQ) blockQ.style.display = "flex";
       // GESTION IMAGE QUESTION
-      if (data.miniGameType === "le_bon_ordre") {
+      if (data.miniGameType === "le_bon_ordre" || data.miniGameType === "logomania") {
           // Pour le Bon Ordre : JAMAIS d'image question
           if (imgQ) imgQ.style.display = "none";
       } else if (imgQ) {
@@ -8056,6 +8297,7 @@ function handleStandardCorrection(data, container) {
       }
 
       if (txtA) txtA.textContent = data.answerText;
+      if (data.miniGameType === "logomania" && blockA) blockA.style.display = "flex";
   }
 
   // 4. Contr�les H�te
@@ -8529,6 +8771,7 @@ if (pbFinishGameBtn) {
 
 
 socket.on("leBonOrdreExit", data => {
+  if (data?.logomaniaContext) return showLogomaniaEnding(data.logomaniaContext);
   // L'événement historique est aussi utilisé par les autres mini-jeux manuels.
   if (currentGameState.currentMiniGame !== "le_bon_ordre") {
     if (data?.instanceId) return;

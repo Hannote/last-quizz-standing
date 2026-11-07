@@ -146,6 +146,16 @@ const leTourDuMondeData = require(
 );
 const TOUR_MONDE_QUESTIONS = leTourDuMondeData.questions || [];
 const TOUR_MONDE_THEMES = leTourDuMondeData.themes || [];
+const LOGOMANIA_QUOTAS = Object.freeze({ marque: 5, bouffe: 2, football: 1 });
+const LOGOMANIA_THEME_MS = 2500;
+const LOGOMANIA_ANSWER_MS = 40000;
+let logomaniaData;
+let logomaniaBankError;
+try {
+  logomaniaData = JSON.parse(fs.readFileSync(path.join(__dirname, "public_2", "logomania", "logomania.json"), "utf8"));
+} catch (error) {
+  logomaniaBankError = `Banque Logomania illisible : ${error.message}`;
+}
 const PETIT_BAC_CATEGORIES = [
   "Sportif en activité (hors foot)",
   "Entraineur de foot (connaître au moins un club qu'il a entraîné)",
@@ -325,6 +335,15 @@ function currentActionMini(room, type) {
 
 function validSocketMessage(event, data, room) {
   const historical = ["roomCode", "playerId"];
+  const logomania = room?.gameState?.currentMiniGameState;
+  if (logomania?.type === "logomania" &&
+      ["hostGradePlayer", "correctionNavigate", "correctionPrevQuestion", "correctionNextQuestion"].includes(event)) {
+    if (!data || data.instanceId !== logomania.instanceId || data.questionIndex !== logomania.correctionIndex ||
+        data.gradingPlayerId !== room.activePlayersList?.[logomania.gradingPlayerIndex]?.playerId) return false;
+    if (["correctionPrevQuestion", "correctionNextQuestion"].includes(event)) {
+      return hasMessageKeys(data, ["instanceId", "questionIndex", "gradingPlayerId"]);
+    }
+  }
   if (event === "createRoom" || event === "joinRoom") {
     const keys = event === "createRoom" ? ["pseudo", "playerId"]
       : ["pseudo", "playerId", "roomCode", "reconnectSecret"];
@@ -398,9 +417,16 @@ function validSocketMessage(event, data, room) {
   }
   const textGames = {
     quiSuisJeAnswer: "qui_suis_je",
-    leTourDuMondeAnswer: "le_tour_du_monde", blindTestAnswer: "blind_test"
+    leTourDuMondeAnswer: "le_tour_du_monde", blindTestAnswer: "blind_test", logomaniaAnswer: "logomania"
   };
   if (Object.hasOwn(textGames, event)) {
+    if (event === "logomaniaAnswer") {
+      return hasMessageKeys(data, ["answer", "pass", "instanceId", "questionId", "questionIndex"]) &&
+        isText(data.instanceId, 36) && Number.isSafeInteger(data.questionId) &&
+        Number.isInteger(data.questionIndex) && data.questionIndex >= 0 &&
+        typeof data.pass === "boolean" && isText(data.answer, MAX_ANSWER_LENGTH, data.pass) &&
+        !!currentActionMini(room, "logomania");
+    }
     return hasMessageKeys(data, ["answer", ...historical]) && validHistoricalFields(data) &&
       isText(data.answer, MAX_ANSWER_LENGTH) &&
       !!currentActionMini(room, textGames[event]);
@@ -428,7 +454,7 @@ function validSocketMessage(event, data, room) {
         Object.hasOwn(answers, key) && isText(answers[key], MAX_ANSWER_LENGTH, true));
   }
   if (event === "correctionNavigate") {
-    return hasMessageKeys(data, ["direction", "roundNumber", "matrixId", "instanceId", "gradingPlayerId"]) &&
+    return hasMessageKeys(data, ["direction", "roundNumber", "matrixId", "instanceId", "gradingPlayerId", "questionIndex"]) &&
       Number.isInteger(data.direction) && data.direction !== 0 && Math.abs(data.direction) <= 100 &&
       (data.roundNumber === undefined || Number.isInteger(data.roundNumber)) &&
       (data.matrixId === undefined || Number.isInteger(data.matrixId)) &&
@@ -437,7 +463,7 @@ function validSocketMessage(event, data, room) {
   }
   if (event === "hostGradePlayer") {
     const mini = room?.gameState?.currentMiniGameState;
-    return hasMessageKeys(data, ["points", "details", "soundValue", "gradingPlayerId", "roundNumber", "matrixId", "instanceId", ...historical]) &&
+    return hasMessageKeys(data, ["points", "details", "soundValue", "gradingPlayerId", "roundNumber", "matrixId", "instanceId", "questionIndex", ...historical]) &&
       validHistoricalFields(data) &&
       Number.isFinite(data.points) &&
       (data.soundValue == null || [0, 0.5, 1].includes(data.soundValue)) &&
@@ -481,7 +507,7 @@ function validActionPhase(event, room) {
   const types = {
     leugtasAnswer: "qui_veut_gagner_des_leugtas", fauxVraiAnswer: "faux_vrai",
     quiSuisJeAnswer: "qui_suis_je", leBonOrdreAnswer: "le_bon_ordre",
-    leTourDuMondeAnswer: "le_tour_du_monde", blindTestAnswer: "blind_test",
+    leTourDuMondeAnswer: "le_tour_du_monde", blindTestAnswer: "blind_test", logomaniaAnswer: "logomania",
     petitBacAnswer: "petit_bac", matriceFootballAnswer: "matrice_football", encheresVoteTheme: "les_encheres",
     encheresPlaceBid: "les_encheres", encheresSendAnswer: "les_encheres",
     encheresDeleteAnswer: "les_encheres", encheresToggleCorrection: "les_encheres",
@@ -489,7 +515,7 @@ function validActionPhase(event, room) {
   };
   if (Object.hasOwn(types, event) && !currentActionMini(room, types[event])) return false;
   const answerEvents = ["leugtasAnswer", "fauxVraiAnswer", "quiSuisJeAnswer",
-    "leBonOrdreAnswer", "leTourDuMondeAnswer", "blindTestAnswer", "petitBacAnswer", "matriceFootballAnswer"];
+    "leBonOrdreAnswer", "leTourDuMondeAnswer", "blindTestAnswer", "logomaniaAnswer", "petitBacAnswer", "matriceFootballAnswer"];
   if (answerEvents.includes(event)) {
     const mini = currentActionMini(room, types[event]);
     if (!mini || mini.finished) return false;
@@ -503,6 +529,7 @@ function validActionPhase(event, room) {
        "correctionNextQuestion", "endPetitBacCorrection", "endMatriceFootballCorrection"].includes(event)) {
     const mini = room.gameState?.currentMiniGameState;
     if (mini?.type === "le_bon_ordre") return false;
+    if (mini?.type === "logomania" && (mini.subPhase !== "correction" || mini.correctionEnding)) return false;
     return room.gameState?.phase === "playing" && !!mini?.finished &&
       room.gameState.currentMiniGame === mini.type && Array.isArray(mini.questions) &&
       Number.isInteger(mini.correctionIndex) && mini.correctionIndex >= 0 &&
@@ -558,6 +585,7 @@ function sendReconnectSecret(socket, room, player) {
 }
 
 const POSSIBLE_MINI_GAMES = [
+  "logomania",
   "qui_suis_je",
   "blind_test",
   "le_tour_du_monde",
@@ -587,6 +615,7 @@ const LISTE_INTRO_DURATION_MS = 16500;
 
 // Catalogue Liste indépendant du tirage et du bac à sable Battle Royale.
 const MINI_GAME_CATALOG = [
+  { id: "logomania", label: "Logomania", modes: ["battle_royale", "liste"] },
   { id: "penave_ou_nachave", label: "Pénave ou Nachave", modes: ["liste"] },
   { id: "qui_suis_je", label: "Qui suis-je ?", modes: ["battle_royale", "liste"] },
   { id: "blind_test", label: "Blind test", modes: ["battle_royale", "liste"] },
@@ -849,6 +878,7 @@ function withdrawListeParticipant(room, playerId, socketId) {
   pruneListeCorrectionPlayers(room);
   disconnectListePlayer(room, playerId, socketId);
   maybeEndBonOrdreQuestion(room);
+  maybeEndLogomaniaQuestion(room);
   if (room.listeTournament.finished || (room.gameState.phase !== "listeLeaderboard" &&
       !room.players.some((p) => isListeParticipant(room, p)))) finishListeTournament(room);
   return true;
@@ -862,6 +892,9 @@ function getGameStateSummary(room) {
     phase: gs.phase,
     roundNumber: gs.roundNumber,
     currentMiniGame: gs.currentMiniGame,
+    logomaniaInstanceId: gs.currentMiniGame === "logomania" ? gs.currentMiniGameState?.instanceId ?? null : null,
+    logomaniaPhase: gs.currentMiniGame === "logomania" ? gs.currentMiniGameState?.subPhase ?? null : null,
+    logomaniaQuestionIndex: gs.currentMiniGame === "logomania" ? gs.currentMiniGameState?.questionIndex ?? null : null,
     penaveState: room.gameMode === "liste" && gs.currentMiniGame === "penave_ou_nachave"
       ? getPenaveSnapshot(room) : null,
     matriceFootballInstanceId: gs.currentMiniGame === "matrice_football"
@@ -928,10 +961,10 @@ function getListeContext(room) {
     question: mini?.questionIndex ?? mini?.index ?? null,
     correction: mini?.correctionIndex ?? null,
     gradingPlayer: room.activePlayersList?.[mini?.gradingPlayerIndex]?.playerId ?? null,
-    instanceId: ["penave_ou_nachave", "le_bon_ordre"].includes(mini?.type) ? mini.instanceId : null,
+    instanceId: ["penave_ou_nachave", "le_bon_ordre", "logomania"].includes(mini?.type) ? mini.instanceId : null,
     turnNumber: mini?.type === "penave_ou_nachave" ? mini.turnNumber : null,
     passageId: mini?.type === "penave_ou_nachave" ? mini.passageId : null,
-    subPhase: ["penave_ou_nachave", "le_bon_ordre"].includes(mini?.type) ? mini.subPhase : null
+    subPhase: ["penave_ou_nachave", "le_bon_ordre", "logomania"].includes(mini?.type) ? mini.subPhase : null
   };
 }
 
@@ -1015,7 +1048,7 @@ function destroyRoom(room, disconnectSockets = false) {
   for (const timer of room.pendingTimeouts || []) clearTimeout(timer);
   room.pendingTimeouts?.clear();
   for (const field of ["leugtasTimerInterval", "leBonOrdreInterval", "blindTestInterval",
-    "leTourDuMondeInterval", "quiSuisJeInterval", "petitBacInterval", "petitBacStartTimeout",
+    "leTourDuMondeInterval", "logomaniaInterval", "quiSuisJeInterval", "petitBacInterval", "petitBacStartTimeout",
     "encheresInterval"]) {
     if (room[field]) {
       clearTimeout(room[field]);
@@ -2353,6 +2386,7 @@ function startCorrectionPhase(roomCode) {
   const mini = gs.currentMiniGameState;
   if (!mini) return;
   if (mini.type === "le_bon_ordre") return;
+  if (mini.type === "logomania" && (mini.subPhase !== "correction" || mini.correctionIndex !== undefined)) return;
 
   mini.correctionIndex = 0;
   mini.gradingPlayerIndex = 0;
@@ -2481,7 +2515,7 @@ function sendCorrectionData(roomCode, targetSocket = null) {
     gameMode: room.gameMode,
     roomCode,
     miniGameType: mini.type,
-    questionImage: q.image_question || q.image,
+    questionImage: mini.type === "logomania" ? null : q.image_question || q.image,
     questionText: q.question || q.text,
     answerImage: q.image_reponse || null,
     answerText: q.reponse || q.answer || "",
@@ -2491,6 +2525,9 @@ function sendCorrectionData(roomCode, targetSocket = null) {
     currentQIndex: mini.correctionIndex + 1,
     totalQ: mini.questions.length,
     currentGrade: currentGrade,
+    ...(mini.type === "logomania" ? { logomaniaContext: {
+      instanceId: mini.instanceId, questionIndex: mini.correctionIndex, gradingPlayerId: playerToCheck.playerId
+    } } : {}),
     petitBacData,
     matriceFootballData
   });
@@ -2652,6 +2689,204 @@ function endBlindTestQuestion(roomCode) {
       startCorrectionPhase(roomCode);
     }, 3000);
   }
+}
+
+// --- LOGOMANIA : tirage persistant et phases propres au mini-jeu ---
+function pickLogomaniaQuestions() {
+  if (logomaniaBankError) throw new Error(logomaniaBankError);
+  const bank = logomaniaData;
+  if (!Array.isArray(bank?.themes) || !Array.isArray(bank?.questions)) {
+    throw new Error("Logomania : tableaux themes et questions requis.");
+  }
+  const themes = new Map();
+  for (const theme of bank.themes) {
+    if (!theme || !Object.hasOwn(LOGOMANIA_QUOTAS, theme.id) ||
+        typeof theme.nom !== "string" || !theme.nom.trim() || themes.has(theme.id)) {
+      throw new Error("Logomania : thème invalide ou dupliqué.");
+    }
+    themes.set(theme.id, theme.nom);
+  }
+  const ids = new Set();
+  for (const q of bank.questions) {
+    if (!q || !Number.isSafeInteger(q.id) || ids.has(q.id) || !themes.has(q.theme_id) ||
+        ![q.question, q.reponse].every(value => typeof value === "string" && value.trim())) {
+      throw new Error("Logomania : question invalide, thème inconnu ou identifiant dupliqué.");
+    }
+    ids.add(q.id);
+    for (const media of [q.image_question, q.image_reponse]) {
+      if (typeof media !== "string" || !media.startsWith("logomania/") ||
+          media.split("/").some(part => !part || part === "." || part === "..") ||
+          /[\\:?#]/.test(media) || !fs.existsSync(path.join(__dirname, "public_2", media))) {
+        throw new Error(`Logomania : image manquante ou chemin invalide pour la question ${q.id}.`);
+      }
+    }
+  }
+  // Aucune écriture avant validation de TOUS les thèmes et médias.
+  const pools = Object.entries(LOGOMANIA_QUOTAS).map(([id, quota]) => {
+    const pool = bank.questions.filter(q => q.theme_id === id);
+    if (!themes.has(id) || pool.length < quota) {
+      throw new Error(`Logomania : le thème "${id}" contient ${pool.length} questions distinctes ; ${quota} requises.`);
+    }
+    return { pool, quota };
+  });
+  const history = getPlayedHistory();
+  if (!history || typeof history !== "object" || Array.isArray(history) ||
+      (history.logomania !== undefined && !Array.isArray(history.logomania))) {
+    throw new Error("Logomania : historique invalide.");
+  }
+  const played = new Set(history.logomania || []);
+  const selected = [];
+  for (const { pool, quota } of pools) {
+    const picked = shuffleCopy(pool.filter(q => !played.has(q.id))).slice(0, quota);
+    let cyclePicks = picked;
+    if (picked.length < quota) {
+      const previousCycleIds = new Set(picked.map(q => q.id));
+      pool.forEach(q => played.delete(q.id));
+      cyclePicks = shuffleCopy(pool.filter(q => !previousCycleIds.has(q.id))).slice(0, quota - picked.length);
+      picked.push(...cyclePicks);
+    }
+    cyclePicks.forEach(q => played.add(q.id));
+    selected.push(...picked);
+  }
+  const questions = shuffleCopy(selected).map(q => ({ ...q, themeName: themes.get(q.theme_id) }));
+  history.logomania = [...played];
+  savePlayedHistory(history, true);
+  return questions;
+}
+
+function getLogomaniaContext(room, mini) {
+  return { gameMode: room.gameMode, roomCode: room.roomCode, roundNumber: room.gameState.roundNumber,
+    instanceId: mini.instanceId, questionIndex: mini.questionIndex,
+    questionId: mini.questions[mini.questionIndex].id, subPhase: mini.subPhase };
+}
+
+function captureLogomaniaCallback(room, mini) {
+  const gs = room.gameState;
+  const mode = room.gameMode;
+  const round = gs.roundNumber;
+  const question = mini.questionIndex;
+  const phase = mini.subPhase;
+  return () => rooms[room.roomCode] === room && room.gameState === gs && room.gameMode === mode &&
+    gs.roundNumber === round && gs.currentMiniGame === "logomania" && gs.currentMiniGameState === mini &&
+    mini.questionIndex === question && mini.subPhase === phase && ["playing", "listeRoundEnd"].includes(gs.phase);
+}
+
+function getLogomaniaSnapshot(room, mini, playerId) {
+  const q = mini.questions[mini.questionIndex];
+  return { ...getLogomaniaContext(room, mini),
+    question: { id: q.id, theme_id: q.theme_id, question: q.question, image_question: q.image_question },
+    themeName: q.themeName, index: mini.questionIndex + 1, total: mini.questions.length,
+    participantIds: mini.participantIds, durationMs: mini.subPhase === "theme" ? LOGOMANIA_THEME_MS : LOGOMANIA_ANSWER_MS,
+    remainingMs: Math.max(0, mini.phaseEndsAt - Date.now()),
+    savedAnswer: mini.playerAnswers[playerId] || null };
+}
+
+function publishLogomaniaQuestion(room, mini) {
+  io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+  publishListeContext(room);
+  io.to(room.roomCode).emit("logomaniaQuestion", getLogomaniaSnapshot(room, mini));
+}
+
+function sendLogomaniaQuestion(room) {
+  const mini = room.gameState.currentMiniGameState;
+  mini.subPhase = "theme";
+  mini.finished = false;
+  mini.playerAnswers = {};
+  mini.timer = null;
+  mini.phaseStartedAt = Date.now();
+  mini.phaseEndsAt = Date.now() + LOGOMANIA_THEME_MS;
+  publishLogomaniaQuestion(room, mini);
+  const current = captureLogomaniaCallback(room, mini);
+  mini.phaseTimeout = roomTimeout(room, () => {
+    if (!current()) return;
+    mini.subPhase = "answering";
+    mini.startTime = Date.now();
+    mini.phaseStartedAt = mini.startTime;
+    mini.phaseEndsAt = mini.startTime + LOGOMANIA_ANSWER_MS;
+    mini.timer = { running: true, totalSeconds: 40, remainingSeconds: 40, endsAt: mini.phaseEndsAt };
+    publishLogomaniaQuestion(room, mini);
+    const answering = captureLogomaniaCallback(room, mini);
+    const interval = roomInterval(room, () => {
+      if (!answering()) return clearInterval(interval);
+      mini.timer.remainingSeconds = Math.ceil(Math.max(0, mini.phaseEndsAt - Date.now()) / 1000);
+      io.to(room.roomCode).emit("logomaniaTimerUpdate", {
+        ...getLogomaniaContext(room, mini), remainingMs: Math.max(0, mini.phaseEndsAt - Date.now()), total: 40
+      });
+      if (Date.now() >= mini.phaseEndsAt) endLogomaniaQuestion(room);
+    }, 1000);
+    room.logomaniaInterval = interval;
+    maybeEndLogomaniaQuestion(room);
+  }, LOGOMANIA_THEME_MS);
+}
+
+function maybeEndLogomaniaQuestion(room) {
+  const mini = room.gameState?.currentMiniGameState;
+  if (room.gameState?.currentMiniGame !== "logomania" || mini?.type !== "logomania" ||
+      mini.subPhase !== "answering" || mini.finished) return;
+  const active = room.players.filter(p => mini.participantIds.includes(p.playerId) && isActiveMiniGamePlayer(room, p));
+  if (active.length && active.every(p => Object.hasOwn(mini.playerAnswers, p.playerId))) endLogomaniaQuestion(room);
+}
+
+function endLogomaniaQuestion(room) {
+  const mini = room.gameState?.currentMiniGameState;
+  if (mini?.type !== "logomania" || mini.subPhase !== "answering" || mini.finished) return;
+  mini.finished = true;
+  mini.timer.running = false;
+  clearInterval(room.logomaniaInterval);
+  room.listeTimers?.delete(room.logomaniaInterval);
+  room.logomaniaInterval = null;
+  for (const id of mini.participantIds) {
+    const submission = mini.playerAnswers[id];
+    (mini.history[id] ||= {})[mini.questionIndex] = submission ? submission.pass ? "JE PASSE" : submission.answer : "RIEN";
+    if (!submission) rememberManualResponseTime(mini, id, 40);
+  }
+  if (mini.questionIndex + 1 < mini.questions.length) {
+    mini.questionIndex++;
+    sendLogomaniaQuestion(room);
+  } else {
+    mini.subPhase = "collecting";
+    io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+    publishListeContext(room);
+    io.to(room.roomCode).emit("logomaniaEnd", getLogomaniaContext(room, mini));
+    const current = captureLogomaniaCallback(room, mini);
+    mini.phaseTimeout = roomTimeout(room, () => {
+      if (!current()) return;
+      mini.subPhase = "correction";
+      io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+      startCorrectionPhase(room.roomCode);
+    }, 3000);
+  }
+}
+
+function getLogomaniaEnding(room, mini) {
+  return { ...getLogomaniaContext(room, mini), durationMs: mini.endingDurationMs,
+    remainingMs: Math.max(0, mini.phaseEndsAt - Date.now()), players: getMiniGameScoreUpdate(room).players };
+}
+
+function finishLogomaniaCorrection(room, mini) {
+  if (mini.correctionEnding) return;
+  mini.correctionEnding = true;
+  mini.subPhase = "leaderboard";
+  mini.endingDurationMs = 5000;
+  mini.phaseEndsAt = Date.now() + mini.endingDurationMs;
+  beginListeRoundEnd(room);
+  io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+  io.to(room.roomCode).emit("scoreUpdate", getMiniGameScoreUpdate(room));
+  io.to(room.roomCode).emit("leugtasReveal", { isLastQuestion: true, skipAnimation: true,
+    logomaniaContext: getLogomaniaEnding(room, mini) });
+  const current = captureLogomaniaCallback(room, mini);
+  mini.phaseTimeout = roomTimeout(room, () => {
+    if (!current()) return;
+    mini.subPhase = "ending";
+    mini.endingDurationMs = room.gameMode === "liste" ? LISTE_END_LOGO_DURATION_MS : 7000;
+    mini.phaseEndsAt = Date.now() + mini.endingDurationMs;
+    io.to(room.roomCode).emit("gameStateUpdate", getGameStateSummary(room));
+    io.to(room.roomCode).emit("leBonOrdreExit", { logomaniaContext: getLogomaniaEnding(room, mini) });
+    const ending = captureLogomaniaCallback(room, mini);
+    mini.phaseTimeout = roomTimeout(room, () => {
+      if (ending()) endMiniGame(room.roomCode);
+    }, mini.endingDurationMs);
+  }, 5000);
 }
 
 // --- LE TOUR DU MONDE HELPERS ---
@@ -3174,6 +3409,23 @@ function startReadyMiniGame(room, startEncheres) {
         sendLeTourDuMondeQuestion(roomCode);
       }
     }
+    // ------- LOGOMANIA ----------
+    else if (gs.currentMiniGame === "logomania") {
+      try {
+        const questions = pickLogomaniaQuestions();
+        gs.currentMiniGameState = {
+          type: "logomania", instanceId: randomUUID(), questions, questionIndex: 0,
+          participantIds: room.players.filter(p => isActiveMiniGamePlayer(room, p)).map(p => p.playerId),
+          playerAnswers: {}, history: {}, responseTimesByQuestion: {}, scoresGiven: {}, timesApplied: {}, finished: false
+        };
+        sendLogomaniaQuestion(room);
+      } catch (error) {
+        gs.phase = "rules";
+        gs.currentMiniGameState = null;
+        gs.readyPlayers = {};
+        io.to(roomCode).emit("errorMessage", `Impossible de lancer Logomania : ${error.message}`);
+      }
+    }
     // ------- BLIND TEST ----------
     else if (gs.currentMiniGame === "blind_test") {
       try {
@@ -3247,7 +3499,7 @@ io.on("connection", (socket) => {
       drawingFinished: "drawingGame", playerSetReady: "rules",
       leugtasAnswer: "playing", fauxVraiAnswer: "playing",
       quiSuisJeAnswer: "playing", leBonOrdreAnswer: "playing",
-      leTourDuMondeAnswer: "playing", blindTestAnswer: "playing", petitBacAnswer: "playing", matriceFootballAnswer: "playing",
+      leTourDuMondeAnswer: "playing", blindTestAnswer: "playing", logomaniaAnswer: "playing", petitBacAnswer: "playing", matriceFootballAnswer: "playing",
       correctionNavigate: "playing", correctionPrevQuestion: "playing",
       correctionNextQuestion: "playing", hostGradePlayer: "playing", endPetitBacCorrection: "playing",
       endMatriceFootballCorrection: "playing",
@@ -3866,6 +4118,7 @@ io.on("connection", (socket) => {
       const activePlayers = room.players.filter(
         (p) => !p.eliminated && !p.isSpectator && p.isConnected
       );
+      if (gs.currentMiniGame === "logomania" && activePlayers.length > 1) maybeEndLogomaniaQuestion(room);
       if (activePlayers.length === 1) {
         io.to(roomCode).emit("gameOver", { winner: activePlayers[0].pseudo });
       }
@@ -3949,7 +4202,7 @@ io.on("connection", (socket) => {
 
     socket.emit("roomUpdate", serializeRoom(room));
     socket.emit("gameStateUpdate", getGameStateSummary(room));
-    if (["matrice_football", "le_bon_ordre"].includes(room.gameState?.currentMiniGame)) {
+    if (["matrice_football", "le_bon_ordre", "logomania"].includes(room.gameState?.currentMiniGame)) {
       syncPlayerWithGame(socket, room);
     }
   });
@@ -4018,6 +4271,23 @@ io.on("connection", (socket) => {
     mini.playerAnswers[player.playerId] = savedAnswer;
     socket.emit("leBonOrdreAnswerAck", { ...getBonOrdreContext(room, mini), savedAnswer });
     maybeEndBonOrdreQuestion(room);
+  });
+
+  socket.on("logomaniaAnswer", (data) => {
+    const room = getSocketRoom(socket);
+    const mini = currentActionMini(room, "logomania");
+    const player = room?.players.find(p => p.playerId === socket.playerId);
+    if (!mini || !player || !canUseMiniGameSocket(room, player, socket) ||
+        !isActiveMiniGamePlayer(room, player) || !mini.participantIds.includes(player.playerId) ||
+        mini.subPhase !== "answering" || mini.finished || !mini.timer?.running ||
+        Date.now() >= mini.phaseEndsAt || data.instanceId !== mini.instanceId ||
+        data.questionIndex !== mini.questionIndex || data.questionId !== mini.questions[mini.questionIndex].id ||
+        Object.hasOwn(mini.playerAnswers, player.playerId) || (!data.pass && !data.answer.trim())) return;
+    const savedAnswer = { answer: data.pass ? "" : data.answer.trim(), pass: data.pass };
+    mini.playerAnswers[player.playerId] = savedAnswer;
+    rememberManualResponseTime(mini, player.playerId, Math.max(0, Math.min(40, (Date.now() - mini.startTime) / 1000)));
+    socket.emit("logomaniaAnswerAck", { ...getLogomaniaContext(room, mini), savedAnswer });
+    maybeEndLogomaniaQuestion(room);
   });
 
   socket.on("leTourDuMondeAnswer", ({ answer } = {}) => {
@@ -4311,6 +4581,7 @@ io.on("connection", (socket) => {
     mini.gradingPlayerIndex = 0;
 
     if (mini.correctionIndex >= mini.questions.length) {
+      if (mini.type === "logomania") return finishLogomaniaCorrection(room, mini);
       beginListeRoundEnd(room);
       const bonOrdreCurrent = mini.type === "le_bon_ordre" ? captureBonOrdreCallback(room, mini) : null;
       if (bonOrdreCurrent) mini.correctionEnding = true;
@@ -4798,6 +5069,23 @@ io.on("connection", (socket) => {
 
 function syncPlayerWithGame(socket, room) {
   if (!room || !room.gameState || getSocketRoom(socket) !== room) return;
+  const logomania = room.gameState.currentMiniGameState;
+  if (room.gameState.currentMiniGame === "logomania" && logomania?.type === "logomania" &&
+      ["playing", "listeRoundEnd"].includes(room.gameState.phase)) {
+    publishListeContext(room, socket);
+    if (["theme", "answering"].includes(logomania.subPhase)) {
+      socket.emit("logomaniaQuestion", getLogomaniaSnapshot(room, logomania, socket.playerId));
+    } else if (logomania.subPhase === "correction") sendCorrectionData(room.roomCode, socket);
+    else if (logomania.subPhase === "collecting") socket.emit("logomaniaEnd", getLogomaniaContext(room, logomania));
+    else if (logomania.subPhase === "leaderboard") {
+      socket.emit("scoreUpdate", getMiniGameScoreUpdate(room));
+      socket.emit("leugtasReveal", { isLastQuestion: true, skipAnimation: true,
+        logomaniaContext: getLogomaniaEnding(room, logomania) });
+    } else if (logomania.subPhase === "ending") socket.emit("leBonOrdreExit", {
+      logomaniaContext: getLogomaniaEnding(room, logomania)
+    });
+    return;
+  }
   if (room.gameMode === "liste" &&
       !isListeParticipant(room, room.players.find((p) => p.playerId === socket.playerId)) &&
       room.gameState.currentMiniGame !== "le_bon_ordre") return;
@@ -4828,7 +5116,7 @@ function syncPlayerWithGame(socket, room) {
   // === GESTION DE LA CORRECTION (Si le jeu est fini) ===
   if (
     mini.finished &&
-    ["qui_suis_je", "le_tour_du_monde", "blind_test", "petit_bac", "matrice_football", "les_encheres"].includes(mini.type)
+    ["qui_suis_je", "le_tour_du_monde", "blind_test", "logomania", "petit_bac", "matrice_football", "les_encheres"].includes(mini.type)
   ) {
     // --- FIX : ON AJOUTE LA V�RIFICATION DE L'INDEX ICI ---
     if (typeof mini.correctionIndex !== "undefined" && mini.correctionIndex < mini.questions.length) {
