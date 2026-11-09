@@ -1781,9 +1781,9 @@
     {
       "id": 255,
       "question": "Quel joueur se cache derrière cette carrière ?",
-      "image_question": "qui_suis_je/images/nicols_otamendi.jpeg",
-      "reponse": "nicols otamendi",
-      "image_reponse": "qui_suis_je/images/nicols_otamendi_reponse.jpeg"
+      "image_question": "qui_suis_je/images/nicolas_otamendi.jpeg",
+      "reponse": "nicolas otamendi",
+      "image_reponse": "qui_suis_je/images/nicolas_otamendi_reponse.jpeg"
     },
     {
       "id": 256,
