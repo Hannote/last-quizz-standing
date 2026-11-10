@@ -5,9 +5,7 @@ const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { shuffleCopy } = require("./question-shuffle");
 
-const QUESTION_IDS = Object.freeze([
-  "population", "buteurs", "jeux_videos", "histoire", "passeurs", "chanteurs", "cinema"
-]);
+const GROUP_IDS = Object.freeze([1, 2, 3, 4, 5, 6, 7]);
 const MEMORY_VERSION = 1;
 // Les salons d'un même processus partagent aussi la protection contre un double lancement.
 const launchCaches = new WeakMap();
@@ -42,17 +40,19 @@ function validateBonOrdreBank(raw) {
   if (!isRecord(raw) || !Array.isArray(raw.questions)) {
     throw invalid("format de données invalide. Installez le JSON restructuré contenant questions et leurs pools.");
   }
-  if (raw.questions.length !== QUESTION_IDS.length) {
-    throw invalid(`le fichier doit contenir les ${QUESTION_IDS.length} questions types attendues.`);
-  }
   const seen = new Set();
+  const groups = new Set();
   const questions = raw.questions.map((question, questionIndex) => {
     const label = `question ${questionIndex + 1}`;
-    if (!isRecord(question) || !QUESTION_IDS.includes(question.id)) {
-      throw invalid(`${label} : identifiant inconnu (attendus : ${QUESTION_IDS.join(", ")}).`);
+    if (!isRecord(question) || !isText(question.id) || question.id !== question.id.trim()) {
+      throw invalid(`${label} : identifiant stable non vide attendu.`);
     }
     if (seen.has(question.id)) throw invalid(`identifiant de question dupliqué : ${question.id}.`);
     seen.add(question.id);
+    if (!Number.isInteger(question.groupe) || !GROUP_IDS.includes(question.groupe)) {
+      throw invalid(`${question.id} : groupe entier de 1 à 7 attendu.`);
+    }
+    groups.add(question.groupe);
     if (!isText(question.nom) || !isText(question.question)) {
       throw invalid(`${question.id} : nom et consigne doivent être des textes non vides.`);
     }
@@ -76,8 +76,14 @@ function validateBonOrdreBank(raw) {
       }
       return copyCard(card);
     });
-    return { id: question.id, nom: question.nom, question: question.question, pool };
+    if (new Set(pool.map((card) => card.valeur)).size < 5) {
+      throw invalid(`${question.id} : le pool doit contenir au moins cinq valeurs numériques distinctes.`);
+    }
+    return { id: question.id, groupe: question.groupe, nom: question.nom, question: question.question, pool };
   });
+  if (groups.size !== GROUP_IDS.length) {
+    throw invalid("le fichier doit contenir les sept groupes numérotés de 1 à 7, chacun avec au moins une variante.");
+  }
   return { questions };
 }
 
@@ -90,7 +96,7 @@ function validateMemory(raw) {
     throw invalid("mémoire d'éléments incompatible ou corrompue (version 1 attendue). Aucun historique n'a été réinitialisé.");
   }
   for (const [id, ids] of Object.entries(raw.pools)) {
-    if (!QUESTION_IDS.includes(id) || !Array.isArray(ids) ||
+    if (!isText(id) || !Array.isArray(ids) ||
         ids.some((item) => !isText(item)) || new Set(ids).size !== ids.length) {
       throw invalid(`mémoire du pool ${id} corrompue. Aucun historique n'a été réinitialisé.`);
     }
@@ -146,8 +152,53 @@ function warnCleanup(file, error) {
 
 function cloneQuestions(questions) {
   return questions.map((question) => ({
-    id: question.id, nom: question.nom, question: question.question, cards: question.cards.map(copyCard)
+    id: question.id, groupe: question.groupe, nom: question.nom, question: question.question, cards: question.cards.map(copyCard)
   }));
+}
+
+// Les doublons de valeur restent dans la banque et dans la mémoire par id,
+// mais ne peuvent jamais figurer ensemble dans une question affichée.
+function distinctCards(cards, random, count = 5) {
+  const values = new Set();
+  return shuffleCopy(cards, random).filter((card) => {
+    if (values.size >= count || values.has(card.valeur)) return false;
+    values.add(card.valeur);
+    return true;
+  });
+}
+
+function consumeGroup(variants, pools, random) {
+  const remainingFor = (question) => {
+    const used = new Set(pools.get(question.id) || []);
+    return question.pool.filter((card) => !used.has(card.id));
+  };
+  let available = variants;
+  if (variants.length > 1) {
+    available = variants.filter((question) =>
+      new Set(remainingFor(question).map((card) => card.valeur)).size >= 5);
+    if (!available.length) {
+      // Toutes les variantes de ce groupe démarrent leur nouveau cycle ensemble.
+      for (const question of variants) pools.set(question.id, []);
+      available = variants;
+    }
+  }
+  const question = available.length === 1 ? available[0] : available[Math.floor(random() * available.length)];
+  const remaining = remainingFor(question);
+  let selected = distinctCards(remaining, random);
+  if (selected.length === 5) {
+    pools.set(question.id, [...new Set([...(pools.get(question.id) || []), ...selected.map((card) => card.id)])]);
+  } else {
+    // Groupe à une variante : une carte par valeur inédite ferme l'ancien cycle.
+    // Seul le complément, de valeurs différentes, est consommé dans le nouveau.
+    const values = new Set(selected.map((card) => card.valeur));
+    const complement = distinctCards(question.pool.filter((card) => !values.has(card.valeur)), random, 5 - selected.length);
+    selected = [...selected, ...complement];
+    pools.set(question.id, complement.map((card) => card.id));
+  }
+  return {
+    id: question.id, groupe: question.groupe, nom: question.nom, question: question.question,
+    cards: shuffleCopy(selected, random).map(copyCard)
+  };
 }
 
 function createBonOrdreStore(filename, { random = Math.random, fs: storageFs = fs } = {}) {
@@ -187,28 +238,11 @@ function createBonOrdreStore(filename, { random = Math.random, fs: storageFs = f
       const bank = validateBonOrdreBank(rawBank);
       return locked(() => {
         const memory = readMemory(file, storageFs);
-        const questions = bank.questions.map((question) => {
-          const used = new Set(memory.pools[question.id] || []);
-          const remaining = question.pool.filter((card) => !used.has(card.id));
-          let selected;
-          if (remaining.length >= 5) {
-            selected = shuffleCopy(remaining, random).slice(0, 5);
-            for (const card of selected) used.add(card.id);
-            memory.pools[question.id] = [...used];
-          } else {
-            // Les restes ferment l'ancien cycle ; seul le complément appartient au nouveau.
-            const oldCycleIds = new Set(remaining.map((card) => card.id));
-            const complement = shuffleCopy(question.pool.filter((card) => !oldCycleIds.has(card.id)), random)
-              .slice(0, 5 - remaining.length);
-            selected = [...remaining, ...complement];
-            memory.pools[question.id] = complement.map((card) => card.id);
-          }
-          return {
-            id: question.id, nom: question.nom, question: question.question,
-            cards: shuffleCopy(selected, random).map(copyCard)
-          };
-        });
+        const pools = new Map(Object.entries(memory.pools));
+        const questions = GROUP_IDS.map((group) => consumeGroup(
+          bank.questions.filter((question) => question.groupe === group), pools, random));
         const snapshot = shuffleCopy(questions, random);
+        memory.pools = Object.fromEntries(pools);
         // Un seul commit pour les sept pools : aucun instantané n'est publié si ce commit échoue.
         writeMemory(file, memory, storageFs);
         cache.set(launchId, snapshot);
@@ -265,6 +299,6 @@ function gradeBonOrdre(question, orderedIds) {
 }
 
 module.exports = {
-  QUESTION_IDS, MEMORY_VERSION, validateBonOrdreBank, createBonOrdreStore,
+  GROUP_IDS, MEMORY_VERSION, validateBonOrdreBank, createBonOrdreStore,
   safeBonOrdreQuestion, isValidBonOrdreAnswer, bonOrdreGrade, gradeBonOrdre
 };

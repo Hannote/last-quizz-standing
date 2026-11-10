@@ -6,14 +6,16 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const {
-  QUESTION_IDS, validateBonOrdreBank, createBonOrdreStore,
+  GROUP_IDS, validateBonOrdreBank, createBonOrdreStore,
   safeBonOrdreQuestion, isValidBonOrdreAnswer, bonOrdreGrade, gradeBonOrdre
 } = require("../le-bon-ordre");
+const { memoryFs } = require("./helpers/bon-ordre-memory.cjs");
+const QUESTION_IDS = GROUP_IDS.map((group) => `variante-${group}`);
 
 // Ces données fictives restent exclusivement dans les tests.
 function fixture(size = 12) {
-  return { questions: QUESTION_IDS.map((id) => ({
-    id, nom: `Thème ${id}`, question: `Classer le pool ${id}`,
+  return { questions: QUESTION_IDS.map((id, index) => ({
+    id, groupe: index + 1, nom: `Thème ${id}`, question: `Classer le pool ${id}`,
     pool: Array.from({ length: typeof size === "number" ? size : size[id] }, (_, index) => ({
       id: `${id}-${index}`, nom: `Élément ${index}`, image: index % 2 ? null : `le_bon_ordre/images/test-${index}.png`,
       valeur: index - 3
@@ -35,6 +37,144 @@ function byId(questions) {
   return Object.fromEntries(questions.map((question) => [question.id, question]));
 }
 
+function addVariant(bank, group, id, size = 12) {
+  const source = fixture(size).questions[group - 1];
+  const variant = { ...source, id, pool: source.pool.map((card, index) => ({ ...card, id: `${id}-${index}` })) };
+  bank.questions.push(variant);
+  return variant;
+}
+
+function assertDraw(questions) {
+  assert.deepEqual(questions.map((question) => question.groupe).sort(), GROUP_IDS);
+  for (const question of questions) {
+    assert.equal(question.cards.length, 5);
+    assert.equal(new Set(question.cards.map((card) => card.valeur)).size, 5);
+  }
+}
+
+test("banque fournie : 14 variantes, sept groupes, données et identifiants conservés", () => {
+  const raw = JSON.parse(fs.readFileSync(path.join(__dirname, "../public_2/le_bon_ordre/le_bon_ordre.json"), "utf8"));
+  assert.equal(raw.questions.length, 14);
+  assert.deepEqual(validateBonOrdreBank(raw), raw);
+  const storage = memoryFs();
+  const store = createBonOrdreStore(path.join(__dirname, "real-bank-memory.json"), { fs: storage, random: () => 0.999 });
+  const initial = JSON.stringify(raw);
+  // Traverse aussi les pools contenant de nombreuses cartes de même valeur.
+  for (let index = 0; index < 100; index++) assertDraw(store.consume(raw, `real-${index}`));
+  assert.equal(JSON.stringify(raw), initial);
+});
+
+test("mélange : les 5040 permutations placent chaque groupe 720 fois à chaque position", () => {
+  const bank = fixture(5);
+  const storage = memoryFs();
+  let tail = [];
+  let calls = 0;
+  const store = createBonOrdreStore(path.join(__dirname, "permutations-memory.json"), {
+    fs: storage,
+    random: () => ++calls <= 56 ? 0.999 : tail.shift()
+  });
+  const counts = GROUP_IDS.map(() => Array(7).fill(0));
+  const permutations = new Set();
+  function visit(choices = []) {
+    if (choices.length < 6) {
+      const upper = 7 - choices.length;
+      for (let index = 0; index < upper; index++) visit([...choices, (index + 0.5) / upper]);
+      return;
+    }
+    tail = [...choices];
+    calls = 0;
+    const questions = store.consume(bank, `permutation-${permutations.size}`);
+    assertDraw(questions);
+    assert.equal(tail.length, 0);
+    assert.equal(calls, 62);
+    permutations.add(questions.map((question) => question.groupe).join(","));
+    questions.forEach((question, index) => counts[question.groupe - 1][index]++);
+  }
+  visit();
+  assert.equal(permutations.size, 5040);
+  assert.deepEqual(counts, GROUP_IDS.map(() => Array(7).fill(720)));
+});
+
+test("variantes : sélection uniforme parmi les variantes disponibles du groupe", () => {
+  const bank = fixture();
+  addVariant(bank, 1, "alternative-a");
+  addVariant(bank, 1, "alternative-b");
+  const candidates = bank.questions.filter((question) => question.groupe === 1);
+  for (let index = 0; index < 3; index++) {
+    const store = createBonOrdreStore(path.join(__dirname, `uniform-${index}.json`), {
+      fs: memoryFs(), random: () => (index + 0.5) / 3
+    });
+    const draw = store.consume(bank, "uniform");
+    assertDraw(draw);
+    assert.equal(draw.find((question) => question.groupe === 1).id, candidates[index].id);
+  }
+});
+
+test("groupe multiple : exclusion persistante puis reset collectif limité à ce groupe", (t) => {
+  const { store, file } = temporaryStore(t, { random: () => 0.999 });
+  const bank = fixture(50);
+  const firstVariant = bank.questions[0];
+  firstVariant.pool.length = 6;
+  const secondVariant = addVariant(bank, 1, "nouvelle-variante", 12);
+  // Cette ancienne variante n'a pas cinq valeurs inédites : elle reste exclue.
+  fs.writeFileSync(file, JSON.stringify({ version: 1, pools: { [firstVariant.id]: [firstVariant.pool[0].id, firstVariant.pool[1].id] } }));
+  const initial = store.read().pools[firstVariant.id];
+  for (let index = 0; index < 2; index++) {
+    const draw = store.consume(bank, `other-${index}`);
+    assertDraw(draw);
+    assert.equal(draw.find((question) => question.groupe === 1).id, secondVariant.id);
+    assert.deepEqual(store.read().pools[firstVariant.id], initial);
+  }
+  assert.equal(store.read().pools[secondVariant.id].length, 10);
+  const draw = store.consume(bank, "group-reset");
+  assertDraw(draw);
+  assert.equal(draw.find((question) => question.groupe === 1).id, secondVariant.id);
+  assert.deepEqual(store.read().pools[firstVariant.id], []);
+  assert.equal(store.read().pools[secondVariant.id].length, 5);
+  for (const id of QUESTION_IDS.slice(1)) assert.equal(store.read().pools[id].length, 15);
+  // Après relecture du fichier, la première variante est à nouveau disponible.
+  const restarted = createBonOrdreStore(file, { random: () => 0 });
+  assert.equal(restarted.consume(bank, "after-reset").find((question) => question.groupe === 1).id, firstVariant.id);
+});
+
+for (const multiple of [false, true]) {
+  test(`cinq cartes inédites mais quatre valeurs : ${multiple ? "variante exclue" : "complément du nouveau cycle"}`, (t) => {
+    const { store, file } = temporaryStore(t, { random: () => 0.999 });
+    const bank = fixture(8);
+    const question = bank.questions[0];
+    question.pool.forEach((card, index) => { card.valeur = [10, 10, 20, 30, 40, 50, 60, 70][index]; });
+    const used = question.pool.slice(5).map((card) => card.id);
+    if (multiple) addVariant(bank, 1, "alternative");
+    fs.writeFileSync(file, JSON.stringify({ version: 1, pools: { [question.id]: used } }));
+    const draw = store.consume(bank, "four-values");
+    assertDraw(draw);
+    const selected = draw.find((entry) => entry.groupe === 1);
+    if (multiple) {
+      assert.equal(selected.id, "alternative");
+      assert.deepEqual(store.read().pools[question.id], used);
+    } else {
+      assert.equal(selected.cards.filter((card) => !used.includes(card.id)).length, 4);
+      const remembered = store.read().pools[question.id];
+      assert.equal(remembered.length, 1);
+      assert.ok(used.includes(remembered[0]));
+      assert.ok(selected.cards.some((card) => card.id === remembered[0]));
+    }
+  });
+}
+
+test("mémoire : anciens identifiants conservés et nouveaux identifiants relus", (t) => {
+  const { store, file } = temporaryStore(t);
+  const bank = fixture();
+  bank.questions[0].id = "population";
+  const variant = addVariant(bank, 2, "nouveau_theme");
+  const existing = { population: [bank.questions[0].pool[0].id], nouveau_theme: [variant.pool[0].id], ancien_theme: ["ancienne-carte"] };
+  fs.writeFileSync(file, JSON.stringify({ version: 1, pools: existing }));
+  assert.deepEqual(store.read().pools, existing);
+  store.consume(bank, "migration");
+  for (const [id, ids] of Object.entries(existing)) assert.ok(ids.every((cardId) => store.read().pools[id].includes(cardId)));
+  assert.equal(store.consume(bank, "relecture").length, 7);
+});
+
 test("validation : contrat des sept pools, valeurs négatives et données non mutées", () => {
   const raw = fixture();
   const initial = JSON.stringify(raw);
@@ -49,7 +189,11 @@ test("validation : contrat des sept pools, valeurs négatives et données non mu
 test("validation : chaque erreur de contrat empêche un lancement incomplet", () => {
   const changes = [
     (bank) => bank.questions.pop(),
-    (bank) => { bank.questions[0].id = "inconnu"; },
+    (bank) => { bank.questions[0].id = " "; },
+    (bank) => { bank.questions[0].id = " id "; },
+    (bank) => { delete bank.questions[0].groupe; },
+    ...[0, 8, 1.5, "1", null].map((groupe) => (bank) => { bank.questions[0].groupe = groupe; }),
+    (bank) => { bank.questions[0].groupe = 2; },
     (bank) => { bank.questions[1].id = bank.questions[0].id; },
     (bank) => { bank.questions[0].nom = " "; },
     (bank) => { bank.questions[0].question = ""; },
@@ -59,6 +203,7 @@ test("validation : chaque erreur de contrat empêche un lancement incomplet", ()
     (bank) => { bank.questions[0].pool[0].nom = null; },
     (bank) => { bank.questions[0].pool[0].valeur = Infinity; },
     (bank) => { bank.questions[0].pool[0].valeur = "10"; },
+    (bank) => { bank.questions[0].pool.forEach((card, index) => { card.valeur = index % 4; }); },
     (bank) => { delete bank.questions[0].pool[0].image; }
   ];
   for (const change of changes) {
@@ -82,9 +227,11 @@ test("tirages : sept instantanés sans doublon, disposition commune et banque in
   const questions = store.consume(bank, "partie-a");
   assert.equal(questions.length, 7);
   assert.deepEqual(new Set(questions.map((question) => question.id)), new Set(QUESTION_IDS));
+  assert.deepEqual(questions.map((question) => question.groupe).sort(), GROUP_IDS);
   for (const question of questions) {
     assert.equal(question.cards.length, 5);
     assert.equal(new Set(question.cards.map((card) => card.id)).size, 5);
+    assert.equal(new Set(question.cards.map((card) => card.valeur)).size, 5);
     assert.ok(question.cards.every((card) => typeof card.valeur === "number"));
     assert.equal(question.pool, undefined);
   }

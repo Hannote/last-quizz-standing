@@ -9,12 +9,12 @@ const { createRequire } = require("node:module");
 
 // Le vrai serveur et son middleware, avec transport, stockage et horloge isolés.
 const harnessFile = path.join(__dirname, "liste-flow.test.js");
-const setup = fs.readFileSync(harnessFile, "utf8").split("function startPenaveRound()")[0];
+const setup = fs.readFileSync(harnessFile, "utf8").split("function startPenaveRound()")[0]
+  .replace("rooms, getListeContext", "bonOrdreStore, bonOrdreBank, rooms, getListeContext");
 const context = { require: createRequire(harnessFile), __dirname, Buffer, process };
 vm.runInNewContext(setup + "\nglobalThis.makeHarness = harness;", context);
 
-function start(mode, count = 3) {
-  const h = context.makeHarness();
+function start(mode, count = 3, h = context.makeHarness()) {
   const { room, clients } = h.create(count);
   if (mode === "liste") h.configure(room, clients[0], "manual", ["le_bon_ordre"]);
   clients[0].send("hostStartGame", mode === "liste" ? {} : { forcedMiniGame: "le_bon_ordre" });
@@ -25,8 +25,10 @@ function start(mode, count = 3) {
   assert.equal(room.gameState.phase, "playing");
   const mini = room.gameState.currentMiniGameState;
   assert.equal(mini.questions.length, 7);
+  assert.deepEqual(Array.from(mini.questions, (question) => question.groupe).sort(), [1, 2, 3, 4, 5, 6, 7]);
+  for (const question of mini.questions) assert.equal(new Set(question.cards.map((card) => card.valeur)).size, 5);
   assert.equal(mini.subPhase, "theme");
-  const firstQuestion = h.events.findIndex((entry) => entry.name === "leBonOrdreQuestion");
+  const firstQuestion = h.events.findIndex((entry) => entry.name === "leBonOrdreQuestion" && entry.data.instanceId === mini.instanceId);
   assert.ok(h.events.slice(0, firstQuestion).some((entry) => entry.name === "gameStateUpdate" &&
     entry.data.phase === "playing" && entry.data.leBonOrdreInstanceId === mini.instanceId));
   return { h, room, clients, mini };
@@ -61,6 +63,38 @@ function closeWithAnswers(state, customize = (payload) => payload) {
   assert.equal(mini.subPhase, "answering");
   clients.forEach((client, index) => client.send("leBonOrdreAnswer", customize(answer(mini), index)));
   assert.equal(mini.subPhase, "correction");
+}
+
+for (const modes of [["battle_royale", "liste"], ["liste", "battle_royale"]]) {
+  test(`mémoire commune : lancement ${modes.join(" puis ")} et reconnexion sans consommation`, () => {
+    let random = 0.999;
+    const h = context.makeHarness({ LQS_BON_ORDRE_MEMORY_FILE: "isolated-shared-groups.json" }, true, () => random);
+    const first = start(modes[0], 3, h);
+    const before = JSON.stringify(h.api.bonOrdreStore.read());
+    first.clients[0].send("requestRoomState");
+    assert.deepEqual(h.api.bonOrdreStore.consume(h.api.bonOrdreBank, first.mini.instanceId), first.mini.questions);
+    assert.equal(JSON.stringify(h.api.bonOrdreStore.read()), before);
+    // Garde le premier salon actif : le deuxième mode partage le même store serveur.
+    random = 0.9; // Nouveau code de salon ; sélectionne encore les dernières variantes.
+    const second = start(modes[1], 3, h);
+    assert.notEqual(second.room.roomCode, first.room.roomCode);
+    assert.notEqual(second.mini.instanceId, first.mini.instanceId);
+    for (const question of second.mini.questions) {
+      const previous = first.mini.questions.find((entry) => entry.id === question.id);
+      assert.ok(previous, "La source contrôlée resélectionne les mêmes variantes disponibles");
+      assert.ok(question.cards.every((card) => !previous.cards.some((old) => old.id === card.id)));
+      assert.equal(h.api.bonOrdreStore.read().pools[question.id].length, 10);
+    }
+    const after = JSON.stringify(h.api.bonOrdreStore.read());
+    first.clients[0].send("disconnect");
+    const returned = h.socket("p0");
+    returned.send("joinRoom", { roomCode: first.room.roomCode, playerId: "p0", pseudo: "Retour" });
+    const restored = lastEvent(h, "leBonOrdreQuestion", returned);
+    assert.equal(restored.instanceId, first.mini.instanceId);
+    assert.deepEqual(Array.from(restored.question.cards, (card) => card.id), Array.from(first.mini.questions[0].cards, (card) => card.id));
+    assert.equal(JSON.stringify(h.api.bonOrdreStore.read()), after);
+    assertPrivate(h.events);
+  });
 }
 
 test("Bon Ordre : le vrai formulaire client émet une proposition acceptée", () => {

@@ -6,6 +6,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const { createRequire } = require("node:module");
+const { createBonOrdreStore } = require("../le-bon-ordre");
+const { memoryFs } = require("./helpers/bon-ordre-memory.cjs");
 
 const harnessFile = path.join(__dirname, "liste-flow.test.js");
 const setup = fs.readFileSync(harnessFile, "utf8").split("function startPenaveRound()")[0];
@@ -61,6 +63,44 @@ function lastTimer(h, delay, repeat = false) {
 function lastEvent(h, name, socket) {
   return h.events.filter((entry) => entry.name === name && (!socket || entry.target === socket.id)).at(-1)?.data;
 }
+
+test("sept groupes : resets sous verrou, commit atomique unique et relance idempotente", () => {
+  const bank = JSON.parse(fs.readFileSync(path.join(__dirname, "../public_2/le_bon_ordre/le_bon_ordre.json"), "utf8"));
+  const storage = memoryFs();
+  const file = path.resolve(__dirname, "group-reset-safety.json");
+  const initial = JSON.stringify({ version: 1, pools: Object.fromEntries(bank.questions.map((question) =>
+    [question.id, question.pool.map((card) => card.id)])) });
+  storage.files.set(file, initial);
+  let fail = true;
+  let commits = 0;
+  const rename = storage.renameSync;
+  storage.renameSync = (from, to) => {
+    assert.equal(to, file);
+    assert.ok(storage.files.has(`${file}.lock`), "Les sept tirages et resets restent sous verrou");
+    if (fail) throw new Error("commit refusé");
+    commits++;
+    rename(from, to);
+  };
+  const store = createBonOrdreStore(file, { fs: storage, random: () => 0.5 });
+  assert.throws(() => store.consume(bank, "instance-unique"), /commit refusé/);
+  assert.equal(storage.files.get(file), initial);
+  assert.equal(storage.files.size, 1, "Aucun fichier temporaire ou verrou résiduel");
+  assert.equal(commits, 0);
+  fail = false;
+  const draw = store.consume(bank, "instance-unique");
+  assert.equal(commits, 1);
+  assert.deepEqual(draw.map((question) => question.groupe).sort(), [1, 2, 3, 4, 5, 6, 7]);
+  const memory = store.read();
+  for (const question of bank.questions) {
+    const selected = draw.find((entry) => entry.id === question.id);
+    assert.deepEqual(new Set(memory.pools[question.id]), new Set(selected?.cards.map((card) => card.id) || []));
+  }
+  const persisted = storage.files.get(file);
+  assert.deepEqual(store.consume(bank, "instance-unique"), draw);
+  assert.deepEqual(createBonOrdreStore(file, { fs: storage }).consume(bank, "instance-unique"), draw);
+  assert.equal(storage.files.get(file), persisted);
+  assert.equal(commits, 1);
+});
 
 for (const mode of ["battle_royale", "liste"]) {
   test(`${mode} Bon Ordre : les callbacks obsolètes respectent salon, mode, manche, question et phase`, () => {

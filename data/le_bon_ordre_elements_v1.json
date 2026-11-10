@@ -6,14 +6,34 @@
       "italie",
       "espagne",
       "portugal",
-      "france"
+      "france",
+      "bangladesh",
+      "nouvelle_zelande",
+      "niger",
+      "angola",
+      "bresil",
+      "hong_kong_chine",
+      "mongolie",
+      "republique_democratique_du_congo",
+      "namibie",
+      "qatar"
     ],
     "buteurs": [
       "alexis_sanchez",
       "ciro_immobile",
       "cristiano_ronaldo",
       "lionel_messi",
-      "antoine_griezmann"
+      "antoine_griezmann",
+      "iago_aspas",
+      "alan_shearer",
+      "zlatan_ibrahimovic",
+      "marco_van_basten",
+      "diego_maradona",
+      "eden_hazard",
+      "michael_owen",
+      "radamel_falcao",
+      "mohamed_salah",
+      "michael_ballack"
     ],
     "jeux_videos": [
       "elden_ring",
@@ -27,7 +47,12 @@
       "chute_mur_berlin",
       "premier_pas_lune",
       "prise_bastille",
-      "circulation_euro"
+      "circulation_euro",
+      "fondation_dalexandrie",
+      "debuts_de_l_agriculture_au_proche_orient",
+      "hegire_debut_de_l_islam",
+      "eruption_du_vesuve_pompei",
+      "chute_de_constantinople"
     ],
     "passeurs": [
       "ciro_immobile",
@@ -49,6 +74,61 @@
       "cars",
       "cendrillon",
       "fourmiz"
+    ],
+    "musique_grand_public": [
+      "katy_perry",
+      "adele",
+      "taylor_swift",
+      "selena_gomez",
+      "the_beatles",
+      "stevie_wonder",
+      "drake",
+      "travis_scott",
+      "johnny_hallyday",
+      "kanye_west"
+    ],
+    "histoire_20eme_siecle": [
+      "attentats_jo_munich",
+      "fin_de_la_guerre_du_kosovo",
+      "debut_de_la_guerre_du_vietnam",
+      "mort_de_diana",
+      "creation_dinternet_tcp_ip"
+    ],
+    "sortie_jeux_video": [
+      "god_of_war",
+      "the_witcher_3_wild_hunt",
+      "battlefield_4",
+      "assassins_creed_ii",
+      "the_elder_scrolls_v_skyrim",
+      "the_sims",
+      "south_park_le_baton_de_la_verite",
+      "dark_souls",
+      "dying_light",
+      "valorant"
+    ],
+    "trophees_football": [
+      "casemiro",
+      "aymeric_laporte",
+      "paolo_maldini",
+      "achraf_hakimi",
+      "luis_figo",
+      "yohan_cabaye",
+      "angel_di_maria",
+      "samuel_etoo",
+      "carlos_tevez",
+      "bernardo_silva"
+    ],
+    "ventes_consoles": [
+      "game_boy_et_game_boy_color",
+      "playstation_3",
+      "nintendo_gamecube",
+      "playstation_1",
+      "atari_2600",
+      "playstation_2",
+      "playstation_4",
+      "color_tv_game",
+      "nintendo_64",
+      "nintendo_switch"
     ]
   }
 }
