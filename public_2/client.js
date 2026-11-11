@@ -5401,14 +5401,16 @@ function renderPenave(state) {
     state.announcement, state.subPhase === "round_summary" && !state.announcementEliminatedIds.length
       ? "palierZoomFade" : "penaveAnnouncementZoom",
     phaseElapsed, state.phaseDurationMs, phaseKey);
-  // Le thème remplace le son « out » pour garder l'annonce clairement audible.
   if (previous?.subPhase !== state.subPhase) {
     if (["theme", "round_summary"].includes(previous?.subPhase)) sfxTheme.stop();
+    if (previous?.subPhase === "round_summary") sfxPenaveOut.stop();
     if (previous?.subPhase === "victory") sfxPenaveVictory.stop();
   }
   if (announcing && penaveAnnouncementSoundKey !== phaseKey) {
     penaveAnnouncementSoundKey = phaseKey;
-    playPenavePhaseSound(state.subPhase === "victory" ? sfxPenaveVictory : sfxTheme,
+    const announcementSound = state.subPhase === "victory" ? sfxPenaveVictory
+      : state.announcementEliminatedIds.length ? sfxPenaveOut : sfxTheme;
+    playPenavePhaseSound(announcementSound,
       phaseElapsed, state.phaseRemainingMs);
   }
   const board = document.getElementById("penaveBoard");

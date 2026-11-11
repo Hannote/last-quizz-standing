@@ -49,7 +49,7 @@ function closeQuestion(state) {
 function ending(state) {
   for (let index = 0; index < 7; index++) {
     closeQuestion(state);
-    state.h.advance(15000 + (index === 6 ? 4500 : 3000));
+    state.h.advance(20000 + (index === 6 ? 4500 : 3000));
   }
   assert.equal(state.mini.subPhase, "ending");
 }
@@ -117,8 +117,8 @@ for (const mode of ["battle_royale", "liste"]) {
     };
     const stages = [
       { name: "theme", prepare() {}, delay: 2500 },
-      { name: "correction", prepare: closeQuestion, delay: 15000 },
-      { name: "leaderboard", prepare(state) { closeQuestion(state); state.h.advance(15000); }, delay: 3000 }
+      { name: "correction", prepare: closeQuestion, delay: 20000 },
+      { name: "leaderboard", prepare(state) { closeQuestion(state); state.h.advance(20000); }, delay: 3000 }
     ];
     for (const stage of stages) {
       for (const [label, mutate] of Object.entries(changes)) {
@@ -160,8 +160,8 @@ for (const mode of ["battle_royale", "liste"]) {
     assert.equal(JSON.stringify(mini.questions), snapshot);
     assert.strictEqual(room.gameState.currentMiniGameState, mini);
     assert.equal(mini.subPhase, "correction");
-    const oldCorrection = lastTimer(h, 15000);
-    h.advance(15000);
+    const oldCorrection = lastTimer(h, 20000);
+    h.advance(20000);
     const oldLeaderboard = lastTimer(h, 3000);
     oldCorrection.fn();
     oldCorrection.fn();
@@ -223,9 +223,9 @@ for (const mode of ["battle_royale", "liste"]) {
     const state = start(mode);
     const { h, room, clients, mini } = state;
     closeQuestion(state);
-    const correctionTimer = lastTimer(h, 15000);
+    const correctionTimer = lastTimer(h, 20000);
     h.timers.delete(correctionTimer.id); // Simule un callback retardé par la boucle d'événements.
-    h.advance(15500);
+    h.advance(20500);
     const applied = totals(room);
     const before = h.events.length;
     clients[0].send("requestRoomState");
@@ -299,13 +299,13 @@ test("Liste Bon Ordre : abandon exclu des corrections suivantes et des points sa
   assert.equal(withdrawn.withdrawn, true);
   assert.equal(withdrawn.eliminated, false);
   assert.equal(mini.subPhase, "correction", "Le départ clôt la question quand les participants restants ont répondu");
-  h.advance(18000);
+  h.advance(20000 + 3000);
   for (let index = 1; index < 7; index++) {
     h.advance(2500);
     clients.slice(0, 2).forEach((client) => client.send("leBonOrdreAnswer", answer(mini)));
     assert.equal(mini.subPhase, "correction");
     assert.equal(Object.hasOwn(mini.scoresGiven[index], "p2"), false);
-    h.advance(15000 + (index === 6 ? 4500 : 3000));
+    h.advance(20000 + (index === 6 ? 4500 : 3000));
   }
   assert.equal(withdrawn.roundScore, 0);
   assert.equal(withdrawn.roundTime, 0);

@@ -599,6 +599,7 @@ const POSSIBLE_MINI_GAMES = [
 const LEUGTAS_TIMER_DURATION_SECONDS = 30;
 const FAUX_VRAI_TIMER_DURATION = 45;
 const LE_BON_ORDRE_DURATION = 45;
+const LE_BON_ORDRE_CORRECTION_DURATION_MS = 20_000;
 // Durée commune et pilotée par le serveur du classement entre deux manches Liste.
 // Les animations de fin propres aux mini-jeux restent inchangées et se terminent
 // avant l'entrée dans cette phase.
@@ -2203,7 +2204,7 @@ function endLeBonOrdreQuestion(roomCode, expectedMini = null) {
   // de clôture (dernière réponse et timer) arrivent dans le même tour de boucle.
   mini.subPhase = "correction";
   mini.phaseStartedAt = Date.now();
-  mini.phaseEndsAt = mini.phaseStartedAt + 15_000;
+  mini.phaseEndsAt = mini.phaseStartedAt + LE_BON_ORDRE_CORRECTION_DURATION_MS;
   if (mini.timer) {
     mini.timer.remainingSeconds = getBonOrdreTimer(mini).remaining;
     mini.timer.running = false;
@@ -2223,7 +2224,7 @@ function endLeBonOrdreQuestion(roomCode, expectedMini = null) {
   const current = captureBonOrdreCallback(room, mini);
   roomTimeout(room, () => {
     if (current()) startBonOrdreLeaderboard(room, mini);
-  }, 15_000);
+  }, Math.max(0, mini.phaseEndsAt - Date.now()));
 }
 
 function maybeEndBonOrdreQuestion(room) {
@@ -2287,7 +2288,7 @@ function sendBonOrdrePersonalCorrection(socket, room, mini) {
     isParticipant,
     correctionStartedAt: mini.phaseStartedAt,
     correctionEndsAt: mini.phaseEndsAt,
-    durationMs: 15_000,
+    durationMs: mini.phaseEndsAt - mini.phaseStartedAt,
     remainingMs: Math.max(0, mini.phaseEndsAt - Date.now()),
     bonOrdreData: { ...result, ...getBonOrdreContext(room, mini) }
   });

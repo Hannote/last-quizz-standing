@@ -188,7 +188,7 @@ function clientHarness(localId = "p0") {
     currentRoom: { gameMode: "liste", players: [{ playerId: "p0" }, { playerId: "p1" }] },
     playerId: localId, isListePlayerInactive: p => p?.withdrawn,
     setInterval: () => 1, clearInterval() {}, invalidateMiniGameLeaderboard() {},
-    sfxTheme: sound(1.5), sfxFinJeu: sound(), sfxPenaveVictory: sound(5),
+    sfxTheme: sound(1.5), sfxFinJeu: sound(), sfxPenaveVictory: sound(5), sfxPenaveQuestion: sound(),
     sfxPenaveTurn: sound(), sfxPenaveSuspense: sound(), sfxPenaveBoard: sound(),
     sfxPenaveCorrect: sound(), sfxPenaveWrong: sound(), sfxPenaveOut: sound()
   };
@@ -222,12 +222,13 @@ for (const localId of ["p0", "p1"]) {
     const label = get("penaveAnnouncementOverlay").firstElementChild;
     const writes = label.styleWrites;
     c.renderPenave(state("round_summary", 4200, 2500));
-    assert.equal(c.sfxTheme.plays, 1);
-    assert.equal(c.sfxPenaveOut.plays, 0);
+    assert.equal(c.sfxTheme.plays, 0);
+    assert.equal(c.sfxPenaveOut.plays, 1);
     assert.equal(label.styleWrites, writes);
     assert.match(label.style.animation, /penaveAnnouncementZoom 4200ms/);
     c.renderPenave(state("victory", 3000));
     c.renderPenave(state("victory", 3000, 1500));
+    assert.equal(c.sfxPenaveOut.stops, 1);
     assert.equal(c.sfxPenaveVictory.plays, 1);
     assert.match(label.style.animation, /3000ms/);
     c.stopPenaveDisplay();
@@ -248,4 +249,23 @@ test("Pénave client : reconnexion reprend le son et l'animation au temps écoul
   c.stopPenaveDisplay();
   c.renderPenave(state("round_summary", 1500, 0));
   assert.equal(c.sfxTheme.plays, 0);
+  assert.equal(c.sfxPenaveOut.plays, 0);
+});
+
+test("Pénave client : annonce sans éliminé conserve le son de thème", () => {
+  const { c, state } = clientHarness();
+  c.renderPenave({ ...state("round_summary", 1500), announcementEliminatedIds: [] });
+  assert.equal(c.sfxTheme.plays, 1);
+  assert.equal(c.sfxPenaveOut.plays, 0);
+});
+
+test("Pénave client : reconnexion à l'annonce des éliminés et arrêt en quittant", () => {
+  const { c, state } = clientHarness();
+  c.renderPenave(state("round_summary", 4200, 3200));
+  assert.deepEqual(c.sfxPenaveOut.seeks, [1]);
+  c.renderPenave(state("round_summary", 4200, 2500));
+  assert.equal(c.sfxPenaveOut.plays, 1);
+  assert.equal(c.sfxTheme.plays, 0);
+  c.stopPenaveDisplay();
+  assert.equal(c.sfxPenaveOut.stops, 1);
 });

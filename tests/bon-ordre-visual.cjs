@@ -101,10 +101,10 @@ async function main() {
           this.dispatch('leBonOrdreQuestion', this.question(mode, instanceId));
           window.scrollTo(0, 0);
         },
-        phase(subPhase,remainingMs=15000,questionIndex=currentGameState.leBonOrdreState?.questionIndex || 0,questionId=currentGameState.leBonOrdreState?.questionId || 'visual-theme') {
+        phase(subPhase,remainingMs=20000,questionIndex=currentGameState.leBonOrdreState?.questionIndex || 0,questionId=currentGameState.leBonOrdreState?.questionId || 'visual-theme') {
           const state={roomCode:currentRoom.roomCode,gameMode:currentRoom.gameMode,roundNumber:1,
             instanceId:currentGameState.leBonOrdreInstanceId,questionId,questionIndex,subPhase,remainingMs,
-            durationMs:subPhase==='correction'?15000:subPhase==='leaderboard'?3000:45000};
+            durationMs:subPhase==='correction'?20000:subPhase==='leaderboard'?3000:45000};
           currentGameState.leBonOrdrePhase=subPhase;
           currentGameState.leBonOrdreState=state;
           listeActionContext={tournamentId:'visual-tour',roundNumber:1,phase:'playing',miniGame:'le_bon_ordre',question:questionIndex};
@@ -116,7 +116,7 @@ async function main() {
           document.querySelectorAll('.bon-ordre-card')[index].click();
           document.querySelectorAll('.bon-ordre-rank-choices button')[rank - 1].click();
         },
-        correction(status = 'answered',remainingMs=15000) {
+        correction(status = 'answered',remainingMs=20000) {
           const cards = bonOrdreState.cards;
           const expected = cards.map((card, index) => ({ ...card, valeur: 68000000 - index * 10000000, rank: index + 1 }));
           const positions = [1, 0, 2, 3, 4].map((cardIndex, index) => ({ ...expected[cardIndex],
@@ -126,7 +126,7 @@ async function main() {
             miniGameType: 'le_bon_ordre', questionText: 'Classement attendu et proposition distincts',
             playerPseudo: status==='spectator'?null:'Participant au pseudonyme particulièrement long sur téléphone',
             currentQIndex: currentGameState.leBonOrdreState.questionIndex+1, totalQ: 7,
-            isParticipant:status!=='spectator',durationMs:15000,remainingMs,
+            isParticipant:status!=='spectator',durationMs:20000,remainingMs,
             bonOrdreData: { ...this.context(), expected, positions: status === 'answered' ? positions : [],
               correctCount: status === 'spectator'?null:status === 'answered' ? 3 : 0,
               grade: status === 'spectator'?null:status === 'answered' ? 0.5 : 0, status } });
@@ -196,7 +196,7 @@ async function main() {
         assert(correction.pageWidth <= width && correction.expected === 5 && correction.proposed === 5);
         assert(correction.good === 3 && correction.bad === 2 && correction.text.includes('Points : 0,5') && correction.text.includes('Bonne place'));
         assert(correction.expectedValue.replace(/\s/g, '') === '68000000');
-        assert(correction.noControls && correction.countdown.includes('15 s') && correction.standardHidden && correction.quit.right <= width);
+        assert(correction.noControls && correction.countdown.includes('20 s') && correction.standardHidden && correction.quit.right <= width);
         await screenshot(`bon-ordre-${mode}-correction-${width}.png`);
         await evaluate("lboVisualTest.leaderboard()");
         const ranking = await evaluate(`(() => ({
@@ -446,18 +446,18 @@ async function main() {
       assert.equal(carol.bonOrdreData.status,'pass');
       assert.equal(viewer.isParticipant,false); assert.equal(viewer.playerPseudo,null);
       assert.equal(viewer.bonOrdreData.status,'spectator'); assert.deepEqual(viewer.bonOrdreData.positions,[]);
-      assert.equal(alice.correctionEndsAt-alice.correctionStartedAt,15000);
+      assert.equal(alice.correctionEndsAt-alice.correctionStartedAt,20000);
       assert.equal(bob.correctionEndsAt,alice.correctionEndsAt); assert.equal(viewer.correctionEndsAt,alice.correctionEndsAt);
       await screenshot('bon-ordre-live-alice-correction-375.png');
-      await new Promise(resolve=>setTimeout(resolve,1800));
+      await new Promise(resolve=>setTimeout(resolve,Math.max(0,alice.correctionStartedAt+16000-Date.now())));
       await call("Page.reload");
       await until("typeof bonOrdreCorrectionContext !== 'undefined' && currentGameState.leBonOrdrePhase==='correction' && bonOrdreCorrectionContext?.questionIndex===0", "Reconnexion dans sa correction",10000);
       const resumed = await evaluate('({context:bonOrdreCorrectionContext,clock:document.getElementById("bonOrdreCorrectionCountdown").textContent})');
       assert.deepEqual(resumed.context.bonOrdreData.positions,alice.bonOrdreData.positions);
-      assert.equal(resumed.context.correctionEndsAt,alice.correctionEndsAt); assert(resumed.context.remainingMs<14000);
+      assert.equal(resumed.context.correctionEndsAt,alice.correctionEndsAt); assert(resumed.context.remainingMs>2500 && resumed.context.remainingMs<=4000); assert.match(resumed.clock, /[34] s/);
       await screenshot('bon-ordre-live-alice-correction-reconnected-375.png');
-      await until("currentGameState.leBonOrdrePhase==='leaderboard' && document.getElementById('leaderboard-overlay').classList.contains('active')",'Classement après quinze secondes',17000);
-      assert(Date.now()-correctionReceivedAt>=13500);
+      await until("currentGameState.leBonOrdrePhase==='leaderboard' && document.getElementById('leaderboard-overlay').classList.contains('active')",'Classement après vingt secondes',17000);
+      assert(Date.now()-correctionReceivedAt>=19000);
       const ranking = await livePeers[0].wait('leBonOrdreLeaderboard');
       assert.equal(ranking.startedAt,alice.correctionEndsAt); assert.equal(ranking.durationMs,3000);
       assert.equal(ranking.players.length,3);
@@ -474,7 +474,7 @@ async function main() {
       assert.deepEqual(errors.filter(error => error.type === 'exception'), []);
       fs.writeFileSync(path.join(output, 'bon-ordre-live-browser-errors.json'),
         JSON.stringify(errors.filter(error => error.type === 'resource'), null, 2));
-      console.log('Navigateur réel Liste: trois participants + spectateur, propositions privées distinctes, correction quinze secondes, reconnexion personnelle, classement trois secondes et question deux: OK');
+      console.log('Navigateur réel Liste: trois participants + spectateur, propositions privées distinctes, correction vingt secondes, reconnexion personnelle, classement trois secondes et question deux: OK');
     }
   } finally {
     for (const peer of livePeers) peer.close();

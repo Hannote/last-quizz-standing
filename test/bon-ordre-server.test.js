@@ -124,7 +124,44 @@ test("Bon Ordre : le vrai formulaire client émet une proposition acceptée", ()
 });
 
 for (const mode of ["battle_royale", "liste"]) {
-  test(`${mode} Bon Ordre : sept corrections de 15 s, classements puis une seule fin`, () => {
+  for (const trigger of ["expiration", "dernière réponse"]) {
+    test(`${mode} Bon Ordre : correction de 20 s après ${trigger}, reconnexion à 16 s et après échéance`, () => {
+      const { h, room, clients, mini } = start(mode);
+      h.advance(2500);
+      assert.equal(mini.phaseEndsAt - mini.phaseStartedAt, 45000);
+      if (trigger === "expiration") h.advance(45000);
+      else {
+        h.advance(1234);
+        clients.forEach((client) => client.send("leBonOrdreAnswer", answer(mini)));
+      }
+      assert.equal(mini.subPhase, "correction");
+      const opened = lastEvent(h, "leBonOrdreCorrection", clients[0]);
+      assert.equal(opened.durationMs, 20000);
+      assert.equal(opened.remainingMs, 20000);
+      assert.equal(opened.correctionEndsAt, opened.correctionStartedAt + 20000);
+      h.advance(16000);
+      const returned = h.socket("p0");
+      returned.send("joinRoom", { roomCode: room.roomCode, playerId: "p0", pseudo: "Retour à 16 s" });
+      const restored = lastEvent(h, "leBonOrdreCorrection", returned);
+      assert.equal(restored.durationMs, 20000);
+      assert.equal(restored.remainingMs, 4000);
+      assert.equal(restored.correctionEndsAt, opened.correctionEndsAt);
+      h.advance(3999);
+      assert.equal(mini.subPhase, "correction");
+      assert.equal(h.events.some((event) => event.name === "leBonOrdreLeaderboard"), false);
+      h.advance(1);
+      assert.equal(mini.subPhase, "leaderboard");
+      const ranking = lastEvent(h, "leBonOrdreLeaderboard");
+      assert.equal(ranking.startedAt, opened.correctionStartedAt + 20000);
+      assert.equal(ranking.durationMs, 3000);
+      const afterDeadline = h.socket("p0");
+      afterDeadline.send("joinRoom", { roomCode: room.roomCode, playerId: "p0", pseudo: "Retour après échéance" });
+      assert.equal(lastEvent(h, "leBonOrdreCorrection", afterDeadline), undefined);
+      assert.equal(lastEvent(h, "leBonOrdreLeaderboard", afterDeadline).startedAt, ranking.startedAt);
+    });
+  }
+
+  test(`${mode} Bon Ordre : sept corrections de 20 s, classements puis une seule fin`, () => {
     const state = start(mode);
     const { h, room, clients, mini } = state;
     const firstPayload = answer(mini);
@@ -163,8 +200,8 @@ for (const mode of ["battle_royale", "liste"]) {
       assert.equal(room.players[2].roundScore, questionIndex);
       const correction = lastEvent(h, "leBonOrdreCorrection", clients[0]);
       assert.equal(correction.currentQIndex, questionIndex + 1);
-      assert.equal(correction.durationMs, 15000);
-      assert.equal(correction.remainingMs, 15000);
+      assert.equal(correction.durationMs, 20000);
+      assert.equal(correction.remainingMs, 20000);
       assert.equal(correction.bonOrdreData.grade, 1);
       const closedTotals = totals(room);
       for (const event of ["correctionPrevQuestion", "correctionNextQuestion"]) clients[0].send(event);
@@ -174,7 +211,7 @@ for (const mode of ["battle_royale", "liste"]) {
       clients[0].send("requestRoomState");
       assert.equal(totals(room), closedTotals);
       assert.equal(mini.subPhase, "correction");
-      h.advance(14999);
+      h.advance(19999);
       assert.equal(mini.subPhase, "correction");
       assert.equal(h.events.slice(beforeAnswer).some((event) => event.name === "scoreUpdate"), false,
         "Le tableau ne reçoit pas le nouveau classement avant son animation");
@@ -237,7 +274,7 @@ for (const mode of ["battle_royale", "liste"]) {
       assert.deepEqual(Array.from(room.players, (player) => player.roundScore), [questionIndex + 1, (questionIndex + 1) / 2, 0]);
       assert.deepEqual(Array.from(room.players, (player) => player.roundTime), [2 * (questionIndex + 1), 3 * (questionIndex + 1), 45 * (questionIndex + 1)]);
       const applied = totals(room);
-      h.advance(15000 + (questionIndex === 6 ? 4500 : 3000));
+      h.advance(20000 + (questionIndex === 6 ? 4500 : 3000));
       assert.equal(totals(room), applied);
     }
   });
@@ -292,17 +329,17 @@ for (const mode of ["battle_royale", "liste"]) {
     assert.equal(h.events.filter((event) => event.name === "leBonOrdreCorrection" && event.target === clients[0].id).length, 0);
     const original = lastEvent(h, "leBonOrdreCorrection", clients[1]);
     const applied = totals(room);
-    h.advance(7000);
+    h.advance(16000);
     const returned = h.socket("p0");
     returned.send("joinRoom", { roomCode: room.roomCode, playerId: "p0", pseudo: "Retour" });
     const restored = lastEvent(h, "leBonOrdreCorrection", returned);
     assert.equal(restored.isParticipant, true, "Un participant déconnecté reste participant");
-    assert.equal(restored.remainingMs, 8000);
+    assert.equal(restored.remainingMs, 4000);
     assert.equal(restored.correctionStartedAt, original.correctionStartedAt);
     assert.equal(restored.correctionEndsAt, original.correctionEndsAt);
     assert.deepEqual(Array.from(restored.bonOrdreData.positions, (card) => card.id), Array.from(own.orderedIds));
     assert.equal(totals(room), applied);
-    h.advance(8000 + 500);
+    h.advance(4000 + 500);
     assert.equal(mini.subPhase, "leaderboard");
     const beforeRank = h.events.length;
     returned.send("requestRoomState");

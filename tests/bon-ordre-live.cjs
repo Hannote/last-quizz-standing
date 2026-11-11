@@ -94,9 +94,9 @@ async function play(mode) {
       assert.equal(spectator.bonOrdreData.status, "spectator");
       assert.equal(spectator.bonOrdreData.positions.length, 0);
       assert(!spectator.playerPseudo);
-      assert.equal(alice.correctionEndsAt - alice.correctionStartedAt, 15000);
+      assert.equal(alice.correctionEndsAt - alice.correctionStartedAt, 20000);
       assert.equal(bob.correctionEndsAt, alice.correctionEndsAt);
-      assert(alice.remainingMs > 14000 && alice.remainingMs <= 15000);
+      assert(alice.remainingMs > 19000 && alice.remainingMs <= 20000);
       for (const client of [...clients, observer]) for (const entry of client.events) {
         if (entry.event !== "leBonOrdreCorrection") {
           assert.doesNotMatch(JSON.stringify(entry.payload) || "", /"(?:valeur|expected|pool|correctRanks|correctCount|positions)"\s*:/);
@@ -110,7 +110,7 @@ async function play(mode) {
         assert.equal(restored.correctionEndsAt, alice.correctionEndsAt);
         assert.deepEqual(restored.bonOrdreData.positions, alice.bonOrdreData.positions);
       }
-      const leaderboard = await clients[0].wait("leBonOrdreLeaderboard", (c) => c.questionIndex === index, 20000);
+      const leaderboard = await clients[0].wait("leBonOrdreLeaderboard", (c) => c.questionIndex === index, 25000);
       assert(leaderboard.startedAt >= alice.correctionEndsAt);
       assert.equal(leaderboard.durationMs, index === 6 ? 4500 : 3000);
       assert.equal(leaderboard.players.length, 3);
@@ -125,7 +125,7 @@ async function play(mode) {
         const next = await clients[0].wait("leBonOrdreQuestion", (q) => q.questionIndex === index + 1, 6000);
         assert.equal(next.timer.active, false, "Thème avant démarrage du chrono suivant");
       }
-      console.log(`${mode}: Q${index + 1} correction privée 15 s puis classement OK`);
+      console.log(`${mode}: Q${index + 1} correction privée 20 s puis classement OK`);
     }
     if (mode === "liste") {
       const summary = await clients[0].wait("gameStateUpdate", (s) => s.phase === "listeLeaderboard");
