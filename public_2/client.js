@@ -1220,7 +1220,7 @@ function miniGameCodeToLogoPath(code) {
 
 
 function rulesTextForMiniGame(code) {
-  if (code === "logomania") return "Trouve la marque ou le club de foot derrière le logo / emballage";
+  if (code === "logomania") return "Retrouve la marque ou le club de football à partir du logo ou de l'emballage présenté à l’écran.";
 
 
   switch (code) {
@@ -1347,7 +1347,7 @@ function rulesTextForMiniGame(code) {
 
       );
     case "penave_ou_nachave":
-      return "Une seule affirmation pour toute la partie. Chacun répond à son tour en 20 secondes. L'hôte accepte ou refuse chaque réponse. À la fin de chaque tour, ceux qui ont échoué sont éliminés de ce mini-jeu si au moins un joueur a réussi. Le dernier en lice, ou le plus rapide en cas d'échec collectif, gagne.";
+      return "Une même consigne reste en jeu pendant toute l’épreuve. Chacun répond à son tour en 20 secondes, puis l’hôte accepte ou refuse sa réponse. À la fin d’un tour, si au moins un joueur a réussi, ceux qui ont échoué sortent de cette épreuve. Le dernier en lice gagne ; en cas d’échec collectif, la rapidité départage les joueurs.";
 
 
     default:
