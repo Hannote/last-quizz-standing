@@ -16,7 +16,12 @@
       "mongolie",
       "republique_democratique_du_congo",
       "namibie",
-      "qatar"
+      "qatar",
+      "soudan_du_sud",
+      "bulgarie",
+      "uruguay",
+      "kazakhstan",
+      "japon"
     ],
     "buteurs": [
       "alexis_sanchez",
@@ -33,7 +38,12 @@
       "michael_owen",
       "radamel_falcao",
       "mohamed_salah",
-      "michael_ballack"
+      "michael_ballack",
+      "erling_haaland",
+      "fred",
+      "andre_pierre_gignac",
+      "vinicius_junior",
+      "patrick_kluivert"
     ],
     "jeux_videos": [
       "elden_ring",
@@ -85,14 +95,24 @@
       "drake",
       "travis_scott",
       "johnny_hallyday",
-      "kanye_west"
+      "kanye_west",
+      "billie_eilish",
+      "paul_mccartney",
+      "queen",
+      "barbra_streisand",
+      "aretha_franklin"
     ],
     "histoire_20eme_siecle": [
       "attentats_jo_munich",
       "fin_de_la_guerre_du_kosovo",
       "debut_de_la_guerre_du_vietnam",
       "mort_de_diana",
-      "creation_dinternet_tcp_ip"
+      "creation_dinternet_tcp_ip",
+      "assassinat_de_martin_luther_king",
+      "creation_disrael",
+      "naufrage_du_titanic",
+      "debut_de_la_guerre_dindochine",
+      "1er_choc_petrolier"
     ],
     "sortie_jeux_video": [
       "god_of_war",
@@ -104,7 +124,12 @@
       "south_park_le_baton_de_la_verite",
       "dark_souls",
       "dying_light",
-      "valorant"
+      "valorant",
+      "baldurs_gate_3",
+      "pong",
+      "spyro_the_dragon",
+      "sekiro_shadows_die_twice",
+      "sea_of_thieves"
     ],
     "trophees_football": [
       "casemiro",
@@ -116,7 +141,12 @@
       "angel_di_maria",
       "samuel_etoo",
       "carlos_tevez",
-      "bernardo_silva"
+      "bernardo_silva",
+      "louis_saha",
+      "joao_cancelo",
+      "cafu",
+      "gregory_coupet",
+      "lucas_digne"
     ],
     "ventes_consoles": [
       "game_boy_et_game_boy_color",
@@ -129,6 +159,13 @@
       "color_tv_game",
       "nintendo_64",
       "nintendo_switch"
+    ],
+    "ventes_mangas": [
+      "attack_on_titan",
+      "kurokos_basketball",
+      "one_punch_man",
+      "my_hero_academia",
+      "kingdom"
     ]
   }
 }
