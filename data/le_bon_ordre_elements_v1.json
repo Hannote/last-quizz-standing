@@ -21,7 +21,12 @@
       "bulgarie",
       "uruguay",
       "kazakhstan",
-      "japon"
+      "japon",
+      "republique_dominicaine",
+      "inde",
+      "azerbaidjan",
+      "kenya",
+      "israel"
     ],
     "buteurs": [
       "alexis_sanchez",
@@ -43,7 +48,12 @@
       "fred",
       "andre_pierre_gignac",
       "vinicius_junior",
-      "patrick_kluivert"
+      "patrick_kluivert",
+      "alexandre_lacazette",
+      "ronaldo_nazario",
+      "alessandro_del_piero",
+      "pele",
+      "nicolas_anelka"
     ],
     "jeux_videos": [
       "elden_ring",
@@ -112,7 +122,12 @@
       "creation_disrael",
       "naufrage_du_titanic",
       "debut_de_la_guerre_dindochine",
-      "1er_choc_petrolier"
+      "1er_choc_petrolier",
+      "creation_de_l_onu",
+      "signature_du_traite_de_maastricht",
+      "mise_en_orbitre_du_premier_satelitte_spoutnik",
+      "bataille_de_verdun",
+      "fin_de_la_dictature_franquiste"
     ],
     "sortie_jeux_video": [
       "god_of_war",
@@ -129,7 +144,12 @@
       "pong",
       "spyro_the_dragon",
       "sekiro_shadows_die_twice",
-      "sea_of_thieves"
+      "sea_of_thieves",
+      "metal_gear_solid",
+      "time_crisis",
+      "until_dawn",
+      "quake",
+      "wwe_smackdown_here_comes_the_pain"
     ],
     "trophees_football": [
       "casemiro",
@@ -146,7 +166,12 @@
       "joao_cancelo",
       "cafu",
       "gregory_coupet",
-      "lucas_digne"
+      "lucas_digne",
+      "alisson_becker",
+      "kingsley_coman",
+      "filippo_inzaghi",
+      "nani",
+      "juan_cuadrado"
     ],
     "ventes_consoles": [
       "game_boy_et_game_boy_color",
@@ -166,6 +191,20 @@
       "one_punch_man",
       "my_hero_academia",
       "kingdom"
+    ],
+    "rap_francais": [
+      "youssoupha",
+      "ninho",
+      "sch",
+      "kaaris",
+      "sniper"
+    ],
+    "ventes_jeux_video": [
+      "call_of_duty_modern_warfare",
+      "call_of_duty_modern_warfare_3",
+      "super_mario_odyssey",
+      "star_wars_battlefront",
+      "elden_ring"
     ]
   }
 }

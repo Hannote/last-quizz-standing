@@ -42,8 +42,8 @@ for (const mode of ["battle_royale", "liste"]) {
         const bank = realRequire(name);
         return { ...bank, questions: bank.questions.filter(q => q.theme_id !== "musique") };
       }
-      return realRequire(name);`).replace("roomCreationTimes, startCorrectionPhase",
-        "roomCreationTimes, startCorrectionPhase, getPlayedHistory");
+      return realRequire(name);`).replace("roomCreationQuota, startCorrectionPhase",
+        "roomCreationQuota, startCorrectionPhase, getPlayedHistory");
     vm.runInNewContext(brokenSetup + "\nglobalThis.makeHarness = harness;", brokenContext);
     const h = brokenContext.makeHarness();
     const { mini, room } = start(mode, h, "rules");

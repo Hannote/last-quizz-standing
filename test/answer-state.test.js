@@ -146,6 +146,7 @@ test("Faux du vrai conserve réponse et temps après double envoi et reconnexion
 
 test("la reconnexion resynchronise les 150 s du Petit Bac et le choix Faux du vrai déjà envoyé", () => {
   const syncBlock = extract(serverSource, "function syncPlayerWithGame", "const ADMIN_MEMORY_SECRET =");
+  const snapshots = extract(serverSource, "function getFauxVraiQuestionSnapshot", "function startFauxVrai(");
   const emitted = [];
   const socket = {
     playerId: "p1",
@@ -160,7 +161,7 @@ test("la reconnexion resynchronise les 150 s du Petit Bac et le choix Faux du vr
     ENCHERES_THEMES: [],
     FAUX_VRAI_TIMER_DURATION: 45
   };
-  vm.runInNewContext(`${syncBlock}; globalThis.sync = syncPlayerWithGame;`, context);
+  vm.runInNewContext(`${snapshots}\n${syncBlock}; globalThis.sync = syncPlayerWithGame;`, context);
 
   const petitBacRoom = {
     gameMode: "battle_royale", roomCode: "PBAC",

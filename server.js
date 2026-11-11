@@ -19,6 +19,7 @@ const path = require("path");
 const fs = require("fs");
 const { randomBytes, randomUUID, timingSafeEqual } = require("crypto");
 const { shuffleCopy } = require("./question-shuffle");
+const { createSourceResolver, createRoomCreationQuota } = require("./room-creation-quota");
 const {
   validateBonOrdreBank,
   createBonOrdreStore,
@@ -283,13 +284,12 @@ const ROOM_CREATE_LIMIT = positiveRoomSetting("LQS_ROOM_CREATE_LIMIT", 20);
 const ROOM_LIMIT = positiveRoomSetting("LQS_ROOM_LIMIT", 100);
 const ROOM_PLAYER_LIMIT = positiveRoomSetting("LQS_ROOM_PLAYER_LIMIT", 16);
 const ROOM_ABANDON_MS = positiveRoomSetting("LQS_ROOM_ABANDON_MS", 300_000);
-const roomCreationTimes = [];
-
-function pruneRoomCreationTimes(now = Date.now()) {
-  while (roomCreationTimes.length && now - roomCreationTimes[0] >= ROOM_CREATE_WINDOW_MS) {
-    roomCreationTimes.shift();
-  }
-}
+const getRoomCreationSource = createSourceResolver(process.env.LQS_TRUSTED_PROXIES || "");
+const roomCreationQuota = createRoomCreationQuota({
+  windowMs: ROOM_CREATE_WINDOW_MS,
+  limit: ROOM_CREATE_LIMIT,
+  maxSources: positiveRoomSetting("LQS_ROOM_CREATE_MAX_SOURCES", 10_000)
+});
 
 const MAX_PSEUDO_LENGTH = 32;
 const MAX_PLAYER_ID_LENGTH = 64;
@@ -697,13 +697,18 @@ function isListeParticipant(room, player) {
 
 function canUseMiniGameSocket(room, player, socket) {
   if (!player || getSocketRoom(socket) !== room || player.playerId !== socket.playerId) return false;
-  return room.gameMode !== "liste" || isListeParticipant(room, player);
+  return room.gameMode === "liste" ? isListeParticipant(room, player) : isActiveMiniGamePlayer(room, player);
+}
+
+function isBattleRoyaleParticipant(room, player) {
+  return !!player && !player.isSpectator &&
+    (!Array.isArray(room.battleRoyaleParticipantIds) || room.battleRoyaleParticipantIds.includes(player.playerId));
 }
 
 function isActiveMiniGamePlayer(room, player) {
   return room.gameMode === "liste"
     ? isListeParticipant(room, player)
-    : !player.eliminated && !player.isSpectator;
+    : isBattleRoyaleParticipant(room, player) && !player.eliminated;
 }
 
 // Snapshot d'affichage uniquement : aucune attribution de points de tournoi.
@@ -1527,6 +1532,51 @@ function startLeugtasTimer(room) {
   }, 1000);
 }
 
+// Messages de question publics : les réponses et médias de correction restent
+// dans les objets serveur jusqu'aux événements de révélation/correction existants.
+function getFauxVraiQuestionSnapshot(room, playerId = null, isReload = false) {
+  const game = room.mini;
+  const q = game.list[game.index];
+  const selectedAnswerIndex = game.answers?.[playerId];
+  return {
+    question: q.question,
+    affirmations: q.affirmations.map(text => text),
+    themeId: q.themeId,
+    duration: game.totalSeconds || FAUX_VRAI_TIMER_DURATION,
+    index: game.index + 1,
+    total: game.list.length,
+    ...(isReload ? { hasAnswered: Number.isInteger(selectedAnswerIndex), selectedAnswerIndex, isReload: true } : {})
+  };
+}
+
+function getLeugtasQuestionSnapshot(mini, isReload = false) {
+  const q = mini.questions[mini.questionIndex];
+  return {
+    question: { question: q.question, answers: q.answers.map(choice => ({ id: choice.id, text: choice.text })) },
+    index: mini.questionIndex + 1,
+    total: mini.questions.length,
+    ...(isReload ? { isReload: true } : {})
+  };
+}
+
+function getBlindTestQuestionSnapshot(mini) {
+  const q = mini.questions[mini.questionIndex];
+  return { question: { text: q.text, audio: q.audio }, themeName: q.themeName,
+    index: mini.questionIndex + 1, total: mini.questions.length };
+}
+
+function getTourDuMondeQuestionSnapshot(mini) {
+  const q = mini.questions[mini.questionIndex];
+  return { question: { text: q.text, image: q.image || q.image_question }, themeName: q.themeName,
+    index: mini.questionIndex + 1, total: mini.questions.length };
+}
+
+function getQuiSuisJeQuestionSnapshot(mini) {
+  const q = mini.questions[mini.questionIndex];
+  return { question: { question: q.question, image_question: q.image_question || q.image },
+    index: mini.questionIndex + 1, total: mini.questions.length };
+}
+
 function startFauxVrai(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
@@ -1585,15 +1635,7 @@ function sendFauxVraiQuestion(roomCode) {
   if (!q) return;
 
   publishListeContext(room);
-  io.to(roomCode).emit("fauxVraiQuestion", {
-    question: q.question,
-    affirmations: q.affirmations,
-    themeId: q.themeId,
-    indexFausse: q.indexFausse,
-    duration: FAUX_VRAI_TIMER_DURATION,
-    index: game.index + 1,
-    total: game.list.length
-  });
+  io.to(roomCode).emit("fauxVraiQuestion", getFauxVraiQuestionSnapshot(room));
 
   // CORRECTION AUDIT : Passage de 2000ms à 3000ms
   // Pour synchroniser avec l'overlay client de 2.5s
@@ -1831,7 +1873,7 @@ function endMiniGame(roomCode) {
 }
 function performElimination(room) {
   // 1. Vérifier si un joueur a quitté (abandonné) durant ce round
-  const quitters = room.players.filter(p => p.hasQuitDuringRound);
+  const quitters = room.players.filter(p => isBattleRoyaleParticipant(room, p) && p.hasQuitDuringRound);
 
   if (quitters.length > 0) {
     console.log(`Elimination standard annulée : ${quitters.length} joueur(s) ont abandonné.`);
@@ -1898,9 +1940,9 @@ async function endLeugtasQuestion(roomCode, mini) {
   mini.playerAnswers = mini.playerAnswers || {};
   const answeredIds = new Set(Object.keys(mini.playerAnswers));
 
-  // En Liste, seuls les participants encore actifs reçoivent la pénalité d'absence.
+  // Seuls les participants encore actifs reçoivent la pénalité d'absence.
   room.players.forEach((player) => {
-    if (room.gameMode === "liste" && !isListeParticipant(room, player)) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
     // Si pas de réponse, on force une entrée incorrecte
     if (!answeredIds.has(player.playerId)) {
       mini.playerAnswers[player.playerId] = {
@@ -1941,11 +1983,7 @@ async function endLeugtasQuestion(roomCode, mini) {
       activeMini.isRevealing = false;
 
       publishListeContext(room);
-      io.to(roomCode).emit("leugtasQuestion", {
-        question: activeMini.questions[activeMini.questionIndex],
-        index: activeMini.questionIndex + 1,
-        total: activeMini.questions.length
-      });
+      io.to(roomCode).emit("leugtasQuestion", getLeugtasQuestionSnapshot(activeMini));
 
       roomTimeout(room, () => {
         startLeugtasTimer(room);
@@ -2394,7 +2432,7 @@ function startCorrectionPhase(roomCode) {
   mini.scoresGiven = {};
   room.activePlayersList = room.gameMode === "liste"
     ? room.players.filter((p) => isListeParticipant(room, p))
-    : room.players.filter((p) => !p.eliminated && !p.isSpectator);
+    : room.players.filter((p) => isActiveMiniGamePlayer(room, p));
 
   if (mini.type === "matrice_football") {
     mini.gradingDetails = {};
@@ -2599,15 +2637,9 @@ function sendBlindTestQuestion(roomCode) {
   if (!mini || mini.type !== "blind_test" || mini.finished) return;
   const gameMode = room.gameMode;
   const questionIndex = mini.questionIndex;
-  const q = mini.questions[mini.questionIndex];
 
   publishListeContext(room);
-  io.to(roomCode).emit("blindTestQuestion", {
-    question: q,
-    themeName: q.themeName,
-    index: mini.questionIndex + 1,
-    total: mini.questions.length
-  });
+  io.to(roomCode).emit("blindTestQuestion", getBlindTestQuestionSnapshot(mini));
 
   roomTimeout(room, () => {
     if (rooms[roomCode] !== room || room.gameState !== gs || room.gameMode !== gameMode ||
@@ -2921,15 +2953,9 @@ function pickLeTourDuMondeQuestions() {
 function sendLeTourDuMondeQuestion(roomCode) {
   const room = rooms[roomCode];
   const mini = room.gameState.currentMiniGameState;
-  const q = mini.questions[mini.questionIndex];
 
   publishListeContext(room);
-  io.to(roomCode).emit("leTourDuMondeQuestion", {
-    question: q,
-    themeName: q.themeName,
-    index: mini.questionIndex + 1,
-    total: mini.questions.length
-  });
+  io.to(roomCode).emit("leTourDuMondeQuestion", getTourDuMondeQuestionSnapshot(mini));
 
   roomTimeout(room, () => {
     startLeTourDuMondeTimer(room);
@@ -3019,14 +3045,9 @@ function pickQuiSuisJeQuestions() {
 function sendQuiSuisJeQuestion(roomCode) {
   const room = rooms[roomCode];
   const mini = room.gameState.currentMiniGameState;
-  const q = mini.questions[mini.questionIndex];
 
   publishListeContext(room);
-  io.to(roomCode).emit("quiSuisJeQuestion", {
-    question: q,
-    index: mini.questionIndex + 1,
-    total: mini.questions.length
-  });
+  io.to(roomCode).emit("quiSuisJeQuestion", getQuiSuisJeQuestionSnapshot(mini));
 
   roomTimeout(room, () => {
     startQuiSuisJeTimer(room);
@@ -3287,7 +3308,7 @@ function startReadyMiniGame(room, startEncheres) {
   if (gs.phase !== "rules") return;
   const activePlayers = room.players.filter((p) => room.gameMode === "liste"
     ? isListeParticipant(room, p) && p.isConnected
-    : !p.eliminated && !p.isSpectator);
+    : isActiveMiniGamePlayer(room, p));
   const allReady = activePlayers.every((p) => gs.readyPlayers[p.playerId]);
 
   if (allReady && activePlayers.length > 0) {
@@ -3317,11 +3338,7 @@ function startReadyMiniGame(room, startEncheres) {
       const firstQuestion = leugtasQuestions[0];
 
       publishListeContext(room);
-      io.to(roomCode).emit("leugtasQuestion", {
-        question: firstQuestion,
-        index: 1,
-        total: leugtasQuestions.length
-      });
+      io.to(roomCode).emit("leugtasQuestion", getLeugtasQuestionSnapshot(gs.currentMiniGameState));
 
       roomTimeout(room, () => {
         startLeugtasTimer(room);
@@ -3557,18 +3574,18 @@ io.on("connection", (socket) => {
     if (!pseudo) return socket.emit("errorMessage", "Merci d'entrer un pseudo.");
     if (!playerId) return socket.emit("errorMessage", "playerId manquant.");
     const now = Date.now();
-    pruneRoomCreationTimes(now);
+    const source = getRoomCreationSource(socket);
+    const quotaError = roomCreationQuota.check(source, now);
     if (Object.keys(rooms).length >= ROOM_LIMIT) {
       return socket.emit("errorMessage", "Nombre maximal de salles atteint. Réessayez plus tard.");
     }
-    if (roomCreationTimes.length >= ROOM_CREATE_LIMIT) {
-      return socket.emit("errorMessage", "Trop de salles créées récemment. Réessayez plus tard.");
-    }
+    if (quotaError) return socket.emit("errorMessage", quotaError);
 
     const roomCode = generateRoomCode();
     const room = {
       roomCode,
       gameMode: "battle_royale",
+      battleRoyaleParticipantIds: null,
       listeConfig: { gameCount: null, selectionMethod: null, selectedMiniGames: [] },
       listeTournament: createListeTournamentState(),
       hostId: playerId,
@@ -3601,7 +3618,7 @@ io.on("connection", (socket) => {
 
     room.players.push(player);
     rooms[roomCode] = room;
-    roomCreationTimes.push(now);
+    roomCreationQuota.record(source, now);
 
     socket.join(roomCode);
     socket.playerId = playerId;
@@ -3648,6 +3665,8 @@ io.on("connection", (socket) => {
     const joiningBonOrdreSpectator = room.gameState.phase === "playing" &&
       room.gameState.currentMiniGame === "le_bon_ordre" &&
       !room.gameState.currentMiniGameState?.participantIds?.includes(playerId);
+    const joiningBattleRoyaleSpectator = room.gameMode === "battle_royale" &&
+      (Array.isArray(room.battleRoyaleParticipantIds) || room.gameState.phase !== "idle");
     if (room.gameMode === "liste" && !canJoinListeRoom(room, playerId) && !joiningBonOrdreSpectator) {
       return socket.emit("errorMessage", "Ce tournoi Liste a déjà commencé. Seuls ses participants initiaux peuvent se reconnecter.");
     }
@@ -3678,7 +3697,7 @@ io.on("connection", (socket) => {
         isConnected: true,
         eliminated: false,
         withdrawn: false,
-        isSpectator: joiningBonOrdreSpectator,
+        isSpectator: joiningBattleRoyaleSpectator || joiningBonOrdreSpectator,
         
         // --- NOUVELLES STATS BATTLE ROYALE ---
         score: 0,           // Score global (Cosmétique / Classement général)
@@ -3792,7 +3811,7 @@ io.on("connection", (socket) => {
 
     const gs = room.gameState;
     if (gs.phase !== "idle") return;
-    const activePlayers = room.players.filter((p) => !p.eliminated);
+    const activePlayers = room.players.filter((p) => isActiveMiniGamePlayer(room, p));
 
     // Vérification du nombre de joueurs (min 3 sauf si forcé)
     if (activePlayers.length < 3 && !data?.forcedMiniGame) {
@@ -3800,6 +3819,7 @@ io.on("connection", (socket) => {
     }
 
     // --- LOGIQUE INTRO ---
+    room.battleRoyaleParticipantIds = activePlayers.map((player) => player.playerId);
     gs.phase = "intro";
     gs.roundNumber = 1;
     gs.currentMiniGame = null;
@@ -3871,6 +3891,8 @@ io.on("connection", (socket) => {
 
     const gs = room.gameState;
     if (gs.phase !== "rules") return;
+    const player = room.players.find((p) => p.playerId === playerId);
+    if (!isActiveMiniGamePlayer(room, player)) return;
 
     if (room.gameMode === "liste") {
       const player = room.players.find((p) => p.playerId === playerId);
@@ -3916,7 +3938,7 @@ io.on("connection", (socket) => {
 
     // 1. Définition UNIQUE de player (Sécurité Spectateur)
     const player = room.players.find((p) => p.playerId === playerId);
-    if (!player || player.eliminated || player.isSpectator) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
 
     const gs = room.gameState;
@@ -3982,7 +4004,7 @@ io.on("connection", (socket) => {
     if (!room) return;
 
     const player = room.players.find((p) => p.playerId === socket.playerId);
-    if (!player || player.eliminated || player.isSpectator) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
 
     const game = room.mini;
@@ -4020,7 +4042,7 @@ io.on("connection", (socket) => {
     if (!room) return;
     const roomCode = room.roomCode;
     const player = room.players.find((p) => p.playerId === socket.playerId);
-    if (!player || player.eliminated || player.isSpectator) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
     const mini = room.gameState.currentMiniGameState;
 
@@ -4065,9 +4087,10 @@ io.on("connection", (socket) => {
     const player = room.players[playerIdx];
     const gs = room.gameState;
 
-    if (player.isSpectator && gs?.currentMiniGame === "le_bon_ordre" && gs.phase === "playing") {
+    if (player.isSpectator) {
       room.players.splice(playerIdx, 1);
       clearSocketRoom(socket);
+      if (room.players.length === 0) return destroyRoom(room);
       scheduleRoomAbandon(room);
       io.to(roomCode).emit("roomUpdate", serializeRoom(room));
       return;
@@ -4076,13 +4099,6 @@ io.on("connection", (socket) => {
     if (room.gameMode === "liste") {
       if (player.socketId !== socket.id) return;
       if (room.listeTournament.started) {
-        if (player.isSpectator && !room.listeTournament.initialParticipantIds.includes(playerId)) {
-          room.players.splice(playerIdx, 1);
-          clearSocketRoom(socket);
-          scheduleRoomAbandon(room);
-          io.to(roomCode).emit("roomUpdate", serializeRoom(room));
-          return;
-        }
         if (!withdrawListeParticipant(room, playerId, socket.id)) return;
         clearSocketRoom(socket);
         scheduleRoomAbandon(room);
@@ -4101,7 +4117,7 @@ io.on("connection", (socket) => {
     }
 
     // --- LOGIQUE D'ABANDON ---
-    if (gs && gs.phase === "playing" && !player.eliminated && !player.isSpectator) {
+    if (gs && gs.phase === "playing" && isActiveMiniGamePlayer(room, player)) {
       console.log(`Joueur ${player.pseudo} a quitté en plein jeu -> Disqualification.`);
       
       player.isConnected = false;
@@ -4117,7 +4133,7 @@ io.on("connection", (socket) => {
       });
 
       const activePlayers = room.players.filter(
-        (p) => !p.eliminated && !p.isSpectator && p.isConnected
+        (p) => isActiveMiniGamePlayer(room, p) && p.isConnected
       );
       if (gs.currentMiniGame === "logomania" && activePlayers.length > 1) maybeEndLogomaniaQuestion(room);
       if (activePlayers.length === 1) {
@@ -4130,7 +4146,7 @@ io.on("connection", (socket) => {
       // --- AJOUT : GESTION DU PASSAGE FORCÉ EN FINALE ---
       if (gs) {
         const activePlayers = room.players.filter(
-          (p) => !p.eliminated && !p.isSpectator
+          (p) => isActiveMiniGamePlayer(room, p)
         );
 
         if (
@@ -4173,7 +4189,8 @@ io.on("connection", (socket) => {
       if (room.gameMode === "liste") {
         ensureListeHost(room);
       } else {
-        const newHost = room.players.find((p) => p.isConnected) || room.players[0];
+        const newHost = room.players.find((p) => isBattleRoyaleParticipant(room, p) && p.isConnected) ||
+          room.players.find((p) => isBattleRoyaleParticipant(room, p));
         room.hostId = newHost ? newHost.playerId : null;
       }
     }
@@ -4296,7 +4313,7 @@ io.on("connection", (socket) => {
     if (!room) return;
     const roomCode = room.roomCode;
     const player = room.players.find((p) => p.playerId === socket.playerId);
-    if (!player || player.eliminated || player.isSpectator) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
     const gs = room.gameState;
     const mini = gs.currentMiniGameState;
@@ -4332,7 +4349,7 @@ io.on("connection", (socket) => {
     if (!room) return;
     const roomCode = room.roomCode;
     const player = room.players.find((p) => p.playerId === socket.playerId);
-    if (!player || player.eliminated || player.isSpectator) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
     const gs = room.gameState;
     const mini = gs.currentMiniGameState;
@@ -4368,7 +4385,7 @@ io.on("connection", (socket) => {
     if (!room) return;
     const roomCode = room.roomCode;
     const player = room.players.find((p) => p.playerId === socket.playerId);
-    if (!player || player.eliminated || player.isSpectator) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
     const mini = room.gameState.currentMiniGameState;
 
@@ -4894,7 +4911,7 @@ io.on("connection", (socket) => {
     
     // --- SÉCURITÉ AJOUTÉE ---
     const player = room.players.find(p => p.playerId === socket.playerId);
-    if (!player || player.eliminated || player.isSpectator) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
     // ------------------------
 
@@ -4918,7 +4935,7 @@ io.on("connection", (socket) => {
     if (!room) return;
 
     const player = room.players.find(p => p.playerId === socket.playerId);
-    if (!player || player.eliminated || player.isSpectator) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
 
     const mini = room.gameState.currentMiniGameState;
@@ -4970,7 +4987,7 @@ io.on("connection", (socket) => {
     if (!room) return;
 
     const player = room.players.find(p => p.playerId === socket.playerId);
-    if (!player || player.eliminated || player.isSpectator) return;
+    if (!isActiveMiniGamePlayer(room, player)) return;
     if (!canUseMiniGameSocket(room, player, socket)) return;
 
     const mini = room.gameState.currentMiniGameState;
@@ -5135,8 +5152,7 @@ function syncPlayerWithGame(socket, room) {
   if (mini.type === "qui_suis_je") {
     const q = mini.questions[mini.questionIndex];
     if (q) {
-      const safeQ = { ...q, image_question: q.image_question || q.image };
-      socket.emit("quiSuisJeQuestion", { question: safeQ, index: mini.questionIndex + 1, total: mini.questions.length });
+      socket.emit("quiSuisJeQuestion", getQuiSuisJeQuestionSnapshot(mini));
     }
     if (mini.timer && mini.timer.running) {
       socket.emit("quiSuisJeTimerUpdate", { remaining: mini.timer.remainingSeconds, total: mini.timer.totalSeconds });
@@ -5146,8 +5162,7 @@ function syncPlayerWithGame(socket, room) {
   else if (mini.type === "le_tour_du_monde") {
     const q = mini.questions[mini.questionIndex];
     if (q) {
-      const safeQ = { ...q, image_question: q.image_question || q.image };
-      socket.emit("leTourDuMondeQuestion", { question: safeQ, themeName: q.themeName, index: mini.questionIndex + 1, total: mini.questions.length });
+      socket.emit("leTourDuMondeQuestion", getTourDuMondeQuestionSnapshot(mini));
     }
     if (mini.timer && mini.timer.running) {
       socket.emit("leTourDuMondeTimerUpdate", { remaining: mini.timer.remainingSeconds, total: mini.timer.totalSeconds });
@@ -5157,7 +5172,7 @@ function syncPlayerWithGame(socket, room) {
   else if (mini.type === "blind_test") {
     const q = mini.questions[mini.questionIndex];
     if (q) {
-      socket.emit("blindTestQuestion", { question: q, themeName: q.themeName, index: mini.questionIndex + 1, total: mini.questions.length });
+      socket.emit("blindTestQuestion", getBlindTestQuestionSnapshot(mini));
     }
     if (mini.timer && mini.timer.running) {
       socket.emit("blindTestTimerUpdate", { remaining: mini.timer.remainingSeconds, total: mini.timer.totalSeconds });
@@ -5168,12 +5183,11 @@ function syncPlayerWithGame(socket, room) {
     const q = mini.list ? mini.list[mini.index] : null;
     if (q) {
       const selectedAnswerIndex = mini.answers?.[socket.playerId];
-      socket.emit("fauxVraiQuestion", { 
-        question: q.question, affirmations: q.affirmations, themeId: q.themeId, 
-        indexFausse: q.indexFausse, duration: mini.totalSeconds || FAUX_VRAI_TIMER_DURATION,
-        index: mini.index + 1, total: mini.list.length,
-        hasAnswered: Number.isInteger(selectedAnswerIndex), selectedAnswerIndex,
-        isReload: true // FLAG IMPORTANT
+      socket.emit("fauxVraiQuestion", getFauxVraiQuestionSnapshot(room, socket.playerId, true));
+      if (mini.isRevealing) socket.emit("fauxVraiReveal", {
+        indexFausse: q.indexFausse,
+        playerChoice: Number.isInteger(selectedAnswerIndex) ? selectedAnswerIndex : null,
+        isLastQuestion: mini.index >= mini.list.length - 1
       });
     }
     if (mini.timer) {
@@ -5186,9 +5200,10 @@ function syncPlayerWithGame(socket, room) {
   // 6. QUI VEUT GAGNER DES LEUGTAS
   else if (mini.type === "qui_veut_gagner_des_leugtas") {
     const q = mini.questions[mini.questionIndex];
-    socket.emit("leugtasQuestion", { 
-      question: q, index: mini.questionIndex + 1, total: mini.questions.length, 
-      isReload: true // FLAG IMPORTANT
+    socket.emit("leugtasQuestion", getLeugtasQuestionSnapshot(mini, true));
+    if (mini.isRevealing) socket.emit("leugtasReveal", {
+      correctAnswerId: q.correct_answer_id, playerAnswers: mini.playerAnswers,
+      isLastQuestion: mini.questionIndex >= mini.questions.length - 1
     });
     if (mini.leugtasTimer && mini.leugtasTimer.running) {
       socket.emit("leugtasTimerUpdate", { remainingSeconds: mini.leugtasTimer.remainingSeconds, totalSeconds: mini.leugtasTimer.totalSeconds });

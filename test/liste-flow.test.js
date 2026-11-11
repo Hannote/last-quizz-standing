@@ -67,15 +67,16 @@ function harness(env = {}, introAutoAdvance = true, random = Math.random) {
   vm.runInNewContext(source + `\nglobalThis.api = {
     rooms, getListeContext, prepareListeSequence, getListeOptions,
     endMiniGame, endListeMiniGame, startNextListeRound, roomTimeout, roomInterval,
-    revealFauxVrai, syncPlayerWithGame, serializeRoom, roomCreationTimes, startCorrectionPhase
+    revealFauxVrai, syncPlayerWithGame, serializeRoom, roomCreationQuota, startCorrectionPhase
   };`, context);
   const api = context.api;
-  function socket(playerId) {
+  function socket(playerId, address = "127.0.0.1", headers = {}) {
     const handlers = {};
     const joinedRooms = new Set();
     let middleware;
     const sock = {
       id: `socket-${++id}`, handlers, joinedRooms,
+      request: { socket: { remoteAddress: address }, headers },
       on: (event, fn) => { handlers[event] = fn; }, use: (fn) => { middleware = fn; },
       emit: (name, data) => {
         if (name === "reconnectCredential") {
@@ -1808,7 +1809,7 @@ test("limites configurables : créations, salles et participants sans bloquer un
   h.advance(1000);
   denied.send("createRoom", { playerId: "third-host", pseudo: "Troisième" });
   assert.equal(Object.keys(h.api.rooms).length, 3);
-  assert.equal(h.api.roomCreationTimes.length, 1);
+  assert.equal(h.api.roomCreationQuota.sourceCount, 1);
   const fourth = h.socket("fourth-host");
   fourth.send("createRoom", { playerId: "fourth-host", pseudo: "Quatrième" });
   assert.equal(Object.keys(h.api.rooms).length, 3);
